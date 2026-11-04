@@ -22,7 +22,7 @@
         <span class="htmx-indicator spinner-border spinner-border-sm text-secondary ms-auto" id="statusSpinner" role="status" aria-label="Refreshing"></span>
       </div>
       <div class="card-body"
-           hx-get="{% url 'dashboard:system-status' %}"
+           hx-get="{% url 'frontend:system-status' %}"
            hx-trigger="load, every 30s"
            hx-indicator="#statusSpinner">
         <span class="text-body-secondary">Checking…</span>

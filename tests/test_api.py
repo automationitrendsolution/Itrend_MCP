@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 class HealthApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.url = reverse("api:health")
+        self.url = reverse("backend:health")
 
     def test_url_is_versioned(self):
         self.assertEqual(self.url, "/api/v1/health/")
@@ -20,8 +20,8 @@ class HealthApiTests(TestCase):
         self.assertEqual(response.json(), {"status": "ok", "database": "ok"})
 
     def test_database_failure_returns_503_without_details(self):
-        with mock.patch("backend.api.health.connection.cursor", side_effect=DatabaseError("password authentication failed for user x")):
-            with self.assertLogs("backend.api.health", level="ERROR"):
+        with mock.patch("backend.services.health.connection.cursor", side_effect=DatabaseError("password authentication failed for user x")):
+            with self.assertLogs("backend.services.health", level="ERROR"):
                 response = self.client.get(self.url)
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"status": "degraded", "database": "error"})

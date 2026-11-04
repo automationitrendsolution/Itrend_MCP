@@ -6,6 +6,6 @@ dependencies = [
     "django>=5.2,<5.3",
     "django-htmx>=1.29.0",
     "djangorestframework>=3.18.3",
-    "psycopg[binary]>=3.3.8",
+    "mysqlclient>=2.3.0",
     "python-dotenv>=1.2.4",
 ]

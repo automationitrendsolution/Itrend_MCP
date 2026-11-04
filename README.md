@@ -15,7 +15,7 @@ Target URL: `https://mcp.itrendsolution.com`
 
 - Python 3.12 (installed automatically by uv)
 - [uv](https://docs.astral.sh/uv/)
-- Docker Desktop (for the local PostgreSQL database)
+- MySQL 8.0 or later running locally, with an empty database (e.g. `CREATE DATABASE itrend_mcp CHARACTER SET utf8mb4;`)
 
 ## First-time setup
 
@@ -23,24 +23,21 @@ Target URL: `https://mcp.itrendsolution.com`
 # 1. Install dependencies into .venv
 uv sync
 
-# 2. Create your environment file and fill in DJANGO_SECRET_KEY and DB_PASSWORD
+# 2. Create your environment file and fill in DJANGO_SECRET_KEY and the DB_* MySQL settings
 copy .env.example .env
 uv run python -c "import secrets; print(secrets.token_urlsafe(50))"
 
-# 3. Start PostgreSQL (data is kept in a Docker volume)
-docker compose -f deployment/docker-compose.dev.yml --env-file .env up -d --wait
-
-# 4. Create the database tables
+# 3. Create the database tables
 uv run python manage.py migrate
 
-# 5. Create your administrator account
+# 4. Create your administrator account
 uv run python manage.py createsuperuser
 
-# 6. Run the site at http://127.0.0.1:8000
+# 5. Run the site at http://127.0.0.1:8000
 uv run python manage.py runserver
 ```
 
-### Without Docker (SQLite fallback)
+### Without MySQL (SQLite fallback)
 
 For quick local work only, set `DB_ENGINE=sqlite` in `.env`. Django then uses
 `db.sqlite3` in the project folder. This is refused when `DJANGO_DEBUG=False`,
@@ -56,7 +53,6 @@ so it can never be used in production by accident.
 | Production settings check | `$env:DJANGO_DEBUG="False"; uv run python manage.py check --deploy` |
 | Apply migrations | `uv run python manage.py migrate` |
 | Add a dependency | `uv add <package>` |
-| Start / stop PostgreSQL | `docker compose -f deployment/docker-compose.dev.yml --env-file .env up -d` / `down` |
 
 ## Useful URLs (development)
 
@@ -72,12 +68,14 @@ so it can never be used in production by accident.
 
 ```
 config/        Django settings and root URLs
-backend/       Django apps (accounts, dashboard, api, plus later-phase apps)
-frontend/      Templates and static files (Bootstrap 5, Bootstrap Icons, HTMX)
-deployment/    Docker Compose and, later, Nginx configuration
+frontend/      Django app for the website: views, forms, templates, static files
+backend/       Django app for models, business logic (services/) and the REST API
 mcp_servers/   Source for platform-hosted MCP servers (from Phase 3)
 tests/         Automated tests
 docs/          Additional documentation
 logs/          Log files when DJANGO_LOG_TO_FILE=True (not committed)
 scripts/       Helper scripts
 ```
+
+Rule of thumb: anything the user sees belongs in `frontend/`, and everything
+behind it belongs in `backend/`. See [ARCHITECTURE.md](ARCHITECTURE.md#code-layout).

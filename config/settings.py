@@ -68,9 +68,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_htmx",
     # Platform apps
-    "backend.accounts",
-    "backend.dashboard",
-    "backend.api",
+    "frontend",  # pages, forms, templates and static files
+    "backend",  # models, business logic (services) and the REST API
 ]
 
 MIDDLEWARE = [
@@ -89,7 +88,8 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "frontend" / "templates"],
+        # Templates are found automatically in each app's templates/ folder.
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -109,24 +109,30 @@ ASGI_APPLICATION = "config.asgi.application"
 # ---------------------------------------------------------------------------
 # Database
 #
-# PostgreSQL is the supported database. SQLite is available only as a local
-# development fallback when PostgreSQL is not running (DB_ENGINE=sqlite).
+# MySQL is the supported database. SQLite is available only as a local
+# development fallback when MySQL is not available (DB_ENGINE=sqlite).
 # ---------------------------------------------------------------------------
 
-DB_ENGINE = env_str("DB_ENGINE", default="postgresql").lower()
+DB_ENGINE = env_str("DB_ENGINE", default="mysql").lower()
 
-if DB_ENGINE == "postgresql":
+if DB_ENGINE == "mysql":
     DATABASES = {
         "default": {
-            "ENGINE": "django.db.backends.postgresql",
+            "ENGINE": "django.db.backends.mysql",
             "NAME": env_str("DB_NAME"),
             "USER": env_str("DB_USER"),
             "PASSWORD": env_str("DB_PASSWORD"),
             "HOST": env_str("DB_HOST", default="localhost"),
-            "PORT": env_str("DB_PORT", default="5432"),
+            "PORT": env_str("DB_PORT", default="3306"),
             "CONN_MAX_AGE": int(env_str("DB_CONN_MAX_AGE", default="60")),
             "CONN_HEALTH_CHECKS": True,
-            "OPTIONS": {"connect_timeout": 5},
+            "OPTIONS": {
+                # utf8mb4 stores any Unicode character, including emoji.
+                "charset": "utf8mb4",
+                # Strict mode makes MySQL reject bad data instead of silently truncating it.
+                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+                "connect_timeout": 5,
+            },
         }
     }
 elif DB_ENGINE == "sqlite":
@@ -139,7 +145,7 @@ elif DB_ENGINE == "sqlite":
         }
     }
 else:
-    raise ImproperlyConfigured("DB_ENGINE must be 'postgresql' or 'sqlite'.")
+    raise ImproperlyConfigured("DB_ENGINE must be 'mysql' or 'sqlite'.")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -159,11 +165,11 @@ if TESTING:
     # Deliberately slow production hashing makes every test login take seconds.
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
-LOGIN_URL = "accounts:login"
-LOGIN_REDIRECT_URL = "dashboard:index"
-LOGOUT_REDIRECT_URL = "accounts:login"
+LOGIN_URL = "frontend:login"
+LOGIN_REDIRECT_URL = "frontend:dashboard"
+LOGOUT_REDIRECT_URL = "frontend:login"
 
-# Failed-login lockout (see backend/accounts/forms.py).
+# Failed-login lockout (see backend/services/login_protection.py).
 LOGIN_MAX_FAILED_ATTEMPTS = int(env_str("LOGIN_MAX_FAILED_ATTEMPTS", default="5"))
 LOGIN_LOCKOUT_SECONDS = int(env_str("LOGIN_LOCKOUT_SECONDS", default="900"))
 
@@ -252,8 +258,8 @@ USE_TZ = True
 # Static files
 # ---------------------------------------------------------------------------
 
+# Static files are found automatically in each app's static/ folder.
 STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "frontend" / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
@@ -279,6 +285,7 @@ LOGGING = {
     "loggers": {
         "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
         "backend": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "frontend": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
     },
 }
 
@@ -291,6 +298,6 @@ if env_bool("DJANGO_LOG_TO_FILE", default=False):
         "backupCount": 5,
         "formatter": "standard",
     }
-    for logger in ("django", "backend"):
+    for logger in ("django", "backend", "frontend"):
         LOGGING["loggers"][logger]["handlers"].append("file")
     LOGGING["root"]["handlers"].append("file")

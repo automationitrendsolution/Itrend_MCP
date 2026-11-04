@@ -31,13 +31,13 @@
             <span class="d-none d-sm-inline">{{ user.get_username }}</span>
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-            <li><a class="dropdown-item" href="{% url 'accounts:profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+            <li><a class="dropdown-item" href="{% url 'frontend:profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
             {% if user.is_staff %}
               <li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="bi bi-shield-lock me-2"></i>Django admin</a></li>
             {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li>
-              <form method="post" action="{% url 'accounts:logout' %}">
+              <form method="post" action="{% url 'frontend:logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Log out</button>
               </form>

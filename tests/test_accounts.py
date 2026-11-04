@@ -2,7 +2,7 @@ from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from backend.accounts.forms import LOCKED_OUT_MESSAGE
+from frontend.forms import LOCKED_OUT_MESSAGE
 
 from .factories import PASSWORD, create_user
 
@@ -11,7 +11,7 @@ class LoginTests(TestCase):
     def setUp(self):
         cache.clear()
         self.user = create_user()
-        self.url = reverse("accounts:login")
+        self.url = reverse("frontend:login")
 
     def login(self, password=PASSWORD, username="alice"):
         return self.client.post(self.url, {"username": username, "password": password})
@@ -23,7 +23,7 @@ class LoginTests(TestCase):
 
     def test_valid_login_redirects_to_dashboard(self):
         response = self.login()
-        self.assertRedirects(response, reverse("dashboard:index"))
+        self.assertRedirects(response, reverse("frontend:dashboard"))
         self.assertEqual(int(self.client.session["_auth_user_id"]), self.user.pk)
 
     def test_invalid_password_is_rejected(self):
@@ -40,13 +40,13 @@ class LoginTests(TestCase):
 
     def test_authenticated_user_is_redirected_away_from_login(self):
         self.client.force_login(self.user)
-        self.assertRedirects(self.client.get(self.url), reverse("dashboard:index"))
+        self.assertRedirects(self.client.get(self.url), reverse("frontend:dashboard"))
 
     def test_external_next_url_is_ignored(self):
         response = self.client.post(
             self.url, {"username": "alice", "password": PASSWORD, "next": "https://evil.example.com/"}
         )
-        self.assertRedirects(response, reverse("dashboard:index"))
+        self.assertRedirects(response, reverse("frontend:dashboard"))
 
     def test_login_requires_csrf_token(self):
         client = Client(enforce_csrf_checks=True)
@@ -64,7 +64,7 @@ class LoginLockoutTests(TestCase):
     def setUp(self):
         cache.clear()
         create_user()
-        self.url = reverse("accounts:login")
+        self.url = reverse("frontend:login")
 
     def login(self, password, username="alice"):
         return self.client.post(self.url, {"username": username, "password": password})
@@ -79,7 +79,7 @@ class LoginLockoutTests(TestCase):
     def test_failures_below_limit_do_not_lock(self):
         for _ in range(2):
             self.login("wrong")
-        self.assertRedirects(self.login(PASSWORD), reverse("dashboard:index"))
+        self.assertRedirects(self.login(PASSWORD), reverse("frontend:dashboard"))
 
     def test_successful_login_resets_counter(self):
         for _ in range(2):
@@ -88,7 +88,7 @@ class LoginLockoutTests(TestCase):
         self.client.logout()
         for _ in range(2):
             self.login("wrong")
-        self.assertRedirects(self.login(PASSWORD), reverse("dashboard:index"))
+        self.assertRedirects(self.login(PASSWORD), reverse("frontend:dashboard"))
 
     def test_lockout_is_case_insensitive_on_username(self):
         for name in ("alice", "ALICE", "Alice"):
@@ -100,7 +100,7 @@ class LoginLockoutTests(TestCase):
             self.login("wrong")
         other = Client(REMOTE_ADDR="10.0.0.99")
         response = other.post(self.url, {"username": "alice", "password": PASSWORD})
-        self.assertRedirects(response, reverse("dashboard:index"))
+        self.assertRedirects(response, reverse("frontend:dashboard"))
 
     def test_ip_is_blocked_after_spraying_many_usernames(self):
         # Per-IP limit is 4x the per-account limit.
@@ -113,7 +113,7 @@ class LogoutTests(TestCase):
     def setUp(self):
         self.user = create_user()
         self.client.force_login(self.user)
-        self.url = reverse("accounts:logout")
+        self.url = reverse("frontend:logout")
 
     def test_logout_via_get_is_not_allowed(self):
         self.assertEqual(self.client.get(self.url).status_code, 405)
@@ -121,17 +121,17 @@ class LogoutTests(TestCase):
 
     def test_logout_via_post_ends_session(self):
         response = self.client.post(self.url)
-        self.assertRedirects(response, reverse("accounts:login"))
+        self.assertRedirects(response, reverse("frontend:login"))
         self.assertNotIn("_auth_user_id", self.client.session)
 
 
 class ProfileTests(TestCase):
     def test_requires_login(self):
-        url = reverse("accounts:profile")
-        self.assertRedirects(self.client.get(url), f"{reverse('accounts:login')}?next={url}")
+        url = reverse("frontend:profile")
+        self.assertRedirects(self.client.get(url), f"{reverse('frontend:login')}?next={url}")
 
     def test_shows_user_details(self):
         user = create_user(email="alice@example.com")
         self.client.force_login(user)
-        response = self.client.get(reverse("accounts:profile"))
+        response = self.client.get(reverse("frontend:profile"))
         self.assertContains(response, "alice@example.com")

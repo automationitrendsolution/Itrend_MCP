@@ -27,7 +27,7 @@ MCP execution to a separate Linux server. The PPC server becomes an MCP
                    └────────┬───────┘ └──────────────┘ └──────────────┘  (one per MCP)
                             │
   Layer 4          ┌────────▼───────┐
-  Database         │  PostgreSQL    │  users, registry, permissions,
+  Database         │  MySQL 8       │  users, registry, permissions,
                    └────────────────┘  token hashes, audit logs
 ```
 
@@ -39,34 +39,54 @@ MCP execution to a separate Linux server. The PPC server becomes an MCP
 3. **MCP execution.** Each MCP runs in its own container with its own
    dependencies, environment, CPU and memory limits, health check and logs.
    One MCP failing cannot take down another one, or the website.
-4. **Database (PostgreSQL).** Platform metadata only. Plain-text tokens and MCP
+4. **Database (MySQL).** Platform metadata only. Plain-text tokens and MCP
    database passwords are never stored here.
 
 ## Code layout
 
-| Location | Responsibility | Phase |
-|---|---|---|
-| `config/` | Settings (all from environment variables) and root URLs | 1 |
-| `backend/accounts/` | Login, logout, profile, failed-login lockout | 1 |
-| `backend/dashboard/` | Dashboard page and its HTMX partials | 1 |
-| `backend/api/` | Versioned REST API under `/api/v1/` | 1 |
-| `backend/registry/` | MCP server registry | 2 |
-| `backend/access_control/` | Per-MCP permissions, bearer tokens | 4 |
-| `backend/audit/` | Activity and audit logs | 4 |
-| `backend/integrations/` | ZIP upload, GitHub, external MCP URLs | 5 |
-| `backend/mcp_manager/` | Container lifecycle, health, monitoring | 5–6 |
-| `frontend/templates/`, `frontend/static/` | All HTML, CSS, JS | 1+ |
-| `mcp_servers/` | Source of platform-hosted MCP servers | 3 |
-| `deployment/` | Docker Compose, Nginx | 1, 3, 7 |
+The project has exactly two Django apps. **Anything the user sees goes in
+`frontend/`; everything behind it goes in `backend/`.**
 
-**Conventions inside each app:**
-- `views.py` handles HTTP only: read the request, call a service, render.
-- `services.py` (or a clearly named module such as `health.py`) holds
-  business logic, so the website and the API share one implementation.
-- `forms.py` validates website forms; `serializers.py` validates API input.
+```
+config/                  settings (from environment variables) and root URLs
+frontend/                Django app: the website
+    views.py             page views (login, profile, dashboard, HTMX partials)
+    urls.py              website URLs  (namespace "frontend")
+    forms.py             website forms
+    templates/           all HTML; Django finds it automatically (APP_DIRS)
+    static/              CSS, JS, images, vendored Bootstrap/Icons/HTMX
+backend/                 Django app: data, logic and API
+    models.py            database models (from Phase 2)
+    admin.py             Django admin registrations
+    migrations/          database migrations
+    services/            business logic, shared by website and API
+        health.py            platform health checks
+        login_protection.py  failed-login lockout
+    views.py             REST API views
+    urls.py              REST API URLs at /api/v1/  (namespace "backend")
+mcp_servers/             source of platform-hosted MCP servers (Phase 3)
+tests/                   automated tests
+```
 
-Later-phase apps currently exist only as packages with a docstring. They are
-added to `INSTALLED_APPS` in the phase that builds them.
+**Where new code goes:**
+
+| Kind of code | Location |
+|---|---|
+| A new page or HTMX partial | `frontend/views.py` + `frontend/urls.py` + a template in `frontend/templates/` |
+| A website form | `frontend/forms.py` |
+| CSS / JS / images | `frontend/static/` |
+| A database model | `backend/models.py` |
+| Business logic (registry, tokens, deployment, monitoring, audit…) | a module in `backend/services/`, e.g. `services/registry.py` |
+| A REST API endpoint | `backend/views.py` + `backend/urls.py`, input validation in `backend/serializers.py` |
+
+**Rules:**
+- `frontend` may import from `backend` (for example, a page calls a service).
+  `backend` never imports from `frontend`.
+- Views only handle HTTP. They call `backend.services`, so the website and
+  the API share one implementation of every rule.
+- When one file gets too large, it becomes a package inside the same app
+  (for example `backend/models.py` → `backend/models/registry.py`,
+  `backend/models/tokens.py`, …). No new apps are created for this.
 
 ## Key decisions
 
@@ -74,8 +94,8 @@ added to `INSTALLED_APPS` in the phase that builds them.
 
 | Decision | Why |
 |---|---|
-| **Django 5.2 LTS** | Long-term support until April 2028. Stability matters more than new features for an internal platform. |
-| **PostgreSQL in Docker for development** | Development matches production. SQLite remains as a fallback for quick local work and is blocked when `DEBUG=False`. |
+| **Django 5.2 LTS** | Supported until April 2028, and it supports MySQL 8.0 (Django 6.x needs MySQL 8.4+). Stability matters more than new features for an internal platform. |
+| **MySQL 8 (local server for development)** | Uses the MySQL server the team already runs, so no extra setup is needed. Strict mode and utf8mb4 are on. SQLite remains as a fallback for quick local work and is blocked when `DEBUG=False`. |
 | **Settings from environment variables** (`python-dotenv` loads `.env` locally) | The same code runs everywhere; secrets never live in Git. The app refuses to start without `DJANGO_SECRET_KEY`. |
 | **Bootstrap, Bootstrap Icons and HTMX served from our own static files** | No runtime dependency on third-party CDNs, which also makes a strict Content-Security-Policy possible later. |
 | **HTMX instead of a JavaScript framework** | The server renders HTML fragments and HTMX swaps them into the page. This keeps all logic in Python and templates. |

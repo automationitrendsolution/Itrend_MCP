@@ -15,11 +15,12 @@
 ## Phase 1 – Project foundation
 
 ### What was developed
-- Django project configured from environment variables, using PostgreSQL
-  (Docker for local development) with an SQLite fallback for development only.
-- Folder structure from the project brief: `backend/` apps, `frontend/`
-  templates and static files, `deployment/`, `tests/`, `docs/`, `logs/`,
-  `scripts/`, `mcp_servers/`.
+- Django project configured from environment variables, using the local
+  MySQL 8.0 server, with an SQLite fallback for development only.
+- Two Django apps: `frontend/` (views, forms, templates, static files) and
+  `backend/` (models, `services/` business logic, REST API). Also
+  `tests/`, `docs/`, `logs/`, `scripts/`, `mcp_servers/`. No Docker or
+  deployment files yet; those are deferred.
 - Login (with failed-attempt lockout), logout and profile pages.
 - Dashboard with sidebar navigation and a platform status panel that
   refreshes every 30 seconds through HTMX.
@@ -28,16 +29,14 @@
 
 ### Files created
 - `config/settings.py` (rewritten), `config/urls.py` (rewritten)
-- `backend/accounts/`: `apps.py`, `forms.py`, `services.py`, `urls.py`, `views.py`
-- `backend/dashboard/`: `apps.py`, `urls.py`, `views.py`
-- `backend/api/`: `apps.py`, `health.py`, `urls.py`, `views.py`
-- `backend/{registry,access_control,mcp_manager,integrations,audit}/__init__.py` (placeholders)
+- `frontend/`: `apps.py`, `forms.py`, `urls.py`, `views.py`
+- `backend/`: `apps.py`, `admin.py`, `models.py`, `migrations/`, `urls.py`,
+  `views.py`, `services/health.py`, `services/login_protection.py`
 - `frontend/templates/`: `base.html`, `403.html`, `404.html`, `500.html`,
   `errors/layout.html`, `partials/{sidebar,nav_upcoming,toasts}.html`,
   `accounts/{login,profile}.html`, `dashboard/index.html`,
   `dashboard/partials/{stat_card,system_status}.html`
 - `frontend/static/css/app.css`, `frontend/static/js/app.js`, `frontend/static/vendor/…`
-- `deployment/docker-compose.dev.yml`
 - `tests/`: `factories.py`, `test_accounts.py`, `test_dashboard.py`, `test_api.py`, `test_security.py`
 - `.python-version`, `ARCHITECTURE.md`, `CHANGELOG.md`, `DEVELOPMENT_PROGRESS.md`
 
@@ -45,27 +44,25 @@
 - `pyproject.toml`, `uv.lock`, `.env.example`, `.gitignore`, `README.md`
 
 ### Files removed
-- The scaffold `backend` and `frontend` apps (`admin.py`, `apps.py`, `models.py`,
-  `tests.py`, `urls.py`, `views.py`, empty `migrations/`). They contained no
-  logic beyond a "Hello, world" view.
+- The scaffold placeholder code (a "Hello, world" view and empty `tests.py`
+  files). Tests now live in `tests/`.
 
 ### Dependencies
-| Added | Removed |
-|---|---|
-| djangorestframework 3.18.3 | mysqlclient |
-| django-htmx 1.29.0 | |
-| psycopg[binary] 3.3.8 | |
+| Added |
+|---|
+| djangorestframework 3.18.3 |
+| django-htmx 1.29.0 |
 
-Kept: Django 5.2.x (LTS), python-dotenv.
+Kept: Django 5.2.x (LTS), mysqlclient, python-dotenv.
 
 ### Database changes
-- Switched from MySQL to PostgreSQL 17.
+- MySQL 8.0 (local server, database `itrend_mcp`), utf8mb4 with strict mode.
 - Only Django's built-in tables (auth, sessions, admin, contenttypes). No
   platform models yet; the first ones arrive in Phase 2.
 
 ### Tests executed
 `uv run python manage.py test`: **38 tests, all passing**, run against
-PostgreSQL 17 in Docker.
+MySQL 8.0.46.
 
 | File | Covers |
 |---|---|

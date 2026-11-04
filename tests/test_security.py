@@ -7,7 +7,7 @@ from .factories import create_user
 
 class SecurityHeaderTests(TestCase):
     def test_clickjacking_and_sniffing_protection(self):
-        response = self.client.get(reverse("accounts:login"))
+        response = self.client.get(reverse("frontend:login"))
         self.assertEqual(response["X-Frame-Options"], "DENY")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertEqual(response["Referrer-Policy"], "same-origin")

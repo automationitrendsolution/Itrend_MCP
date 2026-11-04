@@ -9,7 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 #### Added
 - Settings driven by environment variables, with `.env.example`.
-- PostgreSQL configuration, a Docker Compose file for local PostgreSQL, and an
+- MySQL configuration (utf8mb4, strict mode) read from `.env`, with an
   SQLite fallback for development only.
 - Django REST Framework (login required by default, pagination, rate limits)
   and the public `GET /api/v1/health/` endpoint.
@@ -23,9 +23,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - README, ARCHITECTURE, CHANGELOG and DEVELOPMENT_PROGRESS documents.
 
 #### Changed
-- Database moved from MySQL to PostgreSQL. `mysqlclient` removed.
-- `backend/` and `frontend/` restructured: `backend/` is now a package of
-  Django apps, and `frontend/` holds only templates and static files.
+- The project brief's PostgreSQL choice was replaced by MySQL 8, the server
+  already used locally. Docker is not used for now.
+- Kept the original two-app layout: `frontend/` holds everything user-facing
+  (views, forms, templates, static files), and `backend/` holds models,
+  business logic in `backend/services/`, and the REST API.
 - Django pinned to the 5.2 LTS series.
 
 #### Security
