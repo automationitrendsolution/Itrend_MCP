@@ -1,0 +1,11 @@
+[project]
+name = "itrend-mcp"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<5.3",
+    "django-htmx>=1.29.0",
+    "djangorestframework>=3.18.3",
+    "psycopg[binary]>=3.3.8",
+    "python-dotenv>=1.2.4",
+]

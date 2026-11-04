@@ -1,0 +1,12 @@
+{# Django messages shown as Bootstrap toasts. Shown automatically by static/js/app.js. #}
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer">
+  {% for message in messages %}
+    <div class="toast align-items-center border-0 text-bg-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'secondary' }}{% endif %}"
+         role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}" aria-live="polite" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  {% endfor %}
+</div>

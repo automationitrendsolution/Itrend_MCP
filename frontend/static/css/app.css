@@ -1,0 +1,105 @@
+/* iTrend MCP Platform — layout and component styles on top of Bootstrap 5. */
+
+:root {
+  --app-sidebar-width: 248px;
+  --app-sidebar-bg: #111827;
+  --app-sidebar-fg: #cbd5e1;
+  --app-sidebar-muted: #64748b;
+  --app-sidebar-active: #1f2937;
+  --app-accent: #2563eb;
+  --app-surface: #f5f7fb;
+  --app-border: #e5e7eb;
+}
+
+body.app-body { background: var(--app-surface); }
+
+/* ---- Shell ---- */
+.app-shell { display: flex; min-height: 100vh; }
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.app-sidebar {
+  width: var(--app-sidebar-width);
+  background: var(--app-sidebar-bg);
+  color: var(--app-sidebar-fg);
+  flex-shrink: 0;
+}
+@media (min-width: 992px) {
+  .app-sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+}
+@media (max-width: 991.98px) {
+  .app-sidebar.offcanvas-lg { --bs-offcanvas-width: var(--app-sidebar-width); --bs-offcanvas-bg: var(--app-sidebar-bg); }
+}
+
+.app-brand {
+  display: flex; align-items: center; gap: .6rem;
+  padding: 1.1rem 1.25rem;
+  font-size: 1.05rem; color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+.app-brand .bi { color: #60a5fa; font-size: 1.3rem; }
+.app-brand--light { padding: 0; border: 0; color: var(--bs-body-color); }
+.app-brand--light .bi { color: var(--app-accent); }
+
+.app-nav { display: flex; flex-direction: column; padding: .75rem; gap: 2px; }
+.app-nav-section {
+  margin: 1rem .75rem .35rem;
+  font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--app-sidebar-muted);
+}
+.app-nav-link {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .5rem .75rem; border-radius: .4rem;
+  color: var(--app-sidebar-fg); text-decoration: none; font-size: .925rem;
+}
+.app-nav-link:hover { background: var(--app-sidebar-active); color: #fff; }
+.app-nav-link.active { background: var(--app-accent); color: #fff; }
+.app-nav-link.disabled { color: var(--app-sidebar-muted); cursor: default; }
+.app-nav-link.disabled:hover { background: transparent; }
+.app-nav-badge {
+  margin-left: auto; font-size: .65rem; padding: .1rem .4rem; border-radius: 1rem;
+  background: rgba(255, 255, 255, .06); color: var(--app-sidebar-muted);
+}
+
+.app-topbar {
+  display: flex; align-items: center;
+  padding: .75rem 1.5rem;
+  background: #fff; border-bottom: 1px solid var(--app-border);
+  position: sticky; top: 0; z-index: 1020;
+}
+.app-page-title { font-size: 1.15rem; font-weight: 600; margin: 0; }
+.app-avatar {
+  width: 1.6rem; height: 1.6rem; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--app-accent); color: #fff; font-size: .75rem; font-weight: 600;
+}
+
+.app-content { padding: 1.5rem; }
+@media (max-width: 575.98px) {
+  .app-content { padding: 1rem; }
+  .app-topbar { padding: .75rem 1rem; }
+}
+
+/* ---- Cards ---- */
+.app-card { border-color: var(--app-border); box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+.app-card > .card-header { background: #fff; font-weight: 600; font-size: .925rem; }
+
+.app-stat-label { display: flex; align-items: center; gap: .45rem; color: var(--bs-secondary-color); font-size: .85rem; }
+.app-stat-value { font-size: 1.85rem; font-weight: 600; line-height: 1.2; margin-top: .35rem; }
+
+.app-status-list li {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .55rem 0; border-bottom: 1px solid var(--app-border);
+}
+.app-status-list li:last-child { border-bottom: 0; }
+
+.app-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--bs-secondary-color); gap: .5rem; padding: 2rem; }
+.app-empty .bi { font-size: 1.75rem; opacity: .6; }
+
+/* ---- Auth pages ---- */
+body.auth-body { background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 100%); min-height: 100vh; }
+.auth-wrapper { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.auth-card { width: 100%; max-width: 420px; border: 0; }
+
+/* HTMX: only show the loading indicator during a request. */
+.htmx-indicator { opacity: 0; transition: opacity .2s; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }

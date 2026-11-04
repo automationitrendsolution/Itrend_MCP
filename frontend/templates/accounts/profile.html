@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+{% block page_title %}Profile{% endblock %}
+
+{% block content %}
+<div class="card app-card" style="max-width: 640px">
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-4">Username</dt>
+      <dd class="col-sm-8">{{ user.get_username }}</dd>
+
+      <dt class="col-sm-4">Name</dt>
+      <dd class="col-sm-8">{{ user.get_full_name|default:"—" }}</dd>
+
+      <dt class="col-sm-4">Email</dt>
+      <dd class="col-sm-8">{{ user.email|default:"—" }}</dd>
+
+      <dt class="col-sm-4">Role</dt>
+      <dd class="col-sm-8">
+        {% if user.is_superuser %}<span class="badge text-bg-danger">Superuser</span>
+        {% elif user.is_staff %}<span class="badge text-bg-primary">Administrator</span>
+        {% else %}<span class="badge text-bg-secondary">User</span>{% endif %}
+      </dd>
+
+      <dt class="col-sm-4">Last login</dt>
+      <dd class="col-sm-8">{{ user.last_login|date:"DATETIME_FORMAT"|default:"—" }}</dd>
+
+      <dt class="col-sm-4">Member since</dt>
+      <dd class="col-sm-8 mb-0">{{ user.date_joined|date:"DATE_FORMAT" }}</dd>
+    </dl>
+  </div>
+</div>
+{% endblock %}

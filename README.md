@@ -1,1 +1,83 @@
-# Itrend_MCP
+# iTrend MCP Platform
+
+A central website for registering, deploying, securing and monitoring MCP
+(Model Context Protocol) servers for iTrend Solutions. MCP servers run on a
+dedicated Linux host instead of the PPC production server. The PPC server and
+other approved clients connect to them over HTTPS with individual access tokens.
+
+Target URL: `https://mcp.itrendsolution.com`
+
+> **Status:** Phase 1 (project foundation) is complete. See
+> [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) for what works today and
+> [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together.
+
+## Requirements
+
+- Python 3.12 (installed automatically by uv)
+- [uv](https://docs.astral.sh/uv/)
+- Docker Desktop (for the local PostgreSQL database)
+
+## First-time setup
+
+```powershell
+# 1. Install dependencies into .venv
+uv sync
+
+# 2. Create your environment file and fill in DJANGO_SECRET_KEY and DB_PASSWORD
+copy .env.example .env
+uv run python -c "import secrets; print(secrets.token_urlsafe(50))"
+
+# 3. Start PostgreSQL (data is kept in a Docker volume)
+docker compose -f deployment/docker-compose.dev.yml --env-file .env up -d --wait
+
+# 4. Create the database tables
+uv run python manage.py migrate
+
+# 5. Create your administrator account
+uv run python manage.py createsuperuser
+
+# 6. Run the site at http://127.0.0.1:8000
+uv run python manage.py runserver
+```
+
+### Without Docker (SQLite fallback)
+
+For quick local work only, set `DB_ENGINE=sqlite` in `.env`. Django then uses
+`db.sqlite3` in the project folder. This is refused when `DJANGO_DEBUG=False`,
+so it can never be used in production by accident.
+
+## Everyday commands
+
+| Task | Command |
+|---|---|
+| Run the dev server | `uv run python manage.py runserver` |
+| Run all tests | `uv run python manage.py test` |
+| Check configuration | `uv run python manage.py check` |
+| Production settings check | `$env:DJANGO_DEBUG="False"; uv run python manage.py check --deploy` |
+| Apply migrations | `uv run python manage.py migrate` |
+| Add a dependency | `uv add <package>` |
+| Start / stop PostgreSQL | `docker compose -f deployment/docker-compose.dev.yml --env-file .env up -d` / `down` |
+
+## Useful URLs (development)
+
+| URL | Purpose |
+|---|---|
+| `/` | Dashboard (login required) |
+| `/accounts/login/` | Sign in |
+| `/accounts/profile/` | Your profile |
+| `/admin/` | Django admin (staff only) |
+| `/api/v1/health/` | Platform health check (public, returns 200 or 503) |
+
+## Project layout
+
+```
+config/        Django settings and root URLs
+backend/       Django apps (accounts, dashboard, api, plus later-phase apps)
+frontend/      Templates and static files (Bootstrap 5, Bootstrap Icons, HTMX)
+deployment/    Docker Compose and, later, Nginx configuration
+mcp_servers/   Source for platform-hosted MCP servers (from Phase 3)
+tests/         Automated tests
+docs/          Additional documentation
+logs/          Log files when DJANGO_LOG_TO_FILE=True (not committed)
+scripts/       Helper scripts
+```

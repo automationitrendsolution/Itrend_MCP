@@ -1,0 +1,15 @@
+<ul class="list-unstyled mb-0 app-status-list">
+  <li>
+    <span>Web application</span>
+    <span class="badge text-bg-success">Running</span>
+  </li>
+  <li>
+    <span>Database</span>
+    {% if health.database.status == "ok" %}
+      <span><span class="small text-body-secondary me-2">{{ health.database.response_time_ms }} ms</span><span class="badge text-bg-success">Healthy</span></span>
+    {% else %}
+      <span class="badge text-bg-danger">Unavailable</span>
+    {% endif %}
+  </li>
+</ul>
+<div class="small text-body-secondary mt-3">Checked {% now "H:i:s" %}</div>

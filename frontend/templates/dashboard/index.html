@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<p class="text-body-secondary mb-4">Welcome back, {{ user.get_short_name|default:user.get_username }}.</p>
+
+<div class="row g-3 mb-4">
+  {# MCP figures come from the registry, which is built in Phase 2. Nothing is shown until real data exists. #}
+  {% include "dashboard/partials/stat_card.html" with label="MCP servers" icon="bi-hdd-stack" pending=True %}
+  {% include "dashboard/partials/stat_card.html" with label="Running" icon="bi-play-circle" pending=True %}
+  {% include "dashboard/partials/stat_card.html" with label="Unhealthy" icon="bi-exclamation-triangle" pending=True %}
+  {% include "dashboard/partials/stat_card.html" with label="Active users" icon="bi-people" value=active_user_count %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card app-card h-100">
+      <div class="card-header d-flex align-items-center">
+        <span>Platform status</span>
+        <span class="htmx-indicator spinner-border spinner-border-sm text-secondary ms-auto" id="statusSpinner" role="status" aria-label="Refreshing"></span>
+      </div>
+      <div class="card-body"
+           hx-get="{% url 'dashboard:system-status' %}"
+           hx-trigger="load, every 30s"
+           hx-indicator="#statusSpinner">
+        <span class="text-body-secondary">Checking…</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card app-card h-100">
+      <div class="card-header">Recent activity</div>
+      <div class="card-body app-empty">
+        <i class="bi bi-clock-history"></i>
+        <p class="mb-0">Deployments and MCP connections will appear here once the registry (Phase 2) and audit log (Phase 4) are in place.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
