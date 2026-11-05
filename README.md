@@ -7,7 +7,7 @@ other approved clients connect to them over HTTPS with individual access tokens.
 
 Target URL: `https://mcp.itrendsolution.com`
 
-> **Status:** Phase 1 (project foundation) is complete. See
+> **Status:** Phases 1 (foundation) and 2 (MCP registry) are complete. See
 > [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) for what works today and
 > [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together.
 
@@ -62,6 +62,8 @@ so it can never be used in production by accident.
 | `/accounts/login/` | Sign in |
 | `/accounts/profile/` | Your profile |
 | `/admin/` | Django admin (staff only) |
+| `/mcps/` | MCP servers: list, add, view, edit |
+| `/api/v1/mcps/` | MCP registry REST API (login required) |
 | `/api/v1/health/` | Platform health check (public, returns 200 or 503) |
 
 ## Project layout

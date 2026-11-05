@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ server.name }}{% endblock %}
+{% block page_title %}Edit {{ server.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 960px">
+  {% url 'frontend:mcp-detail' server.pk as cancel_url %}
+  {% include "mcps/partials/form.html" with submit_label="Save changes" cancel_url=cancel_url %}
+</div>
+{% endblock %}

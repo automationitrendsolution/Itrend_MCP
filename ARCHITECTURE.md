@@ -50,18 +50,24 @@ The project has exactly two Django apps. **Anything the user sees goes in
 ```
 config/                  settings (from environment variables) and root URLs
 frontend/                Django app: the website
-    views.py             page views (login, profile, dashboard, HTMX partials)
+    views.py             page views (login, dashboard, MCP pages, HTMX partials)
     urls.py              website URLs  (namespace "frontend")
     forms.py             website forms
+    templatetags/        template helpers (status badge colours)
     templates/           all HTML; Django finds it automatically (APP_DIRS)
     static/              CSS, JS, images, vendored Bootstrap/Icons/HTMX
 backend/                 Django app: data, logic and API
-    models.py            database models (from Phase 2)
+    models.py            MCPServer, MCPDeployment
+    validators.py        slug, URL and configuration rules
+    permissions.py       who may do what (website and API)
     admin.py             Django admin registrations
     migrations/          database migrations
     services/            business logic, shared by website and API
+        registry.py          create / update / delete / list MCP servers
         health.py            platform health checks
         login_protection.py  failed-login lockout
+    serializers.py       REST API input/output
+    exceptions.py        one error format for the whole API
     views.py             REST API views
     urls.py              REST API URLs at /api/v1/  (namespace "backend")
 mcp_servers/             source of platform-hosted MCP servers (Phase 3)
@@ -103,6 +109,22 @@ tests/                   automated tests
 | **Logout only by POST** | Stops other websites logging users out with a hidden link. |
 | **DRF requires login by default** | Each API view must opt *out* of authentication explicitly (only `/api/v1/health/` does). |
 | **Public health check reveals only up/down** | Load balancers need it unauthenticated; anything more would help attackers. Details go to server logs. |
+
+### Phase 2 – MCP registry
+
+| Decision | Why |
+|---|---|
+| **Hosted MCPs get their URL from the slug** (`MCP_PUBLIC_BASE_URL/<slug>/`); only external MCPs store `endpoint` | The URL is never stored twice, so it cannot go stale if the domain changes. |
+| **Slug and deployment type are fixed after creation** | The slug is part of every client's connection URL; changing it would silently break them. Enforced in the service, the form and the API. |
+| **Reserved slugs** (`admin`, `api`, `static`, `mcps`, …) | MCP URLs share the domain with the website, so an MCP must never take over a website path. |
+| **New MCPs are "Restricted" by default** | Safe default: until per-user permissions arrive (Phase 4), restricted MCPs are visible to administrators only. "All employees" makes one visible to every logged-in user. |
+| **Hidden MCPs return 404, not 403** | A 403 would confirm the MCP exists. 404 stops people discovering MCPs by guessing IDs. |
+| **Configuration rejects secret-looking keys** (`password`, `token`, `api_key`, …) | The registry is not a safe place for credentials. Secrets get a proper store in Phase 5. |
+| **Internal endpoint and configuration are administrator-only**, on the website and in the API | They describe internal infrastructure that ordinary users and clients do not need. |
+| **External MCPs carry a visible warning** | Their traffic does not pass through the platform, so platform tokens and permissions cannot protect them. |
+| **Last deployment time is read from the deployment history**, not stored on the server | Avoids two copies of the same fact that could disagree. |
+| **One API error format**: `{"error": {"code", "message", "details"}}` | Clients handle every error the same way; unexpected errors never leak technical details. |
+| **Status and health are set by hand for now** | They become automatic with deployments (Phase 5) and health checks (Phase 6). The form says so. |
 
 ## Security baseline (Phase 1)
 

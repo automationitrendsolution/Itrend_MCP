@@ -1,0 +1,60 @@
+{% load mcp_tags %}
+<div class="card app-card">
+  {% if page.object_list %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 app-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th class="d-none d-lg-table-cell">Connection URL</th>
+            <th class="d-none d-md-table-cell">Deployment</th>
+            <th>Status</th>
+            <th>Health</th>
+            <th class="d-none d-xl-table-cell">Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for server in page.object_list %}
+            <tr>
+              <td>
+                <a href="{% url 'frontend:mcp-detail' server.pk %}" class="fw-semibold text-decoration-none">{{ server.name }}</a>
+                {% if server.description %}<div class="small text-body-secondary text-truncate" style="max-width: 320px">{{ server.description }}</div>{% endif %}
+              </td>
+              <td class="d-none d-lg-table-cell"><code class="small">{{ server.connection_url }}</code></td>
+              <td class="d-none d-md-table-cell">{{ server.get_deployment_type_display }}</td>
+              <td><span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span></td>
+              <td><span class="badge {{ server.health_status|badge_class }}">{{ server.get_health_status_display }}</span></td>
+              <td class="d-none d-xl-table-cell small text-body-secondary">{{ server.created_at|date:"DATE_FORMAT" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page.has_other_pages %}
+      <div class="card-footer bg-white d-flex justify-content-between align-items-center small">
+        <span class="text-body-secondary">{{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}</span>
+        <nav aria-label="Pagination" class="btn-group">
+          {% if page.has_previous %}
+            <a class="btn btn-sm btn-outline-secondary" hx-get="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.previous_page_number }}" hx-target="#mcpTable" hx-push-url="true" href="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.previous_page_number }}">Previous</a>
+          {% endif %}
+          {% if page.has_next %}
+            <a class="btn btn-sm btn-outline-secondary" hx-get="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.next_page_number }}" hx-target="#mcpTable" hx-push-url="true" href="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.next_page_number }}">Next</a>
+          {% endif %}
+        </nav>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="card-body app-empty">
+      <i class="bi bi-hdd-stack"></i>
+      {% if filters.search or filters.status or filters.deployment_type %}
+        <p class="mb-0">No MCP servers match these filters.</p>
+      {% elif can_manage %}
+        <p class="mb-2">No MCP servers have been registered yet.</p>
+        <a href="{% url 'frontend:mcp-create' %}" class="btn btn-primary btn-sm">Add the first MCP</a>
+      {% else %}
+        <p class="mb-0">No MCP servers are available to you yet. Ask an administrator for access.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>

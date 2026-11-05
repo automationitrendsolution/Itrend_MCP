@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load mcp_tags %}
 
 {% block title %}Dashboard{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
@@ -6,11 +7,12 @@
 {% block content %}
 <p class="text-body-secondary mb-4">Welcome back, {{ user.get_short_name|default:user.get_username }}.</p>
 
-<div class="row g-3 mb-4">
-  {# MCP figures come from the registry, which is built in Phase 2. Nothing is shown until real data exists. #}
-  {% include "dashboard/partials/stat_card.html" with label="MCP servers" icon="bi-hdd-stack" pending=True %}
-  {% include "dashboard/partials/stat_card.html" with label="Running" icon="bi-play-circle" pending=True %}
-  {% include "dashboard/partials/stat_card.html" with label="Unhealthy" icon="bi-exclamation-triangle" pending=True %}
+{# MCP counts only include servers this user can see. #}
+<div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+  {% include "dashboard/partials/stat_card.html" with label="MCP servers" icon="bi-hdd-stack" value=counts.total %}
+  {% include "dashboard/partials/stat_card.html" with label="Running" icon="bi-play-circle" value=counts.running %}
+  {% include "dashboard/partials/stat_card.html" with label="Stopped" icon="bi-stop-circle" value=counts.stopped %}
+  {% include "dashboard/partials/stat_card.html" with label="Unhealthy" icon="bi-exclamation-triangle" value=counts.unhealthy %}
   {% include "dashboard/partials/stat_card.html" with label="Active users" icon="bi-people" value=active_user_count %}
 </div>
 
@@ -32,11 +34,26 @@
 
   <div class="col-lg-7">
     <div class="card app-card h-100">
-      <div class="card-header">Recent activity</div>
-      <div class="card-body app-empty">
-        <i class="bi bi-clock-history"></i>
-        <p class="mb-0">Deployments and MCP connections will appear here once the registry (Phase 2) and audit log (Phase 4) are in place.</p>
+      <div class="card-header d-flex align-items-center">
+        <span>Recently added MCP servers</span>
+        <a href="{% url 'frontend:mcp-list' %}" class="ms-auto small text-decoration-none">View all</a>
       </div>
+      {% if recent_servers %}
+        <ul class="list-group list-group-flush">
+          {% for server in recent_servers %}
+            <li class="list-group-item d-flex align-items-center gap-2">
+              <a href="{% url 'frontend:mcp-detail' server.pk %}" class="text-decoration-none fw-semibold">{{ server.name }}</a>
+              <span class="small text-body-secondary d-none d-sm-inline">{{ server.get_deployment_type_display }}</span>
+              <span class="badge {{ server.status|badge_class }} ms-auto">{{ server.get_status_display }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="card-body app-empty">
+          <i class="bi bi-hdd-stack"></i>
+          <p class="mb-0">No MCP servers yet.{% if user.is_staff %} <a href="{% url 'frontend:mcp-create' %}">Add the first one</a>.{% endif %}</p>
+        </div>
+      {% endif %}
     </div>
   </div>
 </div>

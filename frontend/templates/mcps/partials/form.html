@@ -1,0 +1,66 @@
+{# Shared by mcps/create.html and mcps/edit.html. #}
+{% if form.non_field_errors %}
+  <div class="alert alert-danger">{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  <div class="card app-card mb-3">
+    <div class="card-header">How is this MCP provided?</div>
+    <div class="card-body">
+      <div class="row g-2" role="radiogroup">
+        {% for choice in form.deployment_type %}
+          <div class="col-md-4">
+            <label class="app-choice {% if form.deployment_type.field.disabled %}disabled{% endif %}">
+              {{ choice.tag }}
+              <span class="app-choice-body">
+                {% if choice.data.value == "zip" %}<i class="bi bi-file-earmark-zip"></i>
+                {% elif choice.data.value == "github" %}<i class="bi bi-github"></i>
+                {% else %}<i class="bi bi-link-45deg"></i>{% endif %}
+                <span class="fw-semibold">{{ choice.choice_label }}</span>
+                <span class="small text-body-secondary">
+                  {% if choice.data.value == "zip" %}Upload a packaged MCP project. Hosted on this platform.
+                  {% elif choice.data.value == "github" %}Deploy from a repository branch or commit. Hosted on this platform.
+                  {% else %}Register an MCP that already runs elsewhere.{% endif %}
+                </span>
+              </span>
+            </label>
+          </div>
+        {% endfor %}
+      </div>
+      {% for error in form.deployment_type.errors %}<div class="text-danger small mt-2">{{ error }}</div>{% endfor %}
+      <div class="small text-body-secondary mt-2" data-show-for="zip github">
+        <i class="bi bi-info-circle me-1"></i>This registers the MCP now. Uploading and deploying the code arrives in Phase 5.
+      </div>
+    </div>
+  </div>
+
+  <div class="card app-card mb-3">
+    <div class="card-header">Details</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">{% include "partials/form_field.html" with field=form.name %}</div>
+        <div class="col-md-6">
+          {% include "partials/form_field.html" with field=form.slug %}
+          <div id="slugFeedback" class="small" aria-live="polite"></div>
+        </div>
+        <div class="col-12">{% include "partials/form_field.html" with field=form.description %}</div>
+        <div class="col-md-6">{% include "partials/form_field.html" with field=form.transport_type %}</div>
+        <div class="col-md-6">{% include "partials/form_field.html" with field=form.access_policy %}</div>
+        <div class="col-12" data-show-for="external">{% include "partials/form_field.html" with field=form.endpoint %}</div>
+        <div class="col-12" data-show-for="zip github">{% include "partials/form_field.html" with field=form.internal_endpoint %}</div>
+        {% if form.status %}
+          <div class="col-md-6">{% include "partials/form_field.html" with field=form.status %}</div>
+          <div class="col-md-6">{% include "partials/form_field.html" with field=form.health_status %}</div>
+        {% endif %}
+        <div class="col-12">{% include "partials/form_field.html" with field=form.configuration %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+    <a href="{{ cancel_url }}" class="btn btn-light">Cancel</a>
+  </div>
+</form>

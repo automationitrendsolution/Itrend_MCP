@@ -12,9 +12,13 @@
     </a>
 
     <div class="app-nav-section">MCP</div>
-    {% include "partials/nav_upcoming.html" with icon="bi-hdd-stack" label="MCP Servers" phase=2 %}
+    <a class="app-nav-link {% if current == 'frontend:mcp-list' or current == 'frontend:mcp-detail' or current == 'frontend:mcp-edit' %}active{% endif %}" href="{% url 'frontend:mcp-list' %}">
+      <i class="bi bi-hdd-stack"></i>MCP Servers
+    </a>
     {% if user.is_staff %}
-      {% include "partials/nav_upcoming.html" with icon="bi-plus-square" label="Add MCP" phase=2 %}
+      <a class="app-nav-link {% if current == 'frontend:mcp-create' %}active{% endif %}" href="{% url 'frontend:mcp-create' %}">
+        <i class="bi bi-plus-square"></i>Add MCP
+      </a>
     {% endif %}
     {% include "partials/nav_upcoming.html" with icon="bi-key" label="Access Tokens" phase=4 %}
 

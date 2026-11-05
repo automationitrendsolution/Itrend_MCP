@@ -1,9 +1,12 @@
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .permissions import IsStaffOrReadOnly
+from .serializers import MCPServerSerializer
+from .services import registry
 from .services.health import check_platform
 
 
@@ -26,3 +29,36 @@ class HealthView(APIView):
             {"status": health.status, "database": health.database.status},
             status=http_status,
         )
+
+
+class MCPServerViewSet(viewsets.ModelViewSet):
+    """
+    /api/v1/mcps/
+
+    Any logged-in user can list and view the MCP servers visible to them.
+    Only administrators can create, update or delete.
+
+    Query parameters for the list: ?search=, ?status=, ?deployment_type=
+    """
+
+    serializer_class = MCPServerSerializer
+    permission_classes = [IsStaffOrReadOnly]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        params = self.request.query_params
+        return registry.list_servers(
+            self.request.user,
+            search=params.get("search", ""),
+            status=params.get("status", ""),
+            deployment_type=params.get("deployment_type", ""),
+        )
+
+    def perform_create(self, serializer):
+        serializer.instance = registry.create_server(created_by=self.request.user, **serializer.validated_data)
+
+    def perform_update(self, serializer):
+        registry.update_server(serializer.instance, updated_by=self.request.user, **serializer.validated_data)
+
+    def perform_destroy(self, instance):
+        registry.delete_server(instance, deleted_by=self.request.user)

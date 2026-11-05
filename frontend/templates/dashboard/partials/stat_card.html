@@ -1,13 +1,8 @@
-<div class="col-6 col-xl-3">
+<div class="col">
   <div class="card app-card app-stat h-100">
     <div class="card-body">
       <div class="app-stat-label"><i class="bi {{ icon }}"></i>{{ label }}</div>
-      {% if pending %}
-        <div class="app-stat-value text-body-tertiary">—</div>
-        <div class="small text-body-secondary">Available in Phase 2</div>
-      {% else %}
-        <div class="app-stat-value">{{ value }}</div>
-      {% endif %}
+      <div class="app-stat-value">{{ value }}</div>
     </div>
   </div>
 </div>

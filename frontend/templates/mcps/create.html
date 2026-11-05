@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Add MCP{% endblock %}
+{% block page_title %}Add MCP{% endblock %}
+
+{% block content %}
+<div style="max-width: 960px">
+  {% url 'frontend:mcp-list' as cancel_url %}
+  {% include "mcps/partials/form.html" with submit_label="Register MCP" cancel_url=cancel_url %}
+</div>
+{% endblock %}

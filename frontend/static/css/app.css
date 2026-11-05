@@ -103,3 +103,21 @@ body.auth-body { background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 100%); 
 /* HTMX: only show the loading indicator during a request. */
 .htmx-indicator { opacity: 0; transition: opacity .2s; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+
+/* ---- Tables ---- */
+.app-table thead th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); font-weight: 600; background: #fafbfc; }
+
+/* ---- Selectable cards (e.g. MCP deployment type) ---- */
+.app-choice { display: block; height: 100%; cursor: pointer; position: relative; }
+.app-choice input { position: absolute; opacity: 0; }
+.app-choice-body {
+  display: flex; flex-direction: column; gap: .25rem; height: 100%;
+  padding: .9rem 1rem; border: 1px solid var(--app-border); border-radius: .5rem; background: #fff;
+  transition: border-color .15s, box-shadow .15s;
+}
+.app-choice-body .bi { font-size: 1.3rem; color: var(--app-accent); }
+.app-choice:hover .app-choice-body { border-color: #93c5fd; }
+.app-choice input:checked + .app-choice-body { border-color: var(--app-accent); box-shadow: 0 0 0 .2rem rgba(37, 99, 235, .15); }
+.app-choice input:focus-visible + .app-choice-body { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+.app-choice.disabled { cursor: default; }
+.app-choice.disabled input:not(:checked) + .app-choice-body { opacity: .45; }

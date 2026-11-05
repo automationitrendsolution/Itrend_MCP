@@ -1,0 +1,5 @@
+{# Renders one form field with Bootstrap label, help text and errors. #}
+<label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required and not field.field.disabled %} <span class="text-danger">*</span>{% endif %}</label>
+{{ field }}
+{% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}

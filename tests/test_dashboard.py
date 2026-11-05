@@ -3,9 +3,10 @@ from unittest import mock
 from django.test import TestCase
 from django.urls import reverse
 
+from backend.models import MCPServer
 from backend.services.health import ComponentHealth
 
-from .factories import create_user
+from .factories import create_server, create_user
 
 
 class DashboardTests(TestCase):
@@ -29,10 +30,21 @@ class DashboardTests(TestCase):
         response = self.client.get(reverse("frontend:dashboard"))
         self.assertEqual(response.context["active_user_count"], 2)
 
-    def test_mcp_figures_are_not_fabricated(self):
+    def test_mcp_counts_come_from_the_registry(self):
+        create_server("A", "alpha", status=MCPServer.Status.RUNNING)
+        create_server("B", "bravo", status=MCPServer.Status.STOPPED, health_status=MCPServer.HealthStatus.UNHEALTHY)
+        create_server("C", "charlie")
+        self.client.force_login(self.user)
+        counts = self.client.get(reverse("frontend:dashboard")).context["counts"]
+        self.assertEqual((counts.total, counts.running, counts.stopped, counts.unhealthy), (3, 1, 1, 1))
+
+    def test_counts_only_include_servers_the_user_can_see(self):
+        create_server("Open", "open-mcp")
+        create_server("Secret", "secret-mcp", access_policy=MCPServer.AccessPolicy.RESTRICTED)
         self.client.force_login(self.user)
         response = self.client.get(reverse("frontend:dashboard"))
-        self.assertContains(response, ">Available in Phase 2</div>", count=3)
+        self.assertEqual(response.context["counts"].total, 1)
+        self.assertNotContains(response, "Secret")
 
     def test_admin_navigation_hidden_from_normal_users(self):
         self.client.force_login(self.user)

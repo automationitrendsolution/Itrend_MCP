@@ -151,6 +151,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # ---------------------------------------------------------------------------
+# MCP platform
+# ---------------------------------------------------------------------------
+
+# Public base URL of the MCP gateway. Hosted MCPs are reachable at <base>/<slug>/.
+MCP_PUBLIC_BASE_URL = env_str("MCP_PUBLIC_BASE_URL", default="https://mcp.itrendsolution.com")
+
+
+# ---------------------------------------------------------------------------
 # Authentication
 # ---------------------------------------------------------------------------
 
@@ -229,6 +237,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 25,
+    "EXCEPTION_HANDLER": "backend.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
