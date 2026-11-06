@@ -17,15 +17,26 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from backend.models import PERMISSION_LEVEL_HELP, AccessToken, MCPActivityLog, MCPPermission, MCPServer, PermissionLevel
+from backend.models import (
+    PERMISSION_LEVEL_HELP,
+    AccessToken,
+    MCPActivityLog,
+    MCPHealthCheck,
+    MCPMonitorEvent,
+    MCPPermission,
+    MCPRequestStat,
+    MCPServer,
+    PermissionLevel,
+)
 from backend.permissions import can_manage_mcps
-from backend.services import access, accounts, catalog, mcplogs, registry, runner, tokens
+from backend.services import access, accounts, audit, catalog, mcplogs, monitoring, registry, runner, tokens, traffic
 from backend.services.health import check_platform
 
 from .markdown import render_markdown_file
 from .forms import (
     AccessTokenForm,
     LoginForm,
+    MonitorSettingsForm,
     PermissionGrantForm,
     ServiceAccountForm,
 )
@@ -537,3 +548,91 @@ def activity_list(request: HttpRequest) -> HttpResponse:
     }
     template = "activity/partials/timeline.html" if request.htmx else "activity/list.html"
     return render(request, template, context)
+
+
+# ---------------------------------------------------------------------------
+# Monitoring (administrators, Phase 6)
+# ---------------------------------------------------------------------------
+
+MONITOR_EVENTS_SHOWN = 30
+MONITOR_CHECKS_SHOWN = 20
+
+
+def _monitoring_row(server: MCPServer) -> dict:
+    data = monitoring.summary(server)
+    last = data["last"]
+    if not server.is_local:
+        health = "not_monitored"
+    elif server.status in {MCPServer.Status.STOPPED, MCPServer.Status.PENDING}:
+        health = "stopped"  # an old check would be misleading
+    else:
+        health = last.status if last else "no_data"
+    return {"server": server, "health": health, **data}
+
+
+@staff_required
+def monitoring_overview(request: HttpRequest) -> HttpResponse:
+    rows = [_monitoring_row(server) for server in MCPServer.objects.order_by("name")]
+    context = {
+        "rows": rows,
+        "counts": {
+            "monitored": sum(1 for row in rows if row["server"].is_local),
+            "healthy": sum(1 for row in rows if row["health"] == "healthy"),
+            "problems": sum(1 for row in rows if row["health"] in {"unhealthy", "down"}),
+        },
+        "traffic": traffic.totals(),
+        "events": MCPMonitorEvent.objects.select_related("mcp_server")[:MONITOR_EVENTS_SHOWN],
+        "worker_running": monitoring.worker_is_running(),
+        "worker_last_seen": monitoring.worker_last_seen(),
+    }
+    # The live part refreshes itself every few seconds through HTMX.
+    template = "monitoring/partials/overview_live.html" if request.htmx else "monitoring/index.html"
+    return render(request, template, context)
+
+
+@staff_required
+def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    server = get_object_or_404(MCPServer, pk=pk)
+    limits = traffic.limits_for(server)
+    form = MonitorSettingsForm(request.POST or None, instance=limits)
+
+    if request.method == "POST" and form.is_valid():
+        changed = form.changed_data
+        saved = form.save(commit=False)
+        saved.mcp_server, saved.updated_by = server, request.user
+        saved.save()
+        if changed:
+            audit.record(audit.Action.MCP_UPDATED, user=request.user, mcp_server=server, changed_fields=changed, source="monitoring settings")
+        messages.success(request, f"Monitoring settings of {server.name} were saved.")
+        return redirect("frontend:monitoring-detail", pk=server.pk)
+
+    context = {
+        "server": server,
+        "row": _monitoring_row(server),
+        "checks": MCPHealthCheck.objects.filter(mcp_server=server)[:MONITOR_CHECKS_SHOWN],
+        "events": MCPMonitorEvent.objects.filter(mcp_server=server)[:MONITOR_EVENTS_SHOWN],
+        "hours": _hourly_traffic(server),
+        "in_progress": traffic.in_progress(server),
+        "form": form,
+        "worker_running": monitoring.worker_is_running(),
+    }
+    template = "monitoring/partials/detail_live.html" if request.htmx else "monitoring/detail.html"
+    return render(request, template, context)
+
+
+def _hourly_traffic(server: MCPServer) -> list[dict]:
+    """Gateway traffic of the last 24 hours, one row per hour that had requests (newest first)."""
+    since = timezone.now() - timedelta(hours=24)
+    hours: dict = {}
+    for stat in MCPRequestStat.objects.filter(mcp_server=server, bucket_start__gte=since):
+        hour = timezone.localtime(stat.bucket_start).replace(minute=0, second=0, microsecond=0)
+        row = hours.setdefault(hour, {"hour": hour, "requests": 0, "errors": 0, "denied": 0, "total_ms": 0.0, "max_ms": 0.0})
+        row["requests"] += stat.request_count
+        row["errors"] += stat.error_count
+        row["denied"] += stat.denied_count
+        row["total_ms"] += stat.total_response_ms
+        row["max_ms"] = max(row["max_ms"], stat.max_response_ms)
+    rows = sorted(hours.values(), key=lambda row: row["hour"], reverse=True)
+    for row in rows:
+        row["avg_ms"] = round(row["total_ms"] / row["requests"], 1) if row["requests"] else None
+    return rows

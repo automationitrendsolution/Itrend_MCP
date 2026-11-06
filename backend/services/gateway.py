@@ -126,7 +126,9 @@ def forward(
     body: bytes,
     identity: tokens.Introspection,
     scheme: str = "http",
+    timeout: float | None = None,
 ) -> Upstream:
+    """`timeout`: seconds to wait for the MCP's answer (its monitoring settings); None = TIMEOUT.read."""
     if method not in ALLOWED_METHODS:
         raise GatewayError(405, "method_not_allowed", "MCP clients use GET, POST or DELETE.")
 
@@ -136,7 +138,10 @@ def forward(
     outgoing["x-forwarded-proto"] = scheme
 
     client = get_client()
-    request = client.build_request(method, upstream_url(server, rest, query), headers=outgoing, content=body or None)
+    options = {}
+    if timeout is not None:
+        options["timeout"] = httpx.Timeout(connect=TIMEOUT.connect, read=timeout, write=TIMEOUT.write, pool=TIMEOUT.pool)
+    request = client.build_request(method, upstream_url(server, rest, query), headers=outgoing, content=body or None, **options)
     try:
         response = client.send(request, stream=True)
     except httpx.ConnectError:

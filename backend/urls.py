@@ -16,5 +16,6 @@ urlpatterns = [
     path("users/", views.UserListView.as_view(), name="user-list"),
     # Listed before the router so "introspect" is not read as a token id.
     path("tokens/introspect/", views.TokenIntrospectionView.as_view(), name="token-introspect"),
+    path("mcps/<int:pk>/health/", views.MCPHealthView.as_view(), name="mcp-health"),
     *router.urls,
 ]

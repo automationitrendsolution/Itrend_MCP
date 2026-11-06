@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring{% endblock %}
+{% block page_title %}Monitoring{% endblock %}
+
+{% block content %}
+{# Everything below refreshes itself every 10 seconds. Figures come from real checks and real gateway traffic only. #}
+<div hx-get="{% url 'frontend:monitoring' %}" hx-trigger="every 10s" hx-swap="innerHTML">
+  {% include "monitoring/partials/overview_live.html" %}
+</div>
+{% endblock %}

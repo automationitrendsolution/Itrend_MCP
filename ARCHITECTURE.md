@@ -63,6 +63,7 @@ backend/                 Django app: data, logic and API
         registry.py          MCPServer, MCPDeployment
         access.py            PermissionLevel, MCPPermission, AccessToken, ServiceAccount
         activity.py          MCPActivityLog (audit log)
+        monitoring.py        MCPHealthCheck, MCPRequestStat, MCPMonitorEvent, MCPMonitorSettings
     signals.py           writes logins, logouts and failed logins to the activity log
     validators.py        slug, URL and configuration rules
     permissions.py       who may do what (website and API)
@@ -74,6 +75,8 @@ backend/                 Django app: data, logic and API
         runner.py            starts / stops / watches each MCP as a local process; its logs
         mcplogs.py           turns an MCP's raw output into readable runs and events
         gateway.py           /mcp/<slug>/: checks the token, forwards to the MCP, streams back
+        traffic.py           gateway request counts, per-MCP timeout and concurrent-request limit
+        monitoring.py        real MCP health checks, CPU/RAM, incidents, safe automatic restarts
         access.py            permission levels: who may view / connect / manage / administer an MCP
         tokens.py            create, revoke and check (introspect) access tokens
         accounts.py          user activation, service accounts
@@ -85,6 +88,7 @@ backend/                 Django app: data, logic and API
     views.py             REST API views
     urls.py              REST API URLs at /api/v1/  (namespace "backend")
     management/commands/sync_mcps.py   register MCP folders from the command line
+    management/commands/monitor_mcps.py   the monitor worker (runs next to the website)
 mcp_servers/             MCP servers; each is a separate uv project, NOT part of Django
     mysql/               read-only MySQL MCP (own pyproject.toml, uv.lock, .venv, tests)
 tests/                   automated tests
@@ -223,6 +227,31 @@ MCP client ──POST http://<platform>/mcp/mysql/  Bearer itmcp_…──▶ Dj
 | **No CSRF and no session on the gateway; bearer token only** | MCP clients are programs, not browsers. |
 | **MCPs still check tokens themselves if they want** (the MySQL MCP does) | Defence in depth; MCPs written without token code are still protected by the gateway as long as they listen on 127.0.0.1. |
 
+### Phase 6 – Monitoring
+
+```
+website (runserver)                          monitor worker (manage.py monitor_mcps)
+  /mcp/<slug>/ gateway                          every 5 s: which MCPs are due? (own interval, default 30 s)
+    ├─ limits: timeout, requests at once (429)    ├─ runner.get_state → running / crashed / stopped / outside
+    └─ counts each answer → MCPRequestStat        ├─ real check: GET /health + POST "initialize" to /mcp
+  /monitoring/ pages  ◀── reads ──  database ◀─── ├─ CPU/RAM of the MCP's process tree (psutil)
+  /api/v1/mcps/<id>/health/                       ├─ MCPHealthCheck row; MCPMonitorEvent only on a change
+                                                  └─ safe automatic restart (rules below)
+```
+
+| Decision | Why |
+|---|---|
+| **The monitor is a separate program**, not part of the website | Checks and restarts keep running while the website is busy, and a stuck MCP can never slow the website down. No new technology (no Celery/Redis): it is one Django management command. |
+| **"Healthy" means the MCP answered an MCP message**, not "the process exists" | The brief requires it. The check sends `initialize`; an MCP answering 200, or 401 with a `Bearer` challenge (up, wants a token), passes. A session opened by the check is closed again at once. |
+| **No number is ever invented** | CPU needs two samples, so the first check has none; MCPs started in a terminal are not ours, so no CPU/RAM. The page shows "–" instead of 0. |
+| **Incidents are recorded on change only** (went down, stopped answering, recovered …) | The list stays readable; one outage is one entry, not one per check. |
+| **Safe restarts**: never an MCP an administrator stopped, never one started outside the platform, at most N per hour then a single "restarts paused" alert, and checks before the last attempt do not count again | Restarting must fix a crash, not hide a broken MCP behind an endless restart loop. |
+| **Memory limit = restart after two checks over it; CPU = warning only** | Without containers there is no hard limit on Windows; a restart is the honest enforcement. Restarting for a CPU spike would interrupt working requests. |
+| **Traffic is counted in 5-minute buckets, numbers only** | One small row per MCP per 5 minutes instead of one per request; request contents are never stored. |
+| **Response time = until the MCP starts answering** | A Server-Sent Events stream may stay open for minutes; that is not slowness. |
+| **The monitor writes a heartbeat file** | The website can warn "the monitor is not running" instead of showing old figures as current. |
+| **Old monitoring data is deleted after 14 days** (`MONITORING_RETENTION_DAYS`) | The tables cannot grow without limit. |
+
 ## Security baseline (Phase 1)
 
 - Secret key, database password and debug mode come from `.env`, which Git ignores.
@@ -251,6 +280,11 @@ MCP client ──POST http://<platform>/mcp/mysql/  Bearer itmcp_…──▶ Dj
   uses one thread. For many users, run Django under a production server (Phase 7).
 - People on other computers can use the links only once the website itself is
   reachable from their network (next step: hosting).
-- MCPs do not restart by themselves after a crash or a computer reboot; an
-  administrator clicks Start.
+- MCPs restart by themselves after a crash only while the monitor runs, and
+  nothing starts them after a computer reboot (the website and the monitor
+  must be started; Phase 7 makes them services).
+- CPU and memory limits are not hard operating-system limits yet (they need
+  containers): memory over the limit causes a restart, CPU only a warning.
+- The concurrent-request limit is counted per website process; with several
+  processes in production each has its own count until the shared cache.
 - MCP log files are rotated at 5 MB (one old copy kept).

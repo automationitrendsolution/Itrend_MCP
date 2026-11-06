@@ -12,6 +12,10 @@ BADGE_CLASSES = {
     "healthy": "text-bg-success",
     "unhealthy": "text-bg-danger",
     "unknown": "text-bg-light border",
+    # Monitoring (Phase 6)
+    "down": "text-bg-danger",
+    "no_data": "text-bg-light border",
+    "not_monitored": "text-bg-light border",
     # Deployment status
     "in_progress": "text-bg-info",
     "succeeded": "text-bg-success",
@@ -113,3 +117,39 @@ def day_label(value) -> str:
     if day == today - timedelta(days=1):
         return "Yesterday"
     return date_format(day, "l j F Y")
+
+
+# ---------------------------------------------------------------------------
+# Monitoring (Phase 6)
+# ---------------------------------------------------------------------------
+
+HEALTH_LABELS = {
+    "healthy": "Healthy",
+    "unhealthy": "Not answering",
+    "down": "Down",
+    "stopped": "Stopped",
+    "no_data": "Not checked yet",
+    "not_monitored": "Not monitored",
+}
+
+MONITOR_EVENT_STYLES = {
+    # level: (Bootstrap icon, colour)
+    "info": ("bi-check-circle", "green"),
+    "warning": ("bi-exclamation-triangle", "amber"),
+    "error": ("bi-x-octagon", "red"),
+}
+
+
+@register.filter
+def health_label(value: str) -> str:
+    return HEALTH_LABELS.get(value, str(value).replace("_", " ").capitalize())
+
+
+@register.filter
+def monitor_icon(event) -> str:
+    return MONITOR_EVENT_STYLES.get(event.level, ("bi-dot", "gray"))[0]
+
+
+@register.filter
+def monitor_color(event) -> str:
+    return MONITOR_EVENT_STYLES.get(event.level, ("bi-dot", "gray"))[1]

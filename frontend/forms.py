@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
-from backend.models import PERMISSION_LEVEL_HELP, MCPServer, PermissionLevel
+from backend.models import PERMISSION_LEVEL_HELP, MCPMonitorSettings, MCPServer, PermissionLevel
 from backend.services import access, audit, login_protection
 from backend.services.tokens import DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES_DAYS
 
@@ -128,3 +128,38 @@ class ServiceAccountForm(BootstrapForm):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Which system uses this account and who is responsible for it.",
     )
+
+
+class MonitorSettingsForm(forms.ModelForm):
+    """Limits and restart rules of one MCP (Monitoring page, administrators)."""
+
+    class Meta:
+        model = MCPMonitorSettings
+        fields = [
+            "health_check_interval_seconds",
+            "request_timeout_seconds",
+            "max_concurrent_requests",
+            "memory_limit_mb",
+            "cpu_limit_percent",
+            "auto_restart",
+            "restart_after_failed_checks",
+            "max_restarts_per_hour",
+        ]
+        labels = {
+            "health_check_interval_seconds": "Check every (seconds)",
+            "request_timeout_seconds": "Request timeout (seconds)",
+            "max_concurrent_requests": "Requests at the same time",
+            "memory_limit_mb": "Memory limit (MB)",
+            "cpu_limit_percent": "CPU warning level (%)",
+            "auto_restart": "Restart automatically",
+            "restart_after_failed_checks": "Restart after failed checks in a row",
+            "max_restarts_per_hour": "Automatic restarts per hour, at most",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        apply_bootstrap(self)
+
+    def full_clean(self):
+        super().full_clean()
+        mark_invalid(self)

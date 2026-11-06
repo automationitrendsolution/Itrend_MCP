@@ -1,0 +1,2 @@
+{% load mcp_tags %}{# A row's health: "health" is healthy / unhealthy / down / stopped / no_data / not_monitored. #}
+<span class="badge {% if health == 'stopped' %}text-bg-warning{% else %}{{ health|badge_class }}{% endif %}">{{ health|health_label }}</span>

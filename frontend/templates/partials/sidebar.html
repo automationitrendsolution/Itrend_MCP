@@ -48,7 +48,9 @@
       <a class="app-nav-link {% if current == 'frontend:permission-list' %}active{% endif %}" href="{% url 'frontend:permission-list' %}">
         <i class="bi bi-person-lock"></i>Permissions
       </a>
-      {% include "partials/nav_upcoming.html" with icon="bi-activity" label="Monitoring" phase=6 %}
+      <a class="app-nav-link {% if current == 'frontend:monitoring' or current == 'frontend:monitoring-detail' %}active{% endif %}" href="{% url 'frontend:monitoring' %}">
+        <i class="bi bi-activity"></i>Monitoring
+      </a>
       <a class="app-nav-link {% if current == 'frontend:activity-list' %}active{% endif %}" href="{% url 'frontend:activity-list' %}">
         <i class="bi bi-journal-text"></i>Activity Logs
       </a>

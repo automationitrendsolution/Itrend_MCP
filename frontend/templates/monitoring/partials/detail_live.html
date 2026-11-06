@@ -1,0 +1,78 @@
+{% load mcp_tags %}
+{% include "monitoring/partials/worker_warning.html" %}
+{% with last=row.last %}
+<div class="app-summary mb-3" aria-label="Current figures">
+  <div class="app-summary-item">
+    <div class="value">{% include "monitoring/partials/health_badge.html" with health=row.health %}</div>
+    <div class="label">{% if last %}Last check {{ last.checked_at|timesince }} ago{% else %}Health{% endif %}</div>
+  </div>
+  <div class="app-summary-item"><div class="value">{% if last.response_time_ms is not None and row.health != "stopped" %}{{ last.response_time_ms|floatformat:0 }} ms{% else %}–{% endif %}</div><div class="label">Check response time</div></div>
+  <div class="app-summary-item"><div class="value">{% if last.cpu_percent is not None and row.health != "stopped" %}{{ last.cpu_percent|floatformat:1 }} %{% else %}–{% endif %}</div><div class="label">CPU (whole server)</div></div>
+  <div class="app-summary-item"><div class="value">{% if last.memory_mb is not None and row.health != "stopped" %}{{ last.memory_mb|floatformat:0 }} MB{% else %}–{% endif %}</div><div class="label">RAM</div></div>
+  <div class="app-summary-item"><div class="value">{% if row.uptime_percent is not None %}{{ row.uptime_percent|floatformat:1 }} %{% else %}–{% endif %}</div><div class="label">Uptime · 24 h ({{ row.checks }} checks)</div></div>
+  <div class="app-summary-item"><div class="value">{{ row.traffic.requests }}</div><div class="label">Requests · 24 h{% if in_progress %} · {{ in_progress }} now{% endif %}</div></div>
+  <div class="app-summary-item"><div class="value {% if row.traffic.errors %}text-danger{% endif %}">{{ row.traffic.errors }}</div><div class="label">Failed · 24 h</div></div>
+  <div class="app-summary-item"><div class="value">{% if row.traffic.avg_response_ms is not None %}{{ row.traffic.avg_response_ms|floatformat:0 }} ms{% else %}–{% endif %}</div><div class="label">Average answer time · 24 h</div></div>
+  <div class="app-summary-item"><div class="value {% if row.auto_restarts %}text-warning-emphasis{% endif %}">{{ row.auto_restarts }}</div><div class="label">Automatic restarts · 24 h</div></div>
+</div>
+{% if last.error_message and row.health != "healthy" and row.health != "stopped" %}
+  <div class="alert alert-danger small"><i class="bi bi-x-octagon me-1"></i>{{ last.error_message }}</div>
+{% endif %}
+{% endwith %}
+
+<div class="row g-3">
+  <div class="col-xl-6">
+    <div class="card app-card h-100">
+      <div class="card-header">Recent checks</div>
+      <div class="table-responsive">
+        <table class="table app-table table-sm align-middle mb-0">
+          <thead><tr><th>Time</th><th>Result</th><th class="text-end">Response</th><th class="text-end">CPU</th><th class="text-end">RAM</th></tr></thead>
+          <tbody>
+            {% for check in checks %}
+              <tr>
+                <td class="small text-nowrap">{{ check.checked_at|time:"H:i:s" }} <span class="text-body-secondary">{{ check.checked_at|date:"j M" }}</span></td>
+                <td><span class="badge {{ check.status|badge_class }}" {% if check.error_message %}title="{{ check.error_message }}"{% endif %}>{{ check.status|health_label }}</span></td>
+                <td class="text-end small">{% if check.response_time_ms is not None %}{{ check.response_time_ms|floatformat:0 }} ms{% else %}–{% endif %}</td>
+                <td class="text-end small">{% if check.cpu_percent is not None %}{{ check.cpu_percent|floatformat:1 }} %{% else %}–{% endif %}</td>
+                <td class="text-end small">{% if check.memory_mb is not None %}{{ check.memory_mb|floatformat:0 }} MB{% else %}–{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="text-body-secondary small p-3">No checks yet.{% if server.is_local %} Checks start when the MCP is running and the monitor is started.{% else %} The platform does not run this MCP, so it does not check it.{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card app-card h-100">
+      <div class="card-header">Incidents</div>
+      {% include "monitoring/partials/events.html" with hide_mcp=True %}
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="card app-card">
+      <div class="card-header">Gateway traffic · last 24 hours</div>
+      <div class="table-responsive">
+        <table class="table app-table table-sm align-middle mb-0">
+          <thead><tr><th>Hour</th><th class="text-end">Requests</th><th class="text-end">Failed</th><th class="text-end">Refused (token)</th><th class="text-end">Average</th><th class="text-end">Slowest</th></tr></thead>
+          <tbody>
+            {% for hour in hours %}
+              <tr>
+                <td class="small">{{ hour.hour|time:"H:i" }} <span class="text-body-secondary">{{ hour.hour|date:"j M" }}</span></td>
+                <td class="text-end">{{ hour.requests }}</td>
+                <td class="text-end {% if hour.errors %}text-danger fw-semibold{% endif %}">{{ hour.errors }}</td>
+                <td class="text-end">{{ hour.denied }}</td>
+                <td class="text-end small">{% if hour.avg_ms is not None %}{{ hour.avg_ms|floatformat:0 }} ms{% else %}–{% endif %}</td>
+                <td class="text-end small">{{ hour.max_ms|floatformat:0 }} ms</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-body-secondary small p-3">No requests through the gateway in the last 24 hours.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer small text-body-secondary bg-white">Answer time is measured until the MCP starts answering. Only counts are stored, never request contents.</div>
+    </div>
+  </div>
+</div>

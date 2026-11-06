@@ -1,0 +1,64 @@
+{% load mcp_tags %}
+{% include "monitoring/partials/worker_warning.html" %}
+
+<div class="app-summary mb-3" aria-label="Overview">
+  <div class="app-summary-item"><div class="value">{{ counts.monitored }}</div><div class="label"><i class="bi bi-hdd-stack me-1"></i>Monitored MCPs</div></div>
+  <div class="app-summary-item"><div class="value text-success">{{ counts.healthy }}</div><div class="label"><i class="bi bi-heart-pulse me-1"></i>Healthy now</div></div>
+  <div class="app-summary-item"><div class="value {% if counts.problems %}text-danger{% endif %}">{{ counts.problems }}</div><div class="label"><i class="bi bi-exclamation-triangle me-1"></i>Down or not answering</div></div>
+  <div class="app-summary-item"><div class="value">{{ traffic.requests }}</div><div class="label"><i class="bi bi-arrow-left-right me-1"></i>Requests · 24 h</div></div>
+  <div class="app-summary-item"><div class="value {% if traffic.errors %}text-danger{% endif %}">{{ traffic.errors }}</div><div class="label"><i class="bi bi-bug me-1"></i>Failed requests · 24 h</div></div>
+</div>
+
+<div class="card app-card mb-3">
+  <div class="card-header">MCP servers</div>
+  <div class="table-responsive">
+    <table class="table app-table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>MCP</th><th>Health</th><th class="text-end">Response</th><th class="text-end">CPU</th><th class="text-end">RAM</th>
+          <th class="text-end">Uptime · 24 h</th><th class="text-end">Requests · 24 h</th><th class="text-end">Failed · 24 h</th><th class="text-end">Auto-restarts · 24 h</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          {% with last=row.last server=row.server %}
+          <tr>
+            <td>
+              <a href="{% url 'frontend:monitoring-detail' server.pk %}" class="fw-semibold text-decoration-none">{{ server.name }}</a>
+              <div class="small text-body-secondary"><code>{{ server.slug }}</code></div>
+            </td>
+            <td>
+              {% include "monitoring/partials/health_badge.html" with health=row.health %}
+              {% if last and row.health != "stopped" and row.health != "not_monitored" %}
+                <div class="small text-body-secondary">checked {{ last.checked_at|timesince }} ago</div>
+              {% endif %}
+            </td>
+            {% if row.health == "stopped" or row.health == "not_monitored" or not last %}
+              <td class="text-end text-body-secondary">–</td><td class="text-end text-body-secondary">–</td><td class="text-end text-body-secondary">–</td>
+            {% else %}
+              <td class="text-end">{% if last.response_time_ms is not None %}{{ last.response_time_ms|floatformat:0 }} ms{% else %}–{% endif %}</td>
+              <td class="text-end">{% if last.cpu_percent is not None %}{{ last.cpu_percent|floatformat:1 }} %{% else %}–{% endif %}</td>
+              <td class="text-end">{% if last.memory_mb is not None %}{{ last.memory_mb|floatformat:0 }} MB{% else %}–{% endif %}</td>
+            {% endif %}
+            <td class="text-end">{% if row.uptime_percent is not None %}{{ row.uptime_percent|floatformat:1 }} %{% else %}–{% endif %}</td>
+            <td class="text-end">{{ row.traffic.requests }}</td>
+            <td class="text-end {% if row.traffic.errors %}text-danger fw-semibold{% endif %}">{{ row.traffic.errors }}</td>
+            <td class="text-end {% if row.auto_restarts %}text-warning-emphasis fw-semibold{% endif %}">{{ row.auto_restarts }}</td>
+          </tr>
+          {% endwith %}
+        {% empty %}
+          <tr><td colspan="9"><div class="app-empty"><i class="bi bi-hdd-stack"></i><p class="mb-0">No MCP servers yet.</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-body-secondary bg-white">
+    CPU is the share of the whole server. A dash means it was not measured: the MCP is stopped, was started outside the platform, or has only been sampled once.
+    Uptime is the share of checks that passed.
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="card-header">Recent incidents</div>
+  {% include "monitoring/partials/events.html" %}
+</div>

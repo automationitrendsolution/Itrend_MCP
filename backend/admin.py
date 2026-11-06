@@ -1,6 +1,17 @@
 from django.contrib import admin
 
-from .models import AccessToken, MCPActivityLog, MCPDeployment, MCPPermission, MCPServer, ServiceAccount
+from .models import (
+    AccessToken,
+    MCPActivityLog,
+    MCPDeployment,
+    MCPHealthCheck,
+    MCPMonitorEvent,
+    MCPMonitorSettings,
+    MCPPermission,
+    MCPRequestStat,
+    MCPServer,
+    ServiceAccount,
+)
 
 
 class MCPDeploymentInline(admin.TabularInline):
@@ -92,3 +103,46 @@ class MCPActivityLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# ---------------------------------------------------------------------------
+# Monitoring (Phase 6). Measurements are written by the monitor worker and the
+# gateway, so they can be looked at here but not edited.
+# ---------------------------------------------------------------------------
+
+
+class ReadOnlyAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(MCPHealthCheck)
+class MCPHealthCheckAdmin(ReadOnlyAdmin):
+    list_display = ("checked_at", "mcp_server", "status", "response_time_ms", "cpu_percent", "memory_mb", "error_message")
+    list_filter = ("status", "mcp_server")
+    date_hierarchy = "checked_at"
+
+
+@admin.register(MCPRequestStat)
+class MCPRequestStatAdmin(ReadOnlyAdmin):
+    list_display = ("bucket_start", "mcp_server", "request_count", "error_count", "denied_count", "max_response_ms")
+    list_filter = ("mcp_server",)
+    date_hierarchy = "bucket_start"
+
+
+@admin.register(MCPMonitorEvent)
+class MCPMonitorEventAdmin(ReadOnlyAdmin):
+    list_display = ("created_at", "mcp_server", "kind", "level", "message")
+    list_filter = ("kind", "level", "mcp_server")
+    date_hierarchy = "created_at"
+
+
+@admin.register(MCPMonitorSettings)
+class MCPMonitorSettingsAdmin(admin.ModelAdmin):
+    """Usually changed on the website's Monitoring page, which also records the change in the activity log."""
+
+    list_display = ("mcp_server", "auto_restart", "memory_limit_mb", "cpu_limit_percent", "max_concurrent_requests", "updated_at")
+    readonly_fields = ("updated_by", "updated_at")

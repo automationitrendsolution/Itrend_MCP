@@ -1,9 +1,11 @@
 import hmac
+import time
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpRequest, JsonResponse, StreamingHttpResponse
 from django.http.response import HttpResponseBase
+from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import NotAuthenticated, PermissionDenied
@@ -13,7 +15,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .permissions import IsAdministrator, MCPServerPermission
+from .models import MCPServer
+from .permissions import IsAdministrator, MCPServerPermission, can_manage_mcps
 from .serializers import (
     AccessTokenCreateSerializer,
     AccessTokenSerializer,
@@ -21,7 +24,7 @@ from .serializers import (
     MCPServerSerializer,
     UserSerializer,
 )
-from .services import gateway, registry, tokens
+from .services import gateway, monitoring, registry, tokens, traffic
 from .services.health import check_platform
 
 
@@ -185,24 +188,84 @@ def _gateway_error(error: gateway.GatewayError) -> JsonResponse:
 @csrf_exempt  # MCP clients authenticate with a bearer token, not a session cookie
 def mcp_gateway(request: HttpRequest, slug: str, rest: str | None = None) -> HttpResponseBase:
     """Check the caller's token, then pass the request to the MCP and stream its answer back."""
+    started = time.perf_counter()
+    server = None
     try:
         server = gateway.find_server(slug)
         identity = gateway.authorize(server, request.headers.get("Authorization", ""))
-        upstream = gateway.forward(
-            server,
-            method=request.method,
-            rest=rest or "",
-            query=request.META.get("QUERY_STRING", ""),
-            headers={name.lower(): value for name, value in request.headers.items()},
-            body=request.body,
-            identity=identity,
-            scheme=request.scheme,
-        )
+        # Phase 6: per-MCP limits (backend/services/traffic.py).
+        limits = traffic.limits_for(server)
+        slot = traffic.acquire(server, limits)
+        try:
+            upstream = gateway.forward(
+                server,
+                method=request.method,
+                rest=rest or "",
+                query=request.META.get("QUERY_STRING", ""),
+                headers={name.lower(): value for name, value in request.headers.items()},
+                body=request.body,
+                identity=identity,
+                scheme=request.scheme,
+                timeout=limits.request_timeout_seconds,
+            )
+        except BaseException:
+            slot.release()
+            raise
     except gateway.GatewayError as error:
+        if server is not None:  # unknown slugs are not counted
+            traffic.record(server, error.status, (time.perf_counter() - started) * 1000)
         return _gateway_error(error)
 
-    response = StreamingHttpResponse(upstream.body, status=upstream.status)
+    # Response time = until the MCP starts answering (a stream may stay open much longer).
+    traffic.record(server, upstream.status, (time.perf_counter() - started) * 1000)
+    response = StreamingHttpResponse(traffic.ReleasingStream(upstream.body, slot), status=upstream.status)
     for name, value in upstream.headers.items():
         response[name] = value
     response["X-Accel-Buffering"] = "no"  # let Server-Sent Events through Nginx immediately
     return response
+
+
+# ---------------------------------------------------------------------------
+# Monitoring (Phase 6)
+# ---------------------------------------------------------------------------
+
+
+class MCPHealthView(APIView):
+    """
+    GET /api/v1/mcps/<id>/health/
+
+    The latest real health check of an MCP you can see, plus its last 24 hours:
+    uptime, automatic restarts and gateway traffic. CPU/RAM and the error text
+    of the last check are shown to administrators only. MCPs you cannot see
+    answer 404, the same as MCPs that do not exist.
+    """
+
+    def get(self, request: Request, pk: int) -> Response:
+        server =get_object_or_404(MCPServer.objects.visible_to(request.user), pk=pk)
+        data = monitoring.summary(server)
+        last = data["last"]
+        is_admin = can_manage_mcps(request.user)
+        check = None
+        if last is not None:
+            check = {
+                "status": last.status,
+                "checked_at": last.checked_at,
+                "response_time_ms": last.response_time_ms,
+            }
+            if is_admin:
+                check.update(error=last.error_message, cpu_percent=last.cpu_percent, memory_mb=last.memory_mb)
+        return Response(
+            {
+                "id": server.pk,
+                "slug": server.slug,
+                "status": server.status,
+                "monitored": server.is_local,
+                "last_check": check,
+                "last_24h": {
+                    "checks": data["checks"],
+                    "uptime_percent": data["uptime_percent"],
+                    "auto_restarts": data["auto_restarts"],
+                    **data["traffic"],
+                },
+            }
+        )

@@ -12,6 +12,7 @@ from .access import (
     ServiceAccount,
 )
 from .activity import MCPActivityLog
+from .monitoring import MCPHealthCheck, MCPMonitorEvent, MCPMonitorSettings, MCPRequestStat
 from .registry import MCPDeployment, MCPServer, MCPServerQuerySet
 
 __all__ = [
@@ -19,6 +20,10 @@ __all__ = [
     "AccessToken",
     "MCPActivityLog",
     "MCPDeployment",
+    "MCPHealthCheck",
+    "MCPMonitorEvent",
+    "MCPMonitorSettings",
+    "MCPRequestStat",
     "MCPPermission",
     "MCPServer",
     "MCPServerQuerySet",

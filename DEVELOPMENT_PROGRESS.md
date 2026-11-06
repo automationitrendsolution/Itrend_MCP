@@ -7,8 +7,135 @@
 | 3 | First remote MCP | ✅ Complete (2026-11-05) as a local process; container and Nginx deferred |
 | 4 | Authentication and permissions | ✅ Complete (2026-11-06) |
 | 5 | Deployment manager | 🟡 Part 1 complete (2026-11-06): your own MCPs from code, start/stop as local processes. ZIP/GitHub/Docker on hold |
-| 6 | Monitoring | Not started |
+| 6 | Monitoring | ✅ Complete (2026-11-06) for MCPs run by the platform; hard CPU/RAM limits need containers |
 | 7 | Production deployment | Not started |
+
+---
+
+## Phase 6 – Monitoring
+
+### What was developed
+- **Monitor worker** `manage.py monitor_mcps` (separate program next to the
+  website; `--once` checks everything once). Each MCP is checked at its own
+  interval (default 30 s). A failure in one MCP never stops the others or the website.
+- **Real MCP health check**: `GET /health` must answer 200 **and** an MCP
+  `initialize` message to the MCP address must get an MCP answer (200, or 401
+  with a `Bearer` challenge). A session opened by the check is closed again.
+  A process that is alive but does not answer like an MCP is *Not answering*.
+- **CPU and RAM** of the MCP's whole process tree (`uv run` + Python), measured
+  with `psutil`. Not measured = shown as "–", never as 0.
+- **Incidents** (recorded on change only): stopped unexpectedly, stopped
+  answering, recovered, restarted automatically, restart failed, restarts
+  paused, over memory limit, over CPU level.
+- **Safe automatic restarts**: after a crash, after N failed checks in a row
+  (default 3) or after two checks over the memory limit. Never for an MCP an
+  administrator stopped or one started in a terminal. At most 3 per hour
+  (configurable), then one "restarts paused" alert. Restarts appear in the
+  activity log as done by "The platform".
+- **Gateway traffic**: every answer is counted per MCP in 5-minute buckets:
+  requests, failed (5xx/429), refused (401/403), average and slowest answer.
+  Only numbers are stored.
+- **Per-MCP limits** (Monitoring → MCP → *Limits and automatic restarts*):
+  check interval, request timeout, requests at the same time (more get 429
+  "busy"), memory limit, CPU warning level, automatic restart rules. Changes
+  are written to the activity log.
+- **Pages** (administrators): `/monitoring/`, with a summary, a table of every
+  MCP (health, response, CPU, RAM, 24-hour uptime, requests, failures,
+  restarts) and recent incidents, refreshed every 10 s. `/monitoring/<id>/`
+  shows the figures, recent checks, incidents, hourly traffic and the settings.
+  A warning appears when the monitor is not running. The sidebar's
+  *Monitoring* entry is now active.
+- **API** `GET /api/v1/mcps/<id>/health/`: latest check and last 24 hours for
+  MCPs you can see (404 otherwise); CPU/RAM and error text for administrators only.
+- Old monitoring data is deleted after 14 days.
+
+### Existing code: what was touched
+Only additions; no existing behaviour changed.
+- `backend/services/gateway.py`: `forward()` got an optional `timeout`
+  argument (left out = the old 600 s).
+- `backend/views.py`: the gateway view now takes a slot, passes the MCP's
+  timeout, and counts the answer (4 small additions); new `MCPHealthView` at the end.
+- `backend/urls.py`, `frontend/urls.py`: new routes added.
+- `frontend/views.py`, `frontend/forms.py`, `backend/admin.py`,
+  `frontend/templatetags/mcp_tags.py`: new code appended; imports extended.
+- `backend/models/__init__.py`: exports the new models.
+- `config/settings.py`: three new settings.
+- `partials/sidebar.html`: the greyed-out *Monitoring (Phase 6)* entry became a link.
+- New default: at most **20 requests at the same time per MCP** through the
+  gateway (before: unlimited). Changeable per MCP.
+
+### Files created
+- `backend/models/monitoring.py`, `backend/services/monitoring.py`,
+  `backend/services/traffic.py`, `backend/management/commands/monitor_mcps.py`
+- `backend/migrations/0004_monitoring.py`
+- Templates: `monitoring/index.html`, `monitoring/detail.html`,
+  `monitoring/partials/{overview_live,detail_live,events,health_badge,worker_warning}.html`
+- `tests/test_monitoring.py`, `CHANGELOG.md`
+
+### Files modified
+See "Existing code" above, plus `.env.example`, `README.md`, `ARCHITECTURE.md`,
+`DEVELOPMENT_PROGRESS.md`.
+
+### Dependencies
+None added (`psutil` and `httpx` were already installed).
+
+### Database changes
+Migration `backend.0004_monitoring`, applied to the local `itrend_mcp` database.
+New tables only:
+- `backend_mcphealthcheck`: indexes on MCP + time and on time.
+- `backend_mcprequeststat`: unique per MCP + 5-minute bucket.
+- `backend_mcpmonitorevent`: indexes on MCP + time and kind + time.
+- `backend_mcpmonitorsettings`: one row per MCP, only when settings were saved.
+
+### Tests executed
+- `uv run python manage.py check`: no issues. `makemigrations --check`: no changes.
+- `uv run python manage.py test`: **250 tests, all passing**. The 209 existing
+  tests pass unchanged, and 41 are new in `tests/test_monitoring.py`.
+  The new tests start real processes and really crash, restart and stop them.
+- MySQL MCP: `uv run pytest`: **71 passed** (unchanged; run after the folder move).
+- Live, against the real MySQL MCP and the real database (test rows and a
+  temporary service account removed afterwards):
+  - check → *Healthy*, 73 ms, CPU 0.7 %, RAM 114 MB; `/monitoring/`,
+    `/monitoring/<id>/` and the health API returned 200 with these figures;
+  - checked while the MCP was still starting → correctly *Not answering*;
+  - through the running website: real token → `initialize` 200 with a session,
+    `tools/list` 200 (`list_tables`, `describe_table`, `run_query`), bad token
+    401; all 5 answers counted (1 refused, average 124 ms).
+- Pages have not been checked visually in a browser.
+
+| Brief requirement (section 15) | Covered by |
+|---|---|
+| Running status, container/process health | `CheckTests`, live check |
+| CPU and RAM | `test_running_mcp_is_healthy_with_cpu_and_memory`, live check |
+| Request count, failed requests, response time | `TrafficCountTests`, `GatewayTrafficTests`, live gateway run |
+| Restart count | `test_crash_is_reported_once_and_restarted`, overview page |
+| Configurable CPU/memory limits, timeouts, concurrency, check interval | `test_memory_limit…`, `test_cpu_limit…`, `test_request_timeout…`, `test_too_many_requests…`, `test_run_once_respects_each_interval`, `test_detail_and_settings` |
+| A failed MCP does not crash Django or stop other MCPs | `test_one_failing_mcp_does_not_stop_the_others`, `test_counting_problems_never_break_a_request` |
+| Safe restart behaviour | `test_restarts_pause_after_the_hourly_limit`, `test_mcp_stopped_by_an_administrator…`, `test_…started_outside_the_platform…`, `test_no_restart_when_switched_off` |
+| Healthy only after a real MCP endpoint check | `ProbeTests` (`test_a_running_process_that_does_not_speak_mcp_is_unhealthy`) |
+| `GET /api/v1/mcps/{id}/health/` | `HealthApiTests` |
+
+### Commands
+```powershell
+uv run python manage.py migrate
+uv run python manage.py runserver          # terminal 1: the website
+uv run python manage.py monitor_mcps       # terminal 2: the monitor
+uv run python manage.py monitor_mcps --once   # optional: one round, printed
+```
+
+### Known limitations
+- No hard CPU/RAM limits without containers. Memory over the limit restarts
+  the MCP; CPU over its level only warns.
+- Automatic restarts work only while the monitor runs, and nothing starts the
+  website, the monitor or MCPs after a reboot (Phase 7: run them as services).
+- The concurrent-request count is per website process (shared cache in Phase 7).
+- MCPs registered only by URL (none exist now) are not health-checked; that
+  needs the SSRF-safe external registration from Phase 5 part 2.
+- No charts yet. Figures are shown as numbers and tables.
+
+### Next
+Phase 7 (production deployment), or Phase 5 part 2 (ZIP/GitHub/existing URL).
+Before Phase 7, decide on Docker and PostgreSQL (see the review of the brief).
 
 ---
 

@@ -175,6 +175,14 @@ MCP_LOG_DIR = Path(env_str("MCP_LOG_DIR", default=str(BASE_DIR / "var" / "mcp_lo
 # "manage.py sync_mcps" or the Rescan button.
 MCP_DISCOVERY_INTERVAL = int(env_str("MCP_DISCOVERY_INTERVAL", default="0" if TESTING else "30"))
 
+# Monitoring (Phase 6): the monitor worker, "manage.py monitor_mcps", wakes up this
+# often (seconds) and checks every MCP whose own check interval has passed.
+MONITOR_TICK_SECONDS = int(env_str("MONITOR_TICK_SECONDS", default="5"))
+# Health checks, traffic counts and monitoring events older than this are deleted.
+MONITORING_RETENTION_DAYS = int(env_str("MONITORING_RETENTION_DAYS", default="14"))
+# The worker touches this file on every round, so the website can tell whether it runs.
+MONITOR_HEARTBEAT_FILE = Path(env_str("MONITOR_HEARTBEAT_FILE", default=str(BASE_DIR / "var" / "monitor.heartbeat")))
+
 
 # ---------------------------------------------------------------------------
 # Authentication

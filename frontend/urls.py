@@ -40,4 +40,7 @@ urlpatterns = [
     path("users/<int:user_pk>/tokens/add/", views.token_create, name="user-token-create"),
     # Activity log
     path("activity/", views.activity_list, name="activity-list"),
+    # Monitoring
+    path("monitoring/", views.monitoring_overview, name="monitoring"),
+    path("monitoring/<int:pk>/", views.monitoring_detail, name="monitoring-detail"),
 ]

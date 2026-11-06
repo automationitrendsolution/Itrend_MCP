@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ server.name }} · Monitoring{% endblock %}
+{% block page_title %}Monitoring{% endblock %}
+
+{% block content %}
+<div class="app-mcp-header">
+  <div class="me-auto" style="min-width: 0">
+    <a href="{% url 'frontend:monitoring' %}" class="small text-decoration-none"><i class="bi bi-arrow-left me-1"></i>All MCPs</a>
+    <h2 class="text-truncate mt-1">{{ server.name }}</h2>
+    <div class="small text-body-secondary mt-1"><code>{{ server.slug }}</code><span class="mx-1">·</span>{{ server.get_deployment_type_display }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'frontend:mcp-detail' server.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-hdd-stack me-1"></i>MCP page</a>
+    <a href="{% url 'frontend:mcp-logs' server.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-terminal me-1"></i>Logs</a>
+  </div>
+</div>
+
+{# Live figures, refreshed every 10 seconds. The settings form below is not refreshed, so typing is never lost. #}
+<div hx-get="{% url 'frontend:monitoring-detail' server.pk %}" hx-trigger="every 10s" hx-swap="innerHTML">
+  {% include "monitoring/partials/detail_live.html" %}
+</div>
+
+<div class="card app-card mt-3" id="limits">
+  <div class="card-header">Limits and automatic restarts</div>
+  <div class="card-body">
+    {% if not server.is_local %}
+      <p class="text-body-secondary small">This MCP is not run by the platform, so only the gateway limits (timeout, requests at the same time) apply to it.</p>
+    {% endif %}
+    <form method="post" action="{% url 'frontend:monitoring-detail' server.pk %}" novalidate>
+      {% csrf_token %}
+      {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+      <div class="row g-3">
+        {% for field in form %}
+          {% if field.name == "auto_restart" %}
+            <div class="col-12">
+              <div class="form-check form-switch">
+                {{ field }}
+                <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <div class="form-text">{{ field.help_text }}</div>
+              </div>
+            </div>
+          {% else %}
+            <div class="col-md-6 col-xl-4">{% include "partials/form_field.html" %}</div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="form-text mt-3">
+        Enforced now: request timeout and requests at the same time (by the gateway); automatic restarts and the memory limit (by the monitor).
+        The CPU level only raises a warning. Hard operating-system limits come with containers.
+      </div>
+      <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1"></i>Save settings</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

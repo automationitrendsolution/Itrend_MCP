@@ -48,6 +48,8 @@ so it can never be used in production by accident.
 | Task | Command |
 |---|---|
 | Run the dev server | `uv run python manage.py runserver` |
+| Run the MCP monitor (second terminal) | `uv run python manage.py monitor_mcps` |
+| Check every MCP once | `uv run python manage.py monitor_mcps --once` |
 | Run all tests | `uv run python manage.py test` |
 | Check configuration | `uv run python manage.py check` |
 | Production settings check | `$env:DJANGO_DEBUG="False"; uv run python manage.py check --deploy` |
@@ -67,6 +69,8 @@ so it can never be used in production by accident.
 | `/users/` | Users and service accounts (administrators) |
 | `/permissions/` | All MCP permissions (administrators) |
 | `/activity/` | Activity log as a readable timeline (administrators) |
+| `/monitoring/` | Health, CPU/RAM, traffic and incidents of every MCP; per-MCP limits and automatic restarts (administrators) |
+| `/api/v1/mcps/<id>/health/` | Latest health check and last 24 hours of one MCP you can see |
 | `/api/v1/mcps/` | MCP registry REST API, read-only (login required) |
 | `/api/v1/tokens/` | Your tokens: list, create (`POST`), revoke (`DELETE /api/v1/tokens/<id>/`) |
 | `/api/v1/users/` | User list (administrators) |
@@ -82,6 +86,21 @@ platform finds it automatically. Step by step: [mcp_servers/README.md](mcp_serve
 ```powershell
 uv run python manage.py sync_mcps   # optional: register new folders right now
 ```
+
+## Monitoring
+
+The website shows what the **monitor** measured. The monitor is a separate
+program; run it next to the website:
+
+```powershell
+uv run python manage.py monitor_mcps
+```
+
+It really talks to each running MCP (not just "is the process alive"), measures
+its CPU and RAM, records incidents, and restarts MCPs that crashed or stopped
+answering, at most 3 times an hour by default. MCPs stopped by an administrator,
+or started in a terminal, are never restarted. Without it, the Monitoring page
+shows a warning and no new checks are made. Details: [ARCHITECTURE.md](ARCHITECTURE.md#phase-6--monitoring).
 
 ## Project layout
 
