@@ -1,0 +1,9 @@
+{
+  "name": "MySQL MCP",
+  "description": "Read-only access to the mcp_demo MySQL database: list tables, describe them and run SELECT queries.",
+  "command": ["uv", "run", "mysql-mcp"],
+  "port": 8101,
+  "mcp_path": "/mcp",
+  "health_path": "/health",
+  "manual": "README.md"
+}

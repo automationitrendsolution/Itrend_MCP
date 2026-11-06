@@ -72,6 +72,35 @@ ORDERS = [
 ]
 
 
+def _append(path: Path, lines: list[str]) -> None:
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    if text and not text.endswith("\n"):
+        text += "\n"
+    path.write_text(text + "\n".join(lines) + "\n", encoding="utf-8")
+
+
+def ensure_introspection_key() -> None:
+    """
+    The MCP asks the platform to check tokens, using a shared secret that must
+    be the same in both .env files. Create it once and copy it to whichever
+    file lacks it. The value is never printed.
+    """
+    platform_key = dotenv_values(PLATFORM_ENV).get("MCP_INTROSPECTION_KEY") or ""
+    mcp_key = dotenv_values(MCP_ENV).get("MCP_INTROSPECTION_KEY") or ""
+    if platform_key and mcp_key:
+        status = "match" if platform_key == mcp_key else "DO NOT MATCH - make them equal"
+        print(f"MCP_INTROSPECTION_KEY is set in both .env files ({status}).")
+        return
+    key = platform_key or mcp_key or secrets.token_urlsafe(32)
+    comment = "# Shared secret between the platform and its MCP servers for checking tokens."
+    if not platform_key:
+        _append(PLATFORM_ENV, ["", comment, f"MCP_INTROSPECTION_KEY={key}"])
+        print(f"Added MCP_INTROSPECTION_KEY to {PLATFORM_ENV} (restart the website).")
+    if not mcp_key:
+        _append(MCP_ENV, ["", comment, f"MCP_INTROSPECTION_KEY={key}"])
+        print(f"Added MCP_INTROSPECTION_KEY to {MCP_ENV}")
+
+
 def main() -> None:
     admin = dotenv_values(PLATFORM_ENV)
     existing = dotenv_values(MCP_ENV) if MCP_ENV.exists() else {}
@@ -115,8 +144,9 @@ def main() -> None:
                     f"MYSQL_USER={READONLY_USER}",
                     f"MYSQL_PASSWORD={password}",
                     "",
-                    "# Clients must send: Authorization: Bearer <MCP_API_KEY>",
-                    f"MCP_API_KEY={secrets.token_urlsafe(32)}",
+                    "# This MCP's slug on the platform, and where the platform runs.",
+                    "MCP_SLUG=mysql",
+                    "MCP_PLATFORM_URL=http://127.0.0.1:8000",
                     "MCP_HOST=127.0.0.1",
                     "MCP_PORT=8101",
                     "",
@@ -127,6 +157,7 @@ def main() -> None:
         print(f"Wrote {MCP_ENV}")
     else:
         print(f"Kept existing {MCP_ENV}")
+    ensure_introspection_key()
 
     print(f"Database '{DATABASE}' ready. Grants for {READONLY_USER}:")
     for grant in grants:

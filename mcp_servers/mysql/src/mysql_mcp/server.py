@@ -2,12 +2,14 @@
 Read-only MySQL MCP server, served over Streamable HTTP.
 
 Run:  uv run mysql-mcp
-URL:  http://127.0.0.1:8101/mcp  (send "Authorization: Bearer <MCP_API_KEY>")
+URL:  http://127.0.0.1:8101/mcp  (send "Authorization: Bearer <token from the iTrend MCP Platform>")
 """
 
 import logging
 import re
 from typing import Any
+
+from mcp.server.auth.provider import TokenVerifier
 
 import anyio
 import uvicorn
@@ -21,7 +23,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from .auth import READ_SCOPE, StaticKeyVerifier
+from .auth import READ_SCOPE, PlatformTokenVerifier
 from .config import Settings, load_settings
 from .db import Database, DatabaseUnavailableError, MySQLDatabase, QueryError
 from .sql_guard import UnsafeQueryError, check_read_only
@@ -61,21 +63,32 @@ async def _run(database: Database, sql: str, params: tuple | None = None, max_ro
     return QueryOutput(**result.as_dict())
 
 
-def build_server(settings: Settings, database: Database | None = None) -> MCPServer:
+def build_verifier(settings: Settings) -> PlatformTokenVerifier:
+    return PlatformTokenVerifier(
+        platform_url=settings.platform_url,
+        introspection_key=settings.introspection_key,
+        mcp_slug=settings.mcp_slug,
+        resource_url=settings.public_url,
+        cache_seconds=settings.token_cache_seconds,
+    )
+
+
+def build_server(
+    settings: Settings, database: Database | None = None, token_verifier: TokenVerifier | None = None
+) -> MCPServer:
     database = database or MySQLDatabase(settings.database)
 
     server = MCPServer(
         name="iTrend MySQL MCP",
         instructions=INSTRUCTIONS,
-        version="0.1.0",
-        token_verifier=StaticKeyVerifier(settings.api_key),
+        version="0.2.0",
+        token_verifier=token_verifier or build_verifier(settings),
         auth=AuthSettings(
             issuer_url=settings.platform_url,
             resource_server_url=settings.public_url,
             required_scopes=[READ_SCOPE],
-            # The Phase 3 static key is not issued for a specific resource. Phase 4's
-            # per-MCP platform tokens will carry one, and this becomes True.
-            validate_token_resource=False,
+            # Refuse tokens that were not issued for this server.
+            validate_token_resource=True,
         ),
     )
 
@@ -133,8 +146,10 @@ def build_server(settings: Settings, database: Database | None = None) -> MCPSer
     return server
 
 
-def build_app(settings: Settings, database: Database | None = None) -> Starlette:
-    server = build_server(settings, database)
+def build_app(
+    settings: Settings, database: Database | None = None, token_verifier: TokenVerifier | None = None
+) -> Starlette:
+    server = build_server(settings, database, token_verifier)
     return server.streamable_http_app(
         host=settings.host,
         # Rejects requests whose Host header is not expected (DNS-rebinding protection).
@@ -150,7 +165,10 @@ def build_app(settings: Settings, database: Database | None = None) -> Starlette
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = load_settings()
-    logger.info("Starting MySQL MCP on http://%s:%s/mcp (database %s)", settings.host, settings.port, settings.database.database)
+    logger.info(
+        "Starting MySQL MCP '%s' on http://%s:%s/mcp (database %s, tokens checked by %s)",
+        settings.mcp_slug, settings.host, settings.port, settings.database.database, settings.platform_url,
+    )
     uvicorn.run(build_app(settings), host=settings.host, port=settings.port, log_level="info")
 
 

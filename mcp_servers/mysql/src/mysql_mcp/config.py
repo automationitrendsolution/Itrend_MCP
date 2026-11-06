@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 
-MIN_API_KEY_LENGTH = 32
+MIN_KEY_LENGTH = 32
 
 
 class ConfigError(Exception):
@@ -41,20 +41,24 @@ class DatabaseSettings:
 @dataclass(frozen=True)
 class Settings:
     database: DatabaseSettings
-    api_key: str = field(repr=False)
+    # Shared secret this server sends when asking the platform to check a token.
+    introspection_key: str = field(repr=False)
+    # This MCP's slug in the platform registry. Tokens are issued per slug.
+    mcp_slug: str = "mysql"
     host: str = "127.0.0.1"
     port: int = 8101
     public_url: str = "http://127.0.0.1:8101/mcp"
     platform_url: str = "http://127.0.0.1:8000"
     allowed_hosts: tuple[str, ...] = ()
+    token_cache_seconds: float = 30
 
 
 def load_settings() -> Settings:
     load_dotenv(PROJECT_DIR / ".env")
 
-    api_key = _required("MCP_API_KEY")
-    if len(api_key) < MIN_API_KEY_LENGTH:
-        raise ConfigError(f"MCP_API_KEY must be at least {MIN_API_KEY_LENGTH} characters.")
+    introspection_key = _required("MCP_INTROSPECTION_KEY")
+    if len(introspection_key) < MIN_KEY_LENGTH:
+        raise ConfigError(f"MCP_INTROSPECTION_KEY must be at least {MIN_KEY_LENGTH} characters.")
 
     database = DatabaseSettings(
         host=os.getenv("MYSQL_HOST", "localhost"),
@@ -69,10 +73,12 @@ def load_settings() -> Settings:
     port = int(os.getenv("MCP_PORT", "8101"))
     return Settings(
         database=database,
-        api_key=api_key,
+        introspection_key=introspection_key,
+        mcp_slug=os.getenv("MCP_SLUG", "mysql"),
         host=host,
         port=port,
         public_url=os.getenv("MCP_PUBLIC_URL", f"http://{host}:{port}/mcp"),
         platform_url=os.getenv("MCP_PLATFORM_URL", "http://127.0.0.1:8000"),
-        allowed_hosts=tuple(_list("MCP_ALLOWED_HOSTS", f"127.0.0.1:*,localhost:*")),
+        allowed_hosts=tuple(_list("MCP_ALLOWED_HOSTS", "127.0.0.1:*,localhost:*")),
+        token_cache_seconds=float(os.getenv("MCP_TOKEN_CACHE_SECONDS", "30")),
     )

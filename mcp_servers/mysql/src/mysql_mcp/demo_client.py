@@ -1,6 +1,10 @@
 """
 Try the running MCP server with the official MCP client.
 
+Generate a token for the MySQL MCP on the platform website (Access Tokens),
+put it in the MCP_TOKEN environment variable, then run:
+
+    $env:MCP_TOKEN = "itmcp_..."        # PowerShell
     uv run python -m mysql_mcp.demo_client
     uv run python -m mysql_mcp.demo_client "SELECT * FROM customers LIMIT 3"
 """
@@ -21,7 +25,10 @@ from .config import PROJECT_DIR
 async def run(sql: str | None) -> None:
     load_dotenv(PROJECT_DIR / ".env")
     url = os.getenv("MCP_PUBLIC_URL", f"http://127.0.0.1:{os.getenv('MCP_PORT', '8101')}/mcp")
-    http = create_mcp_http_client(headers={"Authorization": f"Bearer {os.environ['MCP_API_KEY']}"})
+    token = os.getenv("MCP_TOKEN", "").strip()
+    if not token:
+        sys.exit("Set MCP_TOKEN to a token generated on the platform website (Access Tokens → Generate token).")
+    http = create_mcp_http_client(headers={"Authorization": f"Bearer {token}"})
 
     async with http, Client(streamable_http_client(url, http_client=http)) as client:
         name = client.server_info.name if client.server_info else "MCP server"

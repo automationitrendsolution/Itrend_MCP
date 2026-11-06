@@ -6,7 +6,7 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
 
-from .conftest import API_KEY
+from .conftest import VALID_TOKEN
 
 MCP_HEADERS = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
 INITIALIZE = {
@@ -54,22 +54,22 @@ def test_request_without_token_is_rejected(live_server, fake_db):
 
 def test_request_with_wrong_token_is_rejected(live_server):
     assert post(f"{live_server}/mcp", token="wrong").status_code == 401
-    assert post(f"{live_server}/mcp", token=API_KEY + "x").status_code == 401
+    assert post(f"{live_server}/mcp", token=VALID_TOKEN + "x").status_code == 401
 
 
 def test_token_in_query_string_is_not_accepted(live_server):
-    response = httpx2.post(f"{live_server}/mcp?access_token={API_KEY}", headers=MCP_HEADERS, json=INITIALIZE)
+    response = httpx2.post(f"{live_server}/mcp?access_token={VALID_TOKEN}", headers=MCP_HEADERS, json=INITIALIZE)
     assert response.status_code == 401
 
 
 def test_unexpected_host_header_is_rejected(live_server):
     """DNS-rebinding protection: only expected Host headers are served."""
-    assert post(f"{live_server}/mcp", token=API_KEY, host="evil.example.com").status_code in (400, 403, 421)
+    assert post(f"{live_server}/mcp", token=VALID_TOKEN, host="evil.example.com").status_code in (400, 403, 421)
 
 
 def test_initialize_streams_and_creates_session(live_server):
     """Streamable HTTP: the reply is an SSE stream and carries an Mcp-Session-Id header."""
-    headers = {**MCP_HEADERS, "Authorization": f"Bearer {API_KEY}"}
+    headers = {**MCP_HEADERS, "Authorization": f"Bearer {VALID_TOKEN}"}
     with httpx2.stream("POST", f"{live_server}/mcp", headers=headers, json=INITIALIZE, timeout=10) as response:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -82,6 +82,29 @@ def test_initialize_streams_and_creates_session(live_server):
 @pytest.mark.parametrize("mode", ["auto", "legacy"])
 async def test_official_client_end_to_end(live_server, mode):
     """Both current and older (initialize-handshake) MCP clients can connect and call tools."""
-    tools, result = await _call(f"{live_server}/mcp", API_KEY, mode=mode)
+    tools, result = await _call(f"{live_server}/mcp", VALID_TOKEN, mode=mode)
     assert {tool.name for tool in tools.tools} == {"list_tables", "describe_table", "run_query"}
     assert result.structured_content["rows"] == [{"n": 1}]
+
+
+def test_token_rejected_by_platform_is_refused(live_server, platform, fake_db):
+    """Revoked, expired or no-longer-permitted tokens: the platform says inactive, the MCP answers 401."""
+    platform.tokens.clear()
+    assert post(f"{live_server}/mcp", token=VALID_TOKEN).status_code == 401
+    assert fake_db.queries == []
+
+
+def test_token_for_another_mcp_is_refused(live_server, platform):
+    platform.tokens[VALID_TOKEN]["mcp"] = "other-mcp"
+    assert post(f"{live_server}/mcp", token=VALID_TOKEN).status_code == 401
+
+
+def test_platform_unreachable_fails_closed(live_server, platform):
+    platform.down = True
+    assert post(f"{live_server}/mcp", token=VALID_TOKEN).status_code == 401
+
+
+def test_every_request_is_checked_with_the_platform(live_server, platform):
+    post(f"{live_server}/mcp", token=VALID_TOKEN)
+    post(f"{live_server}/mcp", token=VALID_TOKEN)
+    assert platform.calls == 2  # caching is switched off in these tests
