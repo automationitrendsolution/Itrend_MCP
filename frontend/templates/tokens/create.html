@@ -3,6 +3,11 @@
 {% block title %}Generate token{% endblock %}
 {% block page_title %}Generate token{% if owner != user %} for {{ owner.get_username }}{% endif %}{% endblock %}
 
+{% block breadcrumb %}
+  <li><a href="{{ nav_section.url }}">{{ nav_section.label }}</a></li>
+  <li><span aria-current="page">Generate token</span></li>
+{% endblock %}
+
 {% block content %}
 <div style="max-width: 640px">
   {% if owner != user %}
@@ -33,9 +38,9 @@
         <div class="mb-3">{% include "partials/form_field.html" with field=form.name %}</div>
         <div class="mb-1">{% include "partials/form_field.html" with field=form.expires_in_days %}</div>
       </div>
-      <div class="card-footer bg-white d-flex gap-2">
+      <div class="card-footer d-flex gap-2">
         <button type="submit" class="btn btn-primary">Generate token</button>
-        <a href="{% if owner != user %}{% url 'frontend:user-detail' owner.pk %}{% else %}{% url 'frontend:token-list' %}{% endif %}" class="btn btn-light">Cancel</a>
+        <a href="{% if owner != user %}{% url 'frontend:user-detail' owner.pk %}{% else %}{% url 'frontend:token-list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
       </div>
     </form>
     <p class="small text-body-secondary mt-3">

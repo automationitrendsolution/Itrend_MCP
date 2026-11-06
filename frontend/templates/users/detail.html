@@ -3,6 +3,11 @@
 {% block title %}{{ account.get_username }}{% endblock %}
 {% block page_title %}{{ account.get_username }}{% endblock %}
 
+{% block breadcrumb %}
+  <li><a href="{{ nav_section.url }}">{{ nav_section.label }}</a></li>
+  <li><span aria-current="page">{{ account.get_username }}</span></li>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
   <a href="{% url 'frontend:user-list' %}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> All users</a>

@@ -3,11 +3,17 @@
 {% block title %}{{ server.name }} · Monitoring{% endblock %}
 {% block page_title %}Monitoring{% endblock %}
 
+{% block breadcrumb %}
+  <li><a href="{{ nav_section.url }}">{{ nav_section.label }}</a></li>
+  <li><span aria-current="page">{{ server.name }}</span></li>
+{% endblock %}
+{% block page_header %}{% endblock %}
+
 {% block content %}
 <div class="app-mcp-header">
   <div class="me-auto" style="min-width: 0">
     <a href="{% url 'frontend:monitoring' %}" class="small text-decoration-none"><i class="bi bi-arrow-left me-1"></i>All MCPs</a>
-    <h2 class="text-truncate mt-1">{{ server.name }}</h2>
+    <h1 class="text-truncate mt-1">{{ server.name }}</h1>
     <div class="small text-body-secondary mt-1"><code>{{ server.slug }}</code><span class="mx-1">·</span>{{ server.get_deployment_type_display }}</div>
   </div>
   <div class="d-flex gap-2">

@@ -1,0 +1,14 @@
+{% comment %} Runs before the page is drawn, so there is no flash of the wrong theme.
+   Theme: "light", "dark" or "system" (follows the computer), remembered in this browser.
+   Sidebar: expanded or collapsed (desktop), remembered in this browser.{% endcomment %}
+<script>
+  (function () {
+    var root = document.documentElement, pref = "system", sidebar = null;
+    try { pref = localStorage.getItem("itmcp-theme") || "system"; sidebar = localStorage.getItem("itmcp-sidebar"); } catch (e) {}
+    if (pref !== "light" && pref !== "dark") pref = "system";
+    var dark = pref === "dark" || (pref === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    root.setAttribute("data-bs-theme", dark ? "dark" : "light");
+    root.setAttribute("data-theme-pref", pref);
+    if (sidebar === "collapsed") root.setAttribute("data-sidebar", "collapsed");
+  })();
+</script>

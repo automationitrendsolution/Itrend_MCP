@@ -1,0 +1,26 @@
+{# The signed-in person: profile, Django admin (administrators), sign out. #}
+<div class="dropdown">
+  <button class="pg-user-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu for {{ user.get_username }}">
+    <span class="app-avatar" aria-hidden="true">{{ user.get_username|first|upper }}</span>
+    <span class="d-none d-sm-inline">{{ user.get_username }}</span>
+    <i class="bi bi-chevron-down" aria-hidden="true"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li>
+      <div class="px-2 py-1">
+        <div class="fw-semibold small">{{ user.get_full_name|default:user.get_username }}</div>
+        <div class="small text-body-secondary">{% if user.is_superuser %}Superuser{% elif user.is_staff %}Platform administrator{% else %}Member{% endif %}</div>
+      </div>
+    </li>
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="{% url 'frontend:profile' %}"><i class="bi bi-person" aria-hidden="true"></i>Profile</a></li>
+    <li><a class="dropdown-item" href="{% url 'frontend:token-list' %}"><i class="bi bi-key" aria-hidden="true"></i>Access tokens</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li>
+      <form method="post" action="{% url 'frontend:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Sign out</button>
+      </form>
+    </li>
+  </ul>
+</div>

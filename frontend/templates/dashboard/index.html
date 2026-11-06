@@ -1,12 +1,11 @@
 {% extends "base.html" %}
 {% load mcp_tags %}
 
-{% block title %}Dashboard{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block title %}Overview{% endblock %}
+{% block page_title %}Overview{% endblock %}
+{% block page_description %}Welcome back, {{ user.get_short_name|default:user.get_username }}. The MCP servers you can see and the state of the platform.{% endblock %}
 
 {% block content %}
-<p class="text-body-secondary mb-4">Welcome back, {{ user.get_short_name|default:user.get_username }}.</p>
-
 {# MCP counts only include servers this user can see. #}
 <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
   {% include "dashboard/partials/stat_card.html" with label="MCP servers" icon="bi-hdd-stack" value=counts.total %}

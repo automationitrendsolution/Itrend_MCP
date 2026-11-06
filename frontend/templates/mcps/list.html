@@ -1,7 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}MCP Servers{% endblock %}
-{% block page_title %}MCP Servers{% endblock %}
+{% block title %}MCP Registry{% endblock %}
+{% block page_title %}MCP Registry{% endblock %}
+{% block page_description %}Every MCP server you can see, with its connection link, source and live state.{% endblock %}
+
+{% block page_actions %}
+  {% if can_manage %}
+    <form method="post" action="{% url 'frontend:mcp-rescan' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-secondary" title="Look for new or changed mcp.json files in mcp_servers/">
+        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Rescan MCP folders
+      </button>
+    </form>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
@@ -10,7 +22,7 @@
         hx-get="{% url 'frontend:mcp-list' %}" hx-target="#mcpTable" hx-push-url="true"
         hx-trigger="input changed delay:300ms from:#search, change from:select, submit">
     <div class="input-group" style="max-width: 320px">
-      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
       <input type="search" id="search" name="q" value="{{ filters.search }}" class="form-control" placeholder="Search name, slug or description" aria-label="Search MCP servers">
     </div>
     <select name="status" class="form-select w-auto" aria-label="Filter by status">
@@ -28,14 +40,6 @@
     <noscript><button class="btn btn-outline-secondary" type="submit">Filter</button></noscript>
   </form>
 
-  {% if can_manage %}
-    <form method="post" action="{% url 'frontend:mcp-rescan' %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-outline-secondary" title="Look for new or changed mcp.json files in mcp_servers/">
-        <i class="bi bi-arrow-repeat me-1"></i>Rescan MCP folders
-      </button>
-    </form>
-  {% endif %}
 </div>
 
 <div id="mcpTable">

@@ -48,10 +48,6 @@ def get_counts(user) -> RegistryCounts:
     return RegistryCounts(**totals)
 
 
-def is_slug_available(slug: str) -> bool:
-    return not MCPServer.objects.filter(slug=slug).exists()
-
-
 @transaction.atomic
 def create_server(*, created_by, **fields) -> MCPServer:
     server = MCPServer(created_by=created_by, **fields)

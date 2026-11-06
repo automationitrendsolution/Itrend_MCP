@@ -13,6 +13,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import textwrap
 import time
 from datetime import timedelta
@@ -507,7 +508,8 @@ class GatewayTrafficTests(TestCase):
 # ---------------------------------------------------------------------------
 
 
-@override_settings(MCP_DISCOVERY_INTERVAL=0)
+# A monitor really running on this computer must not change what the pages show in tests.
+@override_settings(MCP_DISCOVERY_INTERVAL=0, MONITOR_HEARTBEAT_FILE=os.path.join(tempfile.gettempdir(), "itmcp-test-no-monitor.heartbeat"))
 class MonitoringPageTests(TestCase):
     def setUp(self):
         self.admin = create_user("boss", is_staff=True)

@@ -2,18 +2,14 @@
 
 {% block title %}Access Tokens{% endblock %}
 {% block page_title %}Access Tokens{% endblock %}
+{% block page_description %}A token lets an MCP client (Claude Desktop, VS Code, the PPC server…) connect to one MCP server as you. It works only while you still have access, always expires, and is shown once. Treat it like a password.{% endblock %}
+{% block page_actions %}
+  {% if can_create %}
+    <a href="{% url 'frontend:token-create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Generate token</a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-  <p class="text-body-secondary mb-0" style="max-width: 720px">
-    A token lets an MCP client (Claude Desktop, VS Code, the PPC server…) connect to one MCP server as you.
-    It works only while you still have access to that MCP, and always expires. Treat it like a password.
-  </p>
-  {% if can_create %}
-    <a href="{% url 'frontend:token-create' %}" class="btn btn-primary ms-auto"><i class="bi bi-plus-lg me-1"></i>Generate token</a>
-  {% endif %}
-</div>
-
 <div class="card app-card">
   {% url 'frontend:token-list' as here %}
   {% include "tokens/partials/table.html" with show_mcp=True next=here empty="You have no tokens. Generate one to connect an MCP client." %}

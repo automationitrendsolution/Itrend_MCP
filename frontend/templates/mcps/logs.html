@@ -29,7 +29,7 @@
   <div class="card-header"><i class="bi bi-clock-history me-1"></i>Who did what on this MCP</div>
   {% if events %}
     {% include "activity/partials/events.html" with entries=events hide_mcp=True %}
-    <div class="card-footer bg-white small text-body-secondary">
+    <div class="card-footer small text-body-secondary">
       Showing the latest {{ events|length }} events.
       {% if is_admin %}<a href="{% url 'frontend:activity-list' %}?q={{ server.slug|urlencode }}">See all in Activity Logs</a>{% endif %}
     </div>

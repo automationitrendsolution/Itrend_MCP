@@ -7,7 +7,7 @@ individual MCP servers is handled separately by backend.mcp_manager (Phase 6).
 
 import logging
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 from django.db import DatabaseError, connection
 
@@ -28,9 +28,6 @@ class PlatformHealth:
     @property
     def is_healthy(self) -> bool:
         return self.status == "ok"
-
-    def as_dict(self) -> dict:
-        return asdict(self)
 
 
 def check_database() -> ComponentHealth:

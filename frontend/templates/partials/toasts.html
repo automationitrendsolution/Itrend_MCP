@@ -1,12 +1,20 @@
-{# Django messages shown as Bootstrap toasts. Shown automatically by static/js/app.js. #}
+{% comment %} Django messages shown as toasts (top right). Shown automatically by static/js/app.js.
+   Errors stay until closed and are announced immediately; others close after a few seconds.{% endcomment %}
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer">
   {% for message in messages %}
-    <div class="toast align-items-center border-0 text-bg-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'secondary' }}{% endif %}"
-         role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}" aria-live="polite" aria-atomic="true">
-      <div class="d-flex">
-        <div class="toast-body">{{ message }}</div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    {% with level=message.tags|default:"info" %}
+    <div class="toast pg-toast pg-toast--{{ level }}" role="{% if level == 'error' %}alert{% else %}status{% endif %}"
+         aria-live="{% if level == 'error' %}assertive{% else %}polite{% endif %}" aria-atomic="true"
+         {% if level == 'error' %}data-bs-autohide="false"{% endif %}>
+      <div class="pg-toast-body">
+        <i class="bi pg-toast-icon {% if level == 'success' %}bi-check-circle-fill{% elif level == 'error' %}bi-x-circle-fill{% elif level == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %}" aria-hidden="true"></i>
+        <div class="flex-grow-1">
+          <span class="visually-hidden">{% if level == 'error' %}Error:{% elif level == 'warning' %}Warning:{% elif level == 'success' %}Done:{% endif %}</span>
+          {{ message }}
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
       </div>
     </div>
+    {% endwith %}
   {% endfor %}
 </div>

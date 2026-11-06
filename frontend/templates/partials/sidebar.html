@@ -1,60 +1,80 @@
-{% with current=request.resolver_match.view_name %}
+{% with current=request.resolver_match.view_name section=nav_section.key %}
+{% comment %} Main navigation. Only real pages are listed; groups an account may not use are not shown
+   (the server checks permissions on every page as well). Collapsible on desktop: data-tooltip
+   holds the label shown when only icons are visible.{% endcomment %}
 <aside class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="appSidebar" aria-label="Main navigation">
   <div class="app-brand">
-    <i class="bi bi-hdd-network"></i>
-    <span>iTrend <strong>MCP</strong></span>
-    <button type="button" class="btn-close btn-close-white ms-auto d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Close"></button>
+    <a class="app-brand-link" href="{% url 'frontend:dashboard' %}" aria-label="iTrend MCP – Overview">
+      <span class="app-brand-mark">{% include "partials/brand_mark.html" %}</span>
+      <span class="app-nav-label">iTrend <strong>MCP</strong></span>
+    </a>
+    <button type="button" class="btn-close d-lg-none ms-auto" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Close navigation"></button>
   </div>
 
   <nav class="app-nav">
-    <a class="app-nav-link {% if current == 'frontend:dashboard' %}active{% endif %}" href="{% url 'frontend:dashboard' %}">
-      <i class="bi bi-speedometer2"></i>Dashboard
+    <div class="app-nav-section">Workspace</div>
+    <a class="app-nav-link {% if section == 'overview' %}active{% endif %}" href="{% url 'frontend:dashboard' %}" data-tooltip="Overview"
+       {% if section == 'overview' %}aria-current="page"{% endif %}>
+      <i class="bi bi-grid-1x2" aria-hidden="true"></i><span class="app-nav-label">Overview</span>
     </a>
 
-    <div class="app-nav-section">MCP</div>
-    {# "MCP Servers" opens a list of the MCPs you can see; each links to its page. #}
-    <button type="button" class="app-nav-link app-nav-toggle"
-            data-bs-toggle="collapse" data-bs-target="#mcpSubnav"
-            aria-expanded="{% if sidebar_in_mcps %}true{% else %}false{% endif %}" aria-controls="mcpSubnav">
-      <i class="bi bi-hdd-stack"></i>MCP Servers
-      <span class="app-nav-count">{{ sidebar_mcps|length }}</span>
-      <i class="bi bi-chevron-down app-nav-chevron" aria-hidden="true"></i>
-    </button>
+    {# MCP Registry: the link opens the registry; the small button shows the MCPs you can see. #}
+    <div class="app-nav-group">
+      <a class="app-nav-link {% if section == 'mcps' %}active{% endif %}" href="{% url 'frontend:mcp-list' %}" data-tooltip="MCP Registry"
+         {% if current == 'frontend:mcp-list' %}aria-current="page"{% endif %}>
+        <i class="bi bi-hdd-stack" aria-hidden="true"></i><span class="app-nav-label">MCP Registry</span>
+        <span class="app-nav-count" aria-label="{{ sidebar_mcps|length }} MCP servers">{{ sidebar_mcps|length }}</span>
+      </a>
+      <button type="button" class="app-nav-expand" data-bs-toggle="collapse" data-bs-target="#mcpSubnav"
+              aria-expanded="{% if sidebar_in_mcps %}true{% else %}false{% endif %}" aria-controls="mcpSubnav" aria-label="Show MCP servers">
+        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+      </button>
+    </div>
     <div class="collapse {% if sidebar_in_mcps %}show{% endif %}" id="mcpSubnav">
       <div class="app-subnav">
         {% for mcp in sidebar_mcps %}
           <a class="app-subnav-link {% if mcp.pk == sidebar_mcp_pk %}active{% endif %}" href="{% url 'frontend:mcp-detail' mcp.pk %}"
              {% if mcp.pk == sidebar_mcp_pk %}aria-current="page"{% endif %}>
-            <span class="app-dot app-dot--{{ mcp.status }}" title="{{ mcp.get_status_display }}"></span>
+            <span class="app-dot app-dot--{{ mcp.status }}" aria-hidden="true"></span>
             <span class="text-truncate">{{ mcp.name }}</span>
+            <span class="visually-hidden">({{ mcp.get_status_display }})</span>
           </a>
         {% empty %}
           <div class="app-subnav-empty">No MCPs yet</div>
         {% endfor %}
-        <a class="app-subnav-link app-subnav-all {% if current == 'frontend:mcp-list' %}active{% endif %}" href="{% url 'frontend:mcp-list' %}">
-          <i class="bi bi-grid"></i><span>All MCP servers</span>
-        </a>
       </div>
     </div>
-    <a class="app-nav-link {% if current == 'frontend:token-list' or current == 'frontend:token-create' %}active{% endif %}" href="{% url 'frontend:token-list' %}">
-      <i class="bi bi-key"></i>Access Tokens
+
+    <a class="app-nav-link {% if section == 'tokens' %}active{% endif %}" href="{% url 'frontend:token-list' %}" data-tooltip="Access Tokens"
+       {% if current == 'frontend:token-list' %}aria-current="page"{% endif %}>
+      <i class="bi bi-key" aria-hidden="true"></i><span class="app-nav-label">Access Tokens</span>
     </a>
 
     {% if user.is_staff %}
+      <div class="app-nav-section">Infrastructure</div>
+      <a class="app-nav-link {% if section == 'monitoring' %}active{% endif %}" href="{% url 'frontend:monitoring' %}" data-tooltip="Monitoring"
+         {% if current == 'frontend:monitoring' %}aria-current="page"{% endif %}>
+        <i class="bi bi-activity" aria-hidden="true"></i><span class="app-nav-label">Monitoring</span>
+      </a>
+
+      <div class="app-nav-section">Governance</div>
+      <a class="app-nav-link {% if section == 'users' %}active{% endif %}" href="{% url 'frontend:user-list' %}" data-tooltip="Users"
+         {% if current == 'frontend:user-list' %}aria-current="page"{% endif %}>
+        <i class="bi bi-people" aria-hidden="true"></i><span class="app-nav-label">Users</span>
+      </a>
+      <a class="app-nav-link {% if section == 'permissions' %}active{% endif %}" href="{% url 'frontend:permission-list' %}" data-tooltip="Permissions"
+         {% if current == 'frontend:permission-list' %}aria-current="page"{% endif %}>
+        <i class="bi bi-shield-check" aria-hidden="true"></i><span class="app-nav-label">Permissions</span>
+      </a>
+      <a class="app-nav-link {% if section == 'audit' %}active{% endif %}" href="{% url 'frontend:activity-list' %}" data-tooltip="Audit Logs"
+         {% if current == 'frontend:activity-list' %}aria-current="page"{% endif %}>
+        <i class="bi bi-journal-text" aria-hidden="true"></i><span class="app-nav-label">Audit Logs</span>
+      </a>
+
       <div class="app-nav-section">Administration</div>
-      <a class="app-nav-link {% if current == 'frontend:user-list' or current == 'frontend:user-detail' or current == 'frontend:service-account-create' or current == 'frontend:user-token-create' %}active{% endif %}" href="{% url 'frontend:user-list' %}">
-        <i class="bi bi-people"></i>Users
+      <a class="app-nav-link" href="{% url 'admin:index' %}" data-tooltip="Django admin">
+        <i class="bi bi-sliders" aria-hidden="true"></i><span class="app-nav-label">Django admin</span>
       </a>
-      <a class="app-nav-link {% if current == 'frontend:permission-list' %}active{% endif %}" href="{% url 'frontend:permission-list' %}">
-        <i class="bi bi-person-lock"></i>Permissions
-      </a>
-      <a class="app-nav-link {% if current == 'frontend:monitoring' or current == 'frontend:monitoring-detail' %}active{% endif %}" href="{% url 'frontend:monitoring' %}">
-        <i class="bi bi-activity"></i>Monitoring
-      </a>
-      <a class="app-nav-link {% if current == 'frontend:activity-list' %}active{% endif %}" href="{% url 'frontend:activity-list' %}">
-        <i class="bi bi-journal-text"></i>Activity Logs
-      </a>
-      {% include "partials/nav_upcoming.html" with icon="bi-gear" label="Settings" phase=7 %}
     {% endif %}
   </nav>
 </aside>

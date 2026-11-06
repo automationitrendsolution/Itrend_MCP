@@ -7,9 +7,9 @@ other approved clients connect to them over HTTPS with individual access tokens.
 
 Target URL: `https://mcp.itrendsolution.com`
 
-> **Status:** Phases 1 (foundation), 2 (MCP registry), 3 (first remote MCP) and 4 (authentication and permissions) are complete. Phase 5 part 1 (your own MCPs: add through code, start/stop from the website) is done. See
-> [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) for what works today and
-> [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together.
+> **Status:** Phases 1–4 (foundation, MCP registry, first remote MCP, authentication and
+> permissions), Phase 5 part 1 (your own MCPs: add through code, start/stop from the website)
+> and Phase 6 (monitoring) are complete.
 
 ## Requirements
 
@@ -100,7 +100,7 @@ It really talks to each running MCP (not just "is the process alive"), measures
 its CPU and RAM, records incidents, and restarts MCPs that crashed or stopped
 answering, at most 3 times an hour by default. MCPs stopped by an administrator,
 or started in a terminal, are never restarted. Without it, the Monitoring page
-shows a warning and no new checks are made. Details: [ARCHITECTURE.md](ARCHITECTURE.md#phase-6--monitoring).
+shows a warning and no new checks are made.
 
 ## Project layout
 
@@ -110,10 +110,8 @@ frontend/      Django app for the website: views, forms, templates, static files
 backend/       Django app for models, business logic (services/) and the REST API
 mcp_servers/   MCP servers, each a separate project (mysql/: see its README)
 tests/         Automated tests
-docs/          Additional documentation
 logs/          Log files when DJANGO_LOG_TO_FILE=True (not committed)
-scripts/       Helper scripts
 ```
 
 Rule of thumb: anything the user sees belongs in `frontend/`, and everything
-behind it belongs in `backend/`. See [ARCHITECTURE.md](ARCHITECTURE.md#code-layout).
+behind it belongs in `backend/`.

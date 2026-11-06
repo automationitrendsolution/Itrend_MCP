@@ -1,21 +1,23 @@
 {% load static %}<!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · iTrend MCP</title>
+  {% include "partials/theme_init.html" %}
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 {# Error pages must not rely on request context or the database: the 500 page is rendered without either. #}
 <body class="auth-body">
   <main class="auth-wrapper">
-    <div class="auth-card card shadow-sm text-center">
-      <div class="card-body p-5">
-        <div class="display-6 fw-semibold text-body-secondary mb-2">{% block code %}{% endblock %}</div>
+    <div class="auth-card card">
+      <div class="card-body p-4 p-sm-5">
+        <div class="pg-error-code mb-2">ERROR {% block code %}{% endblock %}</div>
         <h1 class="h4">{% block heading %}{% endblock %}</h1>
-        <p class="text-body-secondary">{% block message %}{% endblock %}</p>
-        <a class="btn btn-primary" href="/">Back to dashboard</a>
+        <p class="text-body-secondary mb-4">{% block message %}{% endblock %}</p>
+        <a class="btn btn-primary" href="/">Back to overview</a>
       </div>
     </div>
   </main>

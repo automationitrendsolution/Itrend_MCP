@@ -1,0 +1,220 @@
+/*
+ * PRECISION GRAPHITE — design tokens.
+ *
+ * Every colour, size, radius and font in the interface comes from here.
+ * Components (app.css) only use these variables, never raw values, so both
+ * themes stay consistent.
+ *
+ * The theme is chosen by the data-bs-theme attribute on <html>, set before the
+ * page is drawn by the small script in base.html ("light", "dark", or the
+ * computer's setting when the user picked "system").
+ *
+ * Contrast (WCAG 2.2 AA, 4.5:1 for normal text) was checked for every text
+ * colour on the backgrounds it is used on. Where a palette colour falls just
+ * short as *text*, a deeper "-text" variant is used for text and the original
+ * stays for fills, borders and icons:
+ *   light  secondary text #737A80 → #6A7177   accent text #697A59 → #5A6A4B
+ *          success/warning/danger/info text on tinted backgrounds deepened
+ *   dark   muted text #7F8993 → #8A939C
+ * --pg-text-3 (muted) is for decoration, placeholders and disabled states only.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../vendor/fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("../vendor/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+}
+
+/* ---------------------------------------------------------------------------
+ * Theme-independent tokens
+ * ------------------------------------------------------------------------- */
+:root {
+  --pg-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --pg-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Type scale (px values from the brief, in rem at 16px) */
+  --pg-fs-page: 1.75rem;     /* 28px  page heading */
+  --pg-fs-section: 1rem;     /* 16px  section heading */
+  --pg-fs-body: .875rem;     /* 14px  body */
+  --pg-fs-small: .75rem;     /* 12px  supporting text */
+  --pg-fs-meta: .6875rem;    /* 11px  metadata, table headings */
+  --pg-lh: 1.5;
+
+  /* Spacing scale: 4 8 12 16 20 24 32 40 */
+  --pg-s1: .25rem; --pg-s2: .5rem; --pg-s3: .75rem; --pg-s4: 1rem;
+  --pg-s5: 1.25rem; --pg-s6: 1.5rem; --pg-s7: 2rem; --pg-s8: 2.5rem;
+
+  /* Shapes */
+  --pg-r-xs: 4px;            /* badges, inline code */
+  --pg-r-sm: 6px;            /* inputs, buttons */
+  --pg-r: 8px;               /* small panels, menus */
+  --pg-r-lg: 10px;           /* large panels */
+
+  /* Layout */
+  --pg-sidebar-w: 248px;
+  --pg-sidebar-w-collapsed: 60px;
+  --pg-header-h: 52px;
+  --pg-content-max: 1440px;
+
+  --pg-transition: 120ms ease;
+}
+
+/* ---------------------------------------------------------------------------
+ * Light theme (also the fallback without JavaScript)
+ * ------------------------------------------------------------------------- */
+:root,
+html[data-bs-theme="light"] {
+  color-scheme: light;
+
+  --pg-bg: #F6F6F3;
+  --pg-sidebar: #EEEEEA;
+  --pg-surface: #FFFFFF;
+  --pg-surface-2: #F1F2EF;
+  --pg-surface-hover: #F4F5F2;
+  --pg-text: #20242A;
+  --pg-text-2: #6A7177;
+  --pg-text-3: #969DA2;
+  --pg-border: #E1E3DF;
+  --pg-border-strong: #CDD1CB;
+
+  --pg-accent: #697A59;
+  --pg-accent-hover: #5B6B4C;
+  --pg-accent-text: #5A6A4B;
+  --pg-accent-soft: #ECEFE7;
+  --pg-accent-border: #C9D2BE;
+  --pg-on-accent: #FFFFFF;
+
+  --pg-success: #347A57;  --pg-success-text: #2C6A4B;  --pg-success-soft: #E7F1EA;  --pg-success-border: #C3DCCB;
+  --pg-warning: #A77532;  --pg-warning-text: #8A6127;  --pg-warning-soft: #F7EFE1;  --pg-warning-border: #E6D2AE;
+  --pg-danger:  #B34F4F;  --pg-danger-text:  #9E4343;  --pg-danger-soft:  #F7E9E8;  --pg-danger-border:  #E7C4C3;
+  --pg-info:    #587C9C;  --pg-info-text:    #46667F;  --pg-info-soft:    #E8EFF5;  --pg-info-border:    #C4D4E2;
+  --pg-neutral-text: #4F565C; --pg-neutral-soft: #EEEFEC; --pg-neutral-border: #DADDD8;
+
+  --pg-code-bg: #F1F2EF;
+  --pg-log-bg: #FAFAF8;
+  --pg-focus: rgba(105, 122, 89, .35);
+  --pg-shadow-sm: 0 1px 2px rgba(32, 36, 42, .05);
+  --pg-shadow-md: 0 4px 16px rgba(32, 36, 42, .08), 0 1px 3px rgba(32, 36, 42, .06);
+  --pg-overlay: rgba(32, 36, 42, .35);
+
+  /* RGB triplets for Bootstrap utilities such as .text-success */
+  --pg-accent-text-rgb: 90, 106, 75;
+  --pg-success-text-rgb: 44, 106, 75;
+  --pg-warning-text-rgb: 138, 97, 39;
+  --pg-danger-text-rgb: 158, 67, 67;
+  --pg-info-text-rgb: 70, 102, 127;
+  --pg-text-rgb: 32, 36, 42;
+  --pg-text-2-rgb: 106, 113, 119;
+}
+
+/* ---------------------------------------------------------------------------
+ * Dark theme — designed separately, not inverted: warmer graphite surfaces
+ * that step *up* in lightness, a lighter sage, softened semantic colours.
+ * ------------------------------------------------------------------------- */
+html[data-bs-theme="dark"] {
+  color-scheme: dark;
+
+  --pg-bg: #171A1E;
+  --pg-sidebar: #1D2126;
+  --pg-surface: #22272D;
+  --pg-surface-2: #292F36;
+  --pg-surface-hover: #272C33;
+  --pg-text: #F1F2EF;
+  --pg-text-2: #A5ADB5;
+  --pg-text-3: #8A939C;
+  --pg-border: #353B42;
+  --pg-border-strong: #444B53;
+
+  --pg-accent: #B6C4A2;
+  --pg-accent-hover: #C5D1B4;
+  --pg-accent-text: #B6C4A2;
+  --pg-accent-soft: rgba(182, 196, 162, .13);
+  --pg-accent-border: rgba(182, 196, 162, .32);
+  --pg-on-accent: #171A1E;
+
+  --pg-success: #80B894;  --pg-success-text: #80B894;  --pg-success-soft: rgba(128, 184, 148, .13);  --pg-success-border: rgba(128, 184, 148, .32);
+  --pg-warning: #D7B77D;  --pg-warning-text: #D7B77D;  --pg-warning-soft: rgba(215, 183, 125, .13);  --pg-warning-border: rgba(215, 183, 125, .32);
+  --pg-danger:  #E28C8C;  --pg-danger-text:  #E28C8C;  --pg-danger-soft:  rgba(226, 140, 140, .13);  --pg-danger-border:  rgba(226, 140, 140, .32);
+  --pg-info:    #91B4D1;  --pg-info-text:    #91B4D1;  --pg-info-soft:    rgba(145, 180, 209, .13);  --pg-info-border:    rgba(145, 180, 209, .32);
+  --pg-neutral-text: #C3C9CE; --pg-neutral-soft: rgba(165, 173, 181, .12); --pg-neutral-border: rgba(165, 173, 181, .26);
+
+  --pg-code-bg: #1C2025;
+  --pg-log-bg: #1E2228;
+  --pg-focus: rgba(182, 196, 162, .4);
+  --pg-shadow-sm: 0 1px 2px rgba(0, 0, 0, .25);
+  --pg-shadow-md: 0 8px 24px rgba(0, 0, 0, .35), 0 1px 3px rgba(0, 0, 0, .3);
+  --pg-overlay: rgba(8, 10, 12, .6);
+
+  --pg-accent-text-rgb: 182, 196, 162;
+  --pg-success-text-rgb: 128, 184, 148;
+  --pg-warning-text-rgb: 215, 183, 125;
+  --pg-danger-text-rgb: 226, 140, 140;
+  --pg-info-text-rgb: 145, 180, 209;
+  --pg-text-rgb: 241, 242, 239;
+  --pg-text-2-rgb: 165, 173, 181;
+}
+
+/* ---------------------------------------------------------------------------
+ * Bootstrap 5.3 mapped onto the tokens, so every Bootstrap component and
+ * utility already used by the templates follows the active theme.
+ * (html[...] is more specific than Bootstrap's own [data-bs-theme] rules.)
+ * ------------------------------------------------------------------------- */
+:root,
+html[data-bs-theme="light"],
+html[data-bs-theme="dark"] {
+  --bs-font-sans-serif: var(--pg-font-sans);
+  --bs-font-monospace: var(--pg-font-mono);
+  --bs-body-font-family: var(--pg-font-sans);
+  --bs-body-font-size: var(--pg-fs-body);
+  --bs-body-line-height: var(--pg-lh);
+
+  --bs-body-bg: var(--pg-bg);
+  --bs-body-color: var(--pg-text);
+  --bs-body-color-rgb: var(--pg-text-rgb);
+  --bs-emphasis-color: var(--pg-text);
+  --bs-heading-color: var(--pg-text);
+  --bs-secondary-color: var(--pg-text-2);
+  --bs-secondary-color-rgb: var(--pg-text-2-rgb);
+  --bs-tertiary-color: var(--pg-text-3);
+  --bs-secondary-bg: var(--pg-surface-2);
+  --bs-tertiary-bg: var(--pg-surface-2);
+  --bs-border-color: var(--pg-border);
+  --bs-border-color-translucent: var(--pg-border);
+  --bs-code-color: var(--pg-text);
+  --bs-highlight-bg: var(--pg-warning-soft);
+
+  --bs-link-color: var(--pg-accent-text);
+  --bs-link-color-rgb: var(--pg-accent-text-rgb);
+  --bs-link-hover-color: var(--pg-text);
+  --bs-link-hover-color-rgb: var(--pg-text-rgb);
+
+  --bs-border-radius: var(--pg-r-sm);
+  --bs-border-radius-sm: var(--pg-r-xs);
+  --bs-border-radius-lg: var(--pg-r);
+  --bs-border-radius-xl: var(--pg-r-lg);
+  --bs-focus-ring-color: var(--pg-focus);
+  --bs-focus-ring-width: 3px;
+
+  --bs-primary-rgb: var(--pg-accent-text-rgb);
+  --bs-success-rgb: var(--pg-success-text-rgb);
+  --bs-warning-rgb: var(--pg-warning-text-rgb);
+  --bs-danger-rgb: var(--pg-danger-text-rgb);
+  --bs-info-rgb: var(--pg-info-text-rgb);
+
+  --bs-primary-text-emphasis: var(--pg-accent-text);   --bs-primary-bg-subtle: var(--pg-accent-soft);   --bs-primary-border-subtle: var(--pg-accent-border);
+  --bs-success-text-emphasis: var(--pg-success-text);  --bs-success-bg-subtle: var(--pg-success-soft);  --bs-success-border-subtle: var(--pg-success-border);
+  --bs-warning-text-emphasis: var(--pg-warning-text);  --bs-warning-bg-subtle: var(--pg-warning-soft);  --bs-warning-border-subtle: var(--pg-warning-border);
+  --bs-danger-text-emphasis: var(--pg-danger-text);    --bs-danger-bg-subtle: var(--pg-danger-soft);    --bs-danger-border-subtle: var(--pg-danger-border);
+  --bs-info-text-emphasis: var(--pg-info-text);        --bs-info-bg-subtle: var(--pg-info-soft);        --bs-info-border-subtle: var(--pg-info-border);
+  --bs-secondary-text-emphasis: var(--pg-neutral-text); --bs-secondary-bg-subtle: var(--pg-neutral-soft); --bs-secondary-border-subtle: var(--pg-neutral-border);
+  --bs-light-text-emphasis: var(--pg-neutral-text);    --bs-light-bg-subtle: var(--pg-neutral-soft);    --bs-light-border-subtle: var(--pg-neutral-border);
+}

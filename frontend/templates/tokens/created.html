@@ -3,6 +3,11 @@
 {% block title %}Token created{% endblock %}
 {% block page_title %}Token created{% endblock %}
 
+{% block breadcrumb %}
+  <li><a href="{{ nav_section.url }}">{{ nav_section.label }}</a></li>
+  <li><span aria-current="page">Token created</span></li>
+{% endblock %}
+
 {% block content %}
 <div style="max-width: 760px">
   <div class="alert alert-warning">

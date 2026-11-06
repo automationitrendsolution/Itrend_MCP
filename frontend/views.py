@@ -143,13 +143,19 @@ def mcp_list(request: HttpRequest) -> HttpResponse:
         "page": page,
         "filters": filters,
         "status_choices": MCPServer.Status.choices,
-        "type_choices": MCPServer.DeploymentType.choices,
+        # Only offer types that some visible MCP really has; the others would always give an empty list.
+        "type_choices": _used_choices(MCPServer.DeploymentType.choices, MCPServer.objects.visible_to(request.user), "deployment_type"),
         "can_manage": can_manage_mcps(request.user),
         "servers_dir": catalog.servers_dir(),
     }
     # HTMX search/filter/pagination only needs the table, not the whole page.
     template = "mcps/partials/table.html" if request.htmx else "mcps/list.html"
     return render(request, template, context)
+
+
+def _used_choices(choices, queryset, field: str) -> list[tuple[str, str]]:
+    used = set(queryset.values_list(field, flat=True).distinct())
+    return [(value, label) for value, label in choices if value in used]
 
 
 @require_POST

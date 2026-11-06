@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Activity Logs{% endblock %}
-{% block page_title %}Activity Logs{% endblock %}
+{% block title %}Audit Logs{% endblock %}
+{% block page_title %}Audit Logs{% endblock %}
+{% block page_description %}Who did what, when and from where: sign-ins, connections, access changes and MCP operations.{% endblock %}
 
 {% block content %}
 <div class="app-summary mb-3" aria-label="Last 24 hours">
@@ -26,7 +27,7 @@
       <label class="form-check-label small" for="problemsOnly">Only problems</label>
     </div>
     <div class="input-group ms-lg-auto" style="max-width: 260px">
-      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
       <input type="search" id="activitySearch" name="q" value="{{ filters.q }}" class="form-control" placeholder="Person or MCP" aria-label="Search activity">
     </div>
     <noscript><button class="btn btn-outline-secondary" type="submit">Show</button></noscript>
