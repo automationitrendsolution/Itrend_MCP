@@ -1,0 +1,39 @@
+{# The MCP's live state and, for administrators, Start / Stop / Restart. Polls itself every 5 seconds. #}
+<div id="mcpState" class="d-flex flex-wrap align-items-center gap-2"
+     hx-get="{% url 'frontend:mcp-state' server.pk %}" hx-trigger="every 5s" hx-swap="outerHTML">
+  {% if manifest %}
+    <span class="app-state app-state--{{ runtime.state }}">
+      <span class="app-dot"></span>{{ runtime.label }}
+      {% if runtime.state == "running" or runtime.state == "outside" %}
+        {% if runtime.healthy %}<span class="text-success small">· healthy</span>
+        {% elif runtime.healthy is False %}<span class="text-danger small">· not answering</span>{% endif %}
+      {% endif %}
+    </span>
+    {% if runtime.started_at %}
+      <span class="small text-body-secondary">since {{ runtime.started_at|time:"H:i" }} {{ runtime.started_at|date:"j M" }}</span>
+    {% endif %}
+
+    {% if is_admin %}
+      {% if runtime.can_start %}
+        <form method="post" action="{% url 'frontend:mcp-control' server.pk 'start' %}">
+          {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+          <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill me-1"></i>Start</button>
+        </form>
+      {% endif %}
+      {% if runtime.can_stop %}
+        <form method="post" action="{% url 'frontend:mcp-control' server.pk 'restart' %}">
+          {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-clockwise me-1"></i>Restart</button>
+        </form>
+        <form method="post" action="{% url 'frontend:mcp-control' server.pk 'stop' %}" data-confirm="Stop {{ server.name }}? People using it will be disconnected.">
+          {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-stop-fill me-1"></i>Stop</button>
+        </form>
+      {% endif %}
+    {% endif %}
+  {% elif server.is_local %}
+    <span class="app-state app-state--crashed"><span class="app-dot"></span>Folder or mcp.json missing</span>
+  {% else %}
+    <span class="app-state"><span class="app-dot"></span>{% if server.is_external %}Hosted elsewhere{% else %}{{ server.get_status_display }}{% endif %}</span>
+  {% endif %}
+</div>

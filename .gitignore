@@ -23,6 +23,7 @@ db.sqlite3
 db.sqlite3-journal
 *.log
 media/
+var/
 staticfiles/
 
 # Editors / OS

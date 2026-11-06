@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load mcp_tags %}
+{# Shared by the four tabs of an MCP: Overview, Logs, Who has access, User manual. #}
+
+{% block title %}{{ server.name }}{% endblock %}
+{% block page_title %}MCP Servers{% endblock %}
+
+{% block content %}
+<div class="app-mcp-header">
+  <div class="me-auto" style="min-width: 0">
+    <h2 class="text-truncate">{{ server.name }}</h2>
+    <div class="small text-body-secondary mt-1">
+      <code>{{ server.slug }}</code>
+      <span class="mx-1">·</span>{{ server.get_access_policy_display }}
+      <span class="mx-1">·</span><span title="{{ level_help }}">Your access: <strong>{{ level.label }}</strong></span>
+    </div>
+  </div>
+  {# Live state + Start / Stop / Restart. Refreshes every 5 seconds. #}
+  {% include "mcps/partials/state.html" %}
+</div>
+
+<ul class="nav app-tabs">
+  {% for key, label, icon, url_name in tabs %}
+    <li class="nav-item">
+      <a class="nav-link {% if key == tab %}active{% endif %}" href="{% url url_name server.pk %}" {% if key == tab %}aria-current="page"{% endif %}>
+        <i class="bi {{ icon }} me-1"></i>{{ label }}
+      </a>
+    </li>
+  {% endfor %}
+</ul>
+
+{% block tab %}{% endblock %}
+{% endblock %}

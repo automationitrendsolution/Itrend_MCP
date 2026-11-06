@@ -21,19 +21,13 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => { button.innerHTML = original; }, 2000);
     });
   });
+});
 
-  // MCP form: show only the fields that apply to the chosen deployment type.
-  // Elements use data-show-for="zip github" (space-separated types).
-  const typeInputs = document.querySelectorAll('input[name="deployment_type"]');
-  const toggleSections = () => {
-    const checked = document.querySelector('input[name="deployment_type"]:checked');
-    const type = checked ? checked.value : "";
-    document.querySelectorAll("[data-show-for]").forEach((el) => {
-      el.classList.toggle("d-none", !el.dataset.showFor.split(" ").includes(type));
-    });
-  };
-  if (typeInputs.length) {
-    typeInputs.forEach((input) => input.addEventListener("change", toggleSections));
-    toggleSections();
+// Confirmation dialogs: <form data-confirm="Revoke this token?">. Listening on the
+// document also covers forms that HTMX adds to the page later.
+document.addEventListener("submit", (event) => {
+  const message = event.target.dataset ? event.target.dataset.confirm : null;
+  if (message && !window.confirm(message)) {
+    event.preventDefault();
   }
 });

@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
-from .validators import (
+from ..validators import (
     http_url_validator,
     slug_format_validator,
     validate_configuration,
@@ -14,16 +14,20 @@ from .validators import (
 class MCPServerQuerySet(models.QuerySet):
     def visible_to(self, user) -> "MCPServerQuerySet":
         """
-        MCP servers a user may see.
+        MCP servers a user may see (permission level VIEW or higher).
 
-        Staff see everything. Other users see servers open to all employees.
-        Per-user grants for restricted servers are added in Phase 4.
+        Staff see everything. People see servers open to all employees, and any
+        server they have an explicit permission on. Service accounts only see
+        servers they were explicitly granted. Rules: backend/services/access.py.
         """
         if not user.is_authenticated or not user.is_active:
             return self.none()
         if user.is_staff:
             return self
-        return self.filter(access_policy=MCPServer.AccessPolicy.ALL_USERS)
+        granted = Q(permissions__user=user)
+        if hasattr(user, "service_account"):
+            return self.filter(granted).distinct()
+        return self.filter(granted | Q(access_policy=MCPServer.AccessPolicy.ALL_USERS)).distinct()
 
     def search(self, term: str) -> "MCPServerQuerySet":
         term = term.strip()
@@ -36,6 +40,7 @@ class MCPServer(models.Model):
     """An MCP server registered on the platform, hosted here or elsewhere."""
 
     class DeploymentType(models.TextChoices):
+        LOCAL = "local", "Code in mcp_servers/"
         ZIP = "zip", "ZIP upload"
         GITHUB = "github", "GitHub repository"
         EXTERNAL = "external", "Existing MCP URL"
@@ -56,8 +61,8 @@ class MCPServer(models.Model):
         UNHEALTHY = "unhealthy", "Unhealthy"
 
     class AccessPolicy(models.TextChoices):
-        RESTRICTED = "restricted", "Restricted (administrators only until Phase 4 permissions)"
-        ALL_USERS = "all_users", "All employees"
+        RESTRICTED = "restricted", "Restricted (only people given permission)"
+        ALL_USERS = "all_users", "All employees (can connect)"
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.CharField(
@@ -92,6 +97,12 @@ class MCPServer(models.Model):
         max_length=20, choices=AccessPolicy.choices, default=AccessPolicy.RESTRICTED
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    # Local MCPs: the folder under MCP_SERVERS_DIR, and the process the platform started.
+    source_dir = models.CharField(max_length=100, blank=True, help_text="Folder name under mcp_servers/.")
+    process_id = models.PositiveIntegerField(null=True, blank=True)
+    # The process start time, so a recycled process ID is never mistaken for our MCP.
+    process_create_time = models.FloatField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
     health_status = models.CharField(max_length=20, choices=HealthStatus.choices, default=HealthStatus.UNKNOWN)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
@@ -117,6 +128,10 @@ class MCPServer(models.Model):
     @property
     def is_external(self) -> bool:
         return self.deployment_type == self.DeploymentType.EXTERNAL
+
+    @property
+    def is_local(self) -> bool:
+        return self.deployment_type == self.DeploymentType.LOCAL
 
     @property
     def connection_url(self) -> str:

@@ -1,0 +1,48 @@
+{% extends "mcps/base_mcp.html" %}
+
+{% block tab %}
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card app-card mb-3">
+      <div class="card-header">People and systems with access</div>
+      {% include "permissions/partials/table.html" with show_user=True next=request.path empty="No one has been given access yet. Use the form below." %}
+      <div class="card-body border-top">
+        {% include "permissions/partials/grant_form.html" with next=request.path %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    <div class="card app-card mb-3">
+      <div class="card-header">Who can use it</div>
+      <div class="card-body small">
+        {% if is_admin %}
+          <form method="post" action="{% url 'frontend:mcp-access-policy' server.pk %}">
+            {% csrf_token %}
+            {% for value, label in policy_choices %}
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="radio" name="access_policy" id="policy-{{ value }}" value="{{ value }}" {% if server.access_policy == value %}checked{% endif %}>
+                <label class="form-check-label" for="policy-{{ value }}">{{ label }}</label>
+              </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-outline-primary btn-sm mt-1">Save</button>
+          </form>
+        {% else %}
+          {{ server.get_access_policy_display }}
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-header">What the levels mean</div>
+      <ul class="list-unstyled small mb-0 card-body">
+        <li class="mb-2"><strong>View</strong> – sees this MCP on the website.</li>
+        <li class="mb-2"><strong>Connect</strong> – can create a token and use the MCP.</li>
+        <li class="mb-2"><strong>Manage</strong> – Connect, plus is trusted to look after it.</li>
+        <li class="mb-2"><strong>Admin</strong> – can give and remove access on this page.</li>
+        <li class="text-body-secondary">Platform administrators always have Admin. Starting and stopping is for platform administrators only.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}{{ account.get_username }}{% endblock %}
+{% block page_title %}{{ account.get_username }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <a href="{% url 'frontend:user-list' %}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> All users</a>
+  {% if is_service %}<span class="badge text-bg-light border ms-2"><i class="bi bi-robot me-1"></i>Service account</span>
+  {% elif account.is_superuser %}<span class="badge text-bg-danger ms-2">Superuser</span>
+  {% elif account.is_staff %}<span class="badge text-bg-primary ms-2">Administrator</span>{% endif %}
+  {% if account.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+
+  {% if account != user %}
+    <form method="post" action="{% url 'frontend:user-set-active' account.pk %}" class="ms-auto"
+          {% if account.is_active %}data-confirm="Deactivate {{ account.get_username }}? They are logged out and all their tokens stop working until reactivated."{% endif %}>
+      {% csrf_token %}
+      {% if account.is_active %}
+        <input type="hidden" name="active" value="0">
+        <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-person-x me-1"></i>Deactivate</button>
+      {% else %}
+        <input type="hidden" name="active" value="1">
+        <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-person-check me-1"></i>Activate</button>
+      {% endif %}
+    </form>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card app-card">
+      <div class="card-header">Account</div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          {% if is_service %}
+            <dt class="col-5">Description</dt><dd class="col-7">{{ account.service_account.description|default:"—"|linebreaksbr }}</dd>
+            <dt class="col-5">Created by</dt><dd class="col-7">{{ account.service_account.created_by.get_username|default:"—" }}</dd>
+            <dt class="col-5">Login</dt><dd class="col-7">Not possible (no password)</dd>
+          {% else %}
+            <dt class="col-5">Name</dt><dd class="col-7">{{ account.get_full_name|default:"—" }}</dd>
+            <dt class="col-5">Email</dt><dd class="col-7">{{ account.email|default:"—" }}</dd>
+            <dt class="col-5">Last login</dt><dd class="col-7">{{ account.last_login|date:"DATETIME_FORMAT"|default:"Never" }}</dd>
+          {% endif %}
+          <dt class="col-5">Created</dt><dd class="col-7 mb-0">{{ account.date_joined|date:"DATE_FORMAT" }}</dd>
+        </dl>
+        {% if account.is_staff %}
+          <div class="small text-body-secondary mt-3">Administrators have Admin permission on every MCP automatically.</div>
+        {% elif not is_service %}
+          <div class="small text-body-secondary mt-3">Also has Connect on every MCP open to <em>All employees</em>.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card app-card mb-3">
+      <div class="card-header">MCP permissions</div>
+      {% include "permissions/partials/table.html" with show_mcp=True next=request.path empty="No explicit permissions." %}
+      {% if grant_form %}
+        <div class="card-body border-top">
+          {% include "permissions/partials/grant_form.html" with next=request.path %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card app-card">
+      <div class="card-header d-flex align-items-center">
+        <span>Access tokens</span>
+        {% if can_create_token and account.is_active %}
+          <a href="{% url 'frontend:user-token-create' account.pk %}" class="btn btn-primary btn-sm ms-auto"><i class="bi bi-plus-lg me-1"></i>Generate token</a>
+        {% endif %}
+      </div>
+      {% include "tokens/partials/table.html" with show_mcp=True next=request.path empty="No tokens." %}
+    </div>
+  </div>
+</div>
+{% endblock %}

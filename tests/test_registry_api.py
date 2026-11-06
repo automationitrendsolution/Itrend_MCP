@@ -58,64 +58,25 @@ class ReadAccessTests(APITestCase):
         self.assertEqual(MCPServer.objects.count(), 2)
 
 
-class AdminWriteTests(APITestCase):
+class AdminTests(APITestCase):
     def setUp(self):
         self.admin = create_user("admin", is_staff=True)
         self.client.force_authenticate(self.admin)
-
-    def test_create(self):
-        response = self.client.post(
-            LIST_URL,
-            {"name": "Amazon MCP", "slug": "amazon", "deployment_type": "github", "configuration": {"region": "eu"}},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 201, response.content)
-        body = response.json()
-        self.assertEqual(body["created_by"], "admin")
-        self.assertEqual(body["status"], "pending")
-        self.assertTrue(body["connection_url"].endswith("/amazon/"))
 
     def test_staff_see_internal_fields(self):
         server = create_server(internal_endpoint="http://mcp-mysql:8000/mcp")
         self.assertEqual(self.client.get(detail_url(server.pk)).json()["internal_endpoint"], "http://mcp-mysql:8000/mcp")
 
-    def test_validation_errors_use_standard_format(self):
-        response = self.client.post(LIST_URL, {"name": "Bad", "slug": "admin", "deployment_type": "zip"}, format="json")
-        self.assertEqual(response.status_code, 400)
-        error = response.json()["error"]
-        self.assertEqual(error["code"], "invalid")
-        self.assertIn("slug", error["details"])
-
-    def test_model_rules_are_enforced(self):
-        response = self.client.post(LIST_URL, {"name": "Ext", "slug": "ext", "deployment_type": "external"}, format="json")
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("endpoint", response.json()["error"]["details"])
-
-    def test_secrets_rejected_in_configuration(self):
-        response = self.client.post(
-            LIST_URL, {"name": "S", "slug": "srv", "deployment_type": "zip", "configuration": {"api_key": "x"}}, format="json"
-        )
-        self.assertEqual(response.status_code, 400)
-
-    def test_patch(self):
+    def test_api_is_read_only_even_for_staff(self):
+        # MCPs are added and changed through code (mcp_servers/<slug>/mcp.json).
         server = create_server()
-        response = self.client.patch(detail_url(server.pk), {"status": "running"}, format="json")
-        self.assertEqual(response.status_code, 200)
+        responses = [
+            self.client.post(LIST_URL, {"name": "X", "slug": "xyz", "deployment_type": "zip"}, format="json"),
+            self.client.patch(detail_url(server.pk), {"status": "running"}, format="json"),
+            self.client.put(detail_url(server.pk), {}, format="json"),
+            self.client.delete(detail_url(server.pk)),
+        ]
+        self.assertEqual([r.status_code for r in responses], [403, 403, 403, 403])
         server.refresh_from_db()
-        self.assertEqual(server.status, "running")
-
-    def test_slug_cannot_be_changed(self):
-        server = create_server(slug="mysql")
-        response = self.client.patch(detail_url(server.pk), {"slug": "renamed"}, format="json")
-        self.assertEqual(response.status_code, 400)
-        server.refresh_from_db()
-        self.assertEqual(server.slug, "mysql")
-
-    def test_put_is_not_allowed(self):
-        server = create_server()
-        self.assertEqual(self.client.put(detail_url(server.pk), {}, format="json").status_code, 405)
-
-    def test_delete(self):
-        server = create_server()
-        self.assertEqual(self.client.delete(detail_url(server.pk)).status_code, 204)
-        self.assertFalse(MCPServer.objects.exists())
+        self.assertEqual(server.status, "pending")
+        self.assertEqual(MCPServer.objects.count(), 1)

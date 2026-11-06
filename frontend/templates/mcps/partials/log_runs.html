@@ -1,0 +1,67 @@
+{# The MCP's output as runs, newest first. Older, finished runs keep their open/closed state across refreshes (hx-preserve). #}
+{% for run in runs %}
+  {% with latest=forloop.first %}
+  {% if run.is_open and latest and runtime.state == "running" %}
+    {% firstof "running" as status %}
+  {% elif run.ended_level == "error" or run.is_open %}
+    {% firstof "problem" as status %}
+  {% else %}
+    {% firstof "stopped" as status %}
+  {% endif %}
+  <details class="app-run app-run--{{ status }}" {% if latest %}open{% else %}id="run-{{ run.started_at|date:'U' }}-{{ run.ended_at|date:'U' }}-{{ problems_only|yesno:'p,a' }}" hx-preserve="true"{% endif %}>
+    <summary class="app-run-head">
+      <i class="bi bi-chevron-right app-run-chevron" aria-hidden="true"></i>
+      <span class="app-run-status">
+        {% if status == "running" %}<span class="app-dot app-dot--running"></span>Running
+        {% elif run.ended_level == "error" %}<i class="bi bi-x-circle-fill"></i>{% if run.ended_how %}{{ run.ended_how|truncatechars:40 }}{% else %}Failed{% endif %}
+        {% elif run.is_open %}<i class="bi bi-question-circle-fill"></i>Ended (no stop recorded)
+        {% else %}<i class="bi bi-stop-circle-fill"></i>Stopped{% endif %}
+      </span>
+      <span class="app-run-title">
+        {% if run.started_at %}
+          Started <strong>{{ run.started_at|date:"H:i:s" }}</strong> <span class="text-body-secondary">{{ run.started_at|date:"j M Y" }}</span>
+          {% if run.started_by %}by <strong>{{ run.started_by }}</strong>{% endif %}
+        {% else %}
+          Earlier output
+        {% endif %}
+      </span>
+      <span class="app-run-stats">
+        {% if run.duration %}<span title="How long it ran"><i class="bi bi-hourglass-split"></i>{{ run.duration }}</span>{% endif %}
+        {% if run.health_ok or run.health_failed %}<span title="Health checks passed"><i class="bi bi-heart-pulse"></i>{{ run.health_ok }} health check{{ run.health_ok|pluralize }} OK{% if run.health_failed %} <span class="text-danger">/ {{ run.health_failed }} failed</span>{% endif %}</span>{% endif %}
+        <span title="Requests from MCP clients"><i class="bi bi-arrow-left-right"></i>{{ run.requests }} request{{ run.requests|pluralize }}</span>
+        {% if run.warnings %}<span class="text-warning-emphasis" title="Warnings"><i class="bi bi-exclamation-triangle-fill"></i>{{ run.warnings }}</span>{% endif %}
+        {% if run.errors %}<span class="text-danger" title="Errors"><i class="bi bi-x-octagon-fill"></i>{{ run.errors }}</span>{% endif %}
+      </span>
+    </summary>
+
+    <div class="app-run-body">
+      {% for event in run.events %}
+        <div class="app-log-row app-log-row--{{ event.level }}">
+          <span class="app-log-time">{{ event.time|default:"—" }}</span>
+          <span class="app-log-level">{% if event.level == "warning" %}Warning{% elif event.level == "error" %}Error{% elif event.level == "debug" %}Debug{% else %}Info{% endif %}</span>
+          <div class="app-log-msg">
+            {{ event.message }}
+            {% if event.details %}
+              <details class="app-log-details"><summary>Technical details</summary><pre>{{ event.details_text }}</pre></details>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="app-log-empty">{% if problems_only %}No warnings or errors in this run.{% else %}Nothing to show for this run.{% endif %}</div>
+      {% endfor %}
+      {% if run.ended_how %}
+        <div class="app-log-row app-log-row--{{ run.ended_level }} app-log-row--end">
+          <span class="app-log-time">{{ run.ended_at|date:"H:i:s" }}</span>
+          <span class="app-log-level">{% if run.ended_level == "error" %}Error{% else %}Info{% endif %}</span>
+          <div class="app-log-msg"><strong>{{ run.ended_how }}</strong></div>
+        </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endwith %}
+{% empty %}
+  <div class="app-empty py-5">
+    <i class="bi bi-terminal"></i>
+    <p class="mb-0">No output yet. Click <strong>Start</strong> to run this MCP; what it does will appear here.</p>
+  </div>
+{% endfor %}

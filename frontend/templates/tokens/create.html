@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Generate token{% endblock %}
+{% block page_title %}Generate token{% if owner != user %} for {{ owner.get_username }}{% endif %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px">
+  {% if owner != user %}
+    <div class="alert alert-info small">
+      <i class="bi bi-robot me-1"></i>This token belongs to the service account <strong>{{ owner.get_username }}</strong>.
+      Give it to the system that uses this account, not to a person.
+    </div>
+  {% endif %}
+
+  {% if not servers %}
+    <div class="card app-card">
+      <div class="card-body app-empty">
+        <i class="bi bi-hdd-stack"></i>
+        <p class="mb-0">
+          {% if owner != user %}This service account has no CONNECT permission on any platform-hosted MCP yet. Grant it one first.
+          {% else %}You do not have CONNECT permission on any platform-hosted MCP yet. Ask an administrator for access.{% endif %}
+        </p>
+      </div>
+    </div>
+  {% else %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>
+    {% endif %}
+    <form method="post" novalidate class="card app-card">
+      {% csrf_token %}
+      <div class="card-body">
+        <div class="mb-3">{% include "partials/form_field.html" with field=form.mcp_server %}</div>
+        <div class="mb-3">{% include "partials/form_field.html" with field=form.name %}</div>
+        <div class="mb-1">{% include "partials/form_field.html" with field=form.expires_in_days %}</div>
+      </div>
+      <div class="card-footer bg-white d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Generate token</button>
+        <a href="{% if owner != user %}{% url 'frontend:user-detail' owner.pk %}{% else %}{% url 'frontend:token-list' %}{% endif %}" class="btn btn-light">Cancel</a>
+      </div>
+    </form>
+    <p class="small text-body-secondary mt-3">
+      <i class="bi bi-info-circle me-1"></i>External MCPs are not listed: their traffic does not pass through the platform, so platform tokens cannot protect them.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

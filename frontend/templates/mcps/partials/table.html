@@ -6,8 +6,8 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th class="d-none d-lg-table-cell">Connection URL</th>
-            <th class="d-none d-md-table-cell">Deployment</th>
+            <th class="d-none d-lg-table-cell">Connection link</th>
+            <th class="d-none d-md-table-cell">Source</th>
             <th>Status</th>
             <th>Health</th>
             <th class="d-none d-xl-table-cell">Created</th>
@@ -50,8 +50,8 @@
       {% if filters.search or filters.status or filters.deployment_type %}
         <p class="mb-0">No MCP servers match these filters.</p>
       {% elif can_manage %}
-        <p class="mb-2">No MCP servers have been registered yet.</p>
-        <a href="{% url 'frontend:mcp-create' %}" class="btn btn-primary btn-sm">Add the first MCP</a>
+        <p class="mb-0">No MCPs yet. Create a folder in <code>{{ servers_dir }}</code> with an <code>mcp.json</code> file,
+          then click <strong>Rescan MCP folders</strong>. See <code>mcp_servers/README.md</code>.</p>
       {% else %}
         <p class="mb-0">No MCP servers are available to you yet. Ask an administrator for access.</p>
       {% endif %}

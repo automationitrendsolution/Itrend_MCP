@@ -1,9 +1,28 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
-from backend.models import MCPServer
-from backend.services import login_protection
-from backend.services.registry import IMMUTABLE_FIELDS
+from backend.models import PERMISSION_LEVEL_HELP, MCPServer, PermissionLevel
+from backend.services import access, audit, login_protection
+from backend.services.tokens import DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES_DAYS
+
+
+def apply_bootstrap(form: forms.BaseForm) -> None:
+    """Give every widget the matching Bootstrap class."""
+    for field in form.fields.values():
+        if isinstance(field.widget, (forms.RadioSelect, forms.CheckboxInput)):
+            continue
+        css = "form-select" if isinstance(field.widget, forms.Select) else "form-control"
+        existing = field.widget.attrs.get("class", "")
+        if css not in existing:
+            field.widget.attrs["class"] = f"{css} {existing}".strip()
+
+
+def mark_invalid(form: forms.BaseForm) -> None:
+    """Mark invalid inputs so Bootstrap shows them in red."""
+    for name in form.errors:
+        if name in form.fields:
+            widget = form.fields[name].widget
+            widget.attrs["class"] = f"{widget.attrs.get('class', '')} is-invalid".strip()
 
 LOCKED_OUT_MESSAGE = "Too many failed login attempts. Please wait a few minutes and try again."
 
@@ -30,6 +49,9 @@ class LoginForm(AuthenticationForm):
         ip = login_protection.get_client_ip(self.request)
 
         if login_protection.is_locked_out(username, ip):
+            audit.record(
+                audit.Action.LOGIN_FAILED, username=username, result=audit.Result.DENIED, reason="locked_out"
+            )
             raise forms.ValidationError(self.error_messages["locked_out"], code="locked_out")
 
         try:
@@ -42,65 +64,67 @@ class LoginForm(AuthenticationForm):
         return cleaned_data
 
 
-class MCPServerForm(forms.ModelForm):
-    """Register or edit an MCP server. Rules are enforced by the model and backend.services.registry."""
-
-    class Meta:
-        model = MCPServer
-        fields = (
-            "deployment_type", "name", "slug", "description", "transport_type",
-            "endpoint", "internal_endpoint", "access_policy", "configuration",
-            "status", "health_status",
-        )
-        widgets = {
-            "deployment_type": forms.RadioSelect,
-            "description": forms.Textarea(attrs={"rows": 3}),
-            "configuration": forms.Textarea(attrs={"rows": 4, "class": "font-monospace"}),
-        }
-        labels = {"endpoint": "Endpoint URL", "health_status": "Health"}
-
-    def __init__(self, *args, slug_check_url: str = "", **kwargs) -> None:
+class BootstrapForm(forms.Form):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        is_edit = self.instance.pk is not None
-
-        if is_edit:
-            # Changing these would break the connection URL or the deployment record.
-            for name in IMMUTABLE_FIELDS:
-                self.fields[name].disabled = True
-            self.fields["status"].help_text = "Set by hand until automated deployments arrive (Phase 5)."
-            self.fields["health_status"].help_text = "Set by hand until automated health checks arrive (Phase 6)."
-        else:
-            del self.fields["status"]
-            del self.fields["health_status"]
-            if slug_check_url:
-                # HTMX: check slug availability while typing.
-                self.fields["slug"].widget.attrs.update(
-                    {
-                        "hx-get": slug_check_url,
-                        "hx-trigger": "input changed delay:400ms",
-                        "hx-target": "#slugFeedback",
-                        "autocomplete": "off",
-                    }
-                )
-
-        self.fields["configuration"].required = False
-        self.fields["endpoint"].widget.attrs["placeholder"] = "https://mcp.example.com/mcp"
-        self.fields["internal_endpoint"].widget.attrs["placeholder"] = "http://mcp-mysql:8000/mcp"
-
-        for name, field in self.fields.items():
-            if isinstance(field.widget, forms.RadioSelect):
-                continue
-            css = "form-select" if isinstance(field.widget, forms.Select) else "form-control"
-            existing = field.widget.attrs.get("class", "")
-            field.widget.attrs["class"] = f"{css} {existing}".strip()
-
-    def clean_configuration(self):
-        return self.cleaned_data.get("configuration") or {}
+        apply_bootstrap(self)
 
     def full_clean(self):
         super().full_clean()
-        # Mark invalid inputs so Bootstrap shows them in red.
-        for name in self.errors:
-            if name in self.fields:
-                widget = self.fields[name].widget
-                widget.attrs["class"] = f"{widget.attrs.get('class', '')} is-invalid".strip()
+        mark_invalid(self)
+
+
+class AccessTokenForm(BootstrapForm):
+    """Generate a token for one MCP server."""
+
+    mcp_server = forms.ModelChoiceField(queryset=MCPServer.objects.none(), label="MCP server", empty_label=None)
+    name = forms.CharField(
+        max_length=100,
+        help_text="Where will you use it? For example “Claude Desktop – laptop” or “PPC production”.",
+    )
+    expires_in_days = forms.TypedChoiceField(
+        label="Expires after",
+        coerce=int,
+        choices=[(days, f"{days} days") for days in EXPIRY_CHOICES_DAYS],
+        initial=DEFAULT_EXPIRY_DAYS,
+        help_text="Tokens always expire. Create a new one before it does.",
+    )
+
+    def __init__(self, *args, servers=(), **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["mcp_server"].queryset = MCPServer.objects.filter(pk__in=[s.pk for s in servers])
+
+
+class PermissionGrantForm(BootstrapForm):
+    """Give a user a permission level on an MCP server. Either field can be fixed by the page."""
+
+    user = forms.ModelChoiceField(queryset=access.grantable_users(), label="User or service account")
+    mcp_server = forms.ModelChoiceField(queryset=MCPServer.objects.all(), label="MCP server")
+    permission_level = forms.ChoiceField(
+        label="Permission",
+        choices=[(level.value, f"{level.label} – {PERMISSION_LEVEL_HELP[level]}") for level in PermissionLevel],
+        initial=PermissionLevel.CONNECT,
+    )
+
+    def __init__(self, *args, server=None, user=None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        if server is not None:
+            self.fields["mcp_server"].queryset = MCPServer.objects.filter(pk=server.pk)
+            self.fields["mcp_server"].initial = server.pk
+            self.fields["mcp_server"].widget = forms.HiddenInput()
+        if user is not None:
+            self.fields["user"].queryset = access.grantable_users().filter(pk=user.pk)
+            self.fields["user"].initial = user.pk
+            self.fields["user"].widget = forms.HiddenInput()
+
+
+class ServiceAccountForm(BootstrapForm):
+    name = forms.CharField(
+        max_length=40,
+        help_text="Lowercase letters, numbers and hyphens. The account will be called svc-<name>, e.g. svc-ppc-server.",
+    )
+    description = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Which system uses this account and who is responsible for it.",
+    )

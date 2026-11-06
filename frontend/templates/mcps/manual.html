@@ -1,0 +1,56 @@
+{% extends "mcps/base_mcp.html" %}
+
+{% block tab %}
+<div class="row g-3">
+  <div class="col-xl-5 order-xl-2">
+    <div class="card app-card">
+      <div class="card-header"><i class="bi bi-plug me-1"></i>Connect in 3 steps</div>
+      <div class="card-body small">
+        <ol class="app-steps">
+          <li>
+            <strong>Get a token.</strong>
+            {% if can_connect %}
+              <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}">Generate a token</a> for {{ server.name }} and copy it. It is shown only once.
+            {% else %}
+              Ask an administrator for <strong>Connect</strong> access, then generate a token on this page.
+            {% endif %}
+          </li>
+          <li>
+            <strong>Use this address.</strong>
+            <pre>{{ server.connection_url }}</pre>
+          </li>
+          <li>
+            <strong>Add it to your MCP client.</strong> For example, in Claude Code:
+            <pre>claude mcp add --transport http {{ server.slug }} {{ server.connection_url }} --header "Authorization: Bearer YOUR_TOKEN"</pre>
+            <div class="mt-2">Or in a JSON config (VS Code, Claude Desktop, other clients):</div>
+            <pre>{
+  "{{ server.slug }}": {
+    "type": "http",
+    "url": "{{ server.connection_url }}",
+    "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+  }
+}</pre>
+          </li>
+        </ol>
+        <div class="text-body-secondary"><i class="bi bi-shield-lock me-1"></i>Keep your token secret. If it leaks, revoke it under Access Tokens and make a new one.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7 order-xl-1">
+    <div class="card app-card">
+      <div class="card-header"><i class="bi bi-book me-1"></i>About {{ server.name }}</div>
+      <div class="card-body app-manual">
+        {% if manual_html %}
+          {{ manual_html }}
+        {% else %}
+          <div class="app-empty">
+            <i class="bi bi-book"></i>
+            <p class="mb-0">No manual yet.{% if is_admin and manifest %} Add a <code>{{ manifest.manual }}</code> file to <code>mcp_servers/{{ server.source_dir }}/</code>.{% endif %}</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

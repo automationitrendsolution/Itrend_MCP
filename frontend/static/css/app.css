@@ -107,17 +107,139 @@ body.auth-body { background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 100%); 
 /* ---- Tables ---- */
 .app-table thead th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); font-weight: 600; background: #fafbfc; }
 
-/* ---- Selectable cards (e.g. MCP deployment type) ---- */
-.app-choice { display: block; height: 100%; cursor: pointer; position: relative; }
-.app-choice input { position: absolute; opacity: 0; }
-.app-choice-body {
-  display: flex; flex-direction: column; gap: .25rem; height: 100%;
-  padding: .9rem 1rem; border: 1px solid var(--app-border); border-radius: .5rem; background: #fff;
-  transition: border-color .15s, box-shadow .15s;
+/* ---- Sidebar: MCP list under "MCP Servers" ---- */
+.app-nav-toggle { width: 100%; border: 0; background: transparent; text-align: left; }
+.app-nav-toggle[aria-expanded="true"] { color: #fff; }
+.app-nav-count {
+  margin-left: auto; font-size: .7rem; min-width: 1.4rem; text-align: center;
+  padding: .05rem .4rem; border-radius: 1rem; background: rgba(255, 255, 255, .08); color: var(--app-sidebar-fg);
 }
-.app-choice-body .bi { font-size: 1.3rem; color: var(--app-accent); }
-.app-choice:hover .app-choice-body { border-color: #93c5fd; }
-.app-choice input:checked + .app-choice-body { border-color: var(--app-accent); box-shadow: 0 0 0 .2rem rgba(37, 99, 235, .15); }
-.app-choice input:focus-visible + .app-choice-body { outline: 2px solid var(--app-accent); outline-offset: 2px; }
-.app-choice.disabled { cursor: default; }
-.app-choice.disabled input:not(:checked) + .app-choice-body { opacity: .45; }
+.app-nav-chevron { font-size: .75rem; transition: transform .2s; }
+.app-nav-toggle[aria-expanded="true"] .app-nav-chevron { transform: rotate(180deg); }
+.app-subnav { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 1.15rem; padding-left: .6rem; border-left: 1px solid rgba(255, 255, 255, .08); }
+.app-subnav-link {
+  display: flex; align-items: center; gap: .55rem; min-width: 0;
+  padding: .38rem .6rem; border-radius: .35rem;
+  color: var(--app-sidebar-fg); text-decoration: none; font-size: .86rem;
+}
+.app-subnav-link:hover { background: var(--app-sidebar-active); color: #fff; }
+.app-subnav-link.active { background: rgba(37, 99, 235, .25); color: #fff; box-shadow: inset 2px 0 0 #60a5fa; }
+.app-subnav-all { color: var(--app-sidebar-muted); font-size: .8rem; }
+.app-subnav-all .bi { font-size: .8rem; }
+.app-subnav-empty { padding: .38rem .6rem; color: var(--app-sidebar-muted); font-size: .82rem; }
+
+/* Status dots (sidebar, MCP header) */
+.app-dot { width: .5rem; height: .5rem; border-radius: 50%; flex-shrink: 0; background: #64748b; }
+.app-dot--running { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
+.app-dot--failed { background: #ef4444; }
+
+/* ---- MCP page ---- */
+.app-mcp-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.app-mcp-header h2 { font-size: 1.35rem; font-weight: 600; margin: 0; }
+.app-state { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; font-weight: 500;
+  padding: .3rem .75rem; border-radius: 2rem; background: #fff; border: 1px solid var(--app-border); }
+.app-state .app-dot { width: .55rem; height: .55rem; }
+.app-state--running .app-dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
+.app-state--outside .app-dot { background: #f59e0b; }
+.app-state--crashed .app-dot { background: #ef4444; }
+.app-tabs { border-bottom: 1px solid var(--app-border); margin-bottom: 1.25rem; gap: .25rem; flex-wrap: nowrap; overflow-x: auto; }
+.app-tabs .nav-link { border: 0; border-bottom: 2px solid transparent; color: var(--bs-secondary-color); padding: .6rem .9rem; white-space: nowrap; border-radius: 0; }
+.app-tabs .nav-link:hover { color: var(--bs-body-color); }
+.app-tabs .nav-link.active { color: var(--app-accent); border-bottom-color: var(--app-accent); background: transparent; font-weight: 500; }
+
+/* MCP server log: one collapsible block per run */
+.app-run { border-top: 1px solid var(--app-border); }
+.app-run:first-child { border-top: 0; }
+.app-run-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem;
+  padding: .8rem 1.25rem; cursor: pointer; list-style: none; font-size: .9rem;
+}
+.app-run-head::-webkit-details-marker { display: none; }
+.app-run-head:hover { background: #fafbfc; }
+.app-run-chevron { font-size: .75rem; color: var(--bs-secondary-color); transition: transform .15s; }
+.app-run[open] .app-run-chevron { transform: rotate(90deg); }
+.app-run-status {
+  display: inline-flex; align-items: center; gap: .4rem; font-size: .78rem; font-weight: 600;
+  padding: .2rem .65rem; border-radius: 2rem; white-space: nowrap;
+}
+.app-run--running .app-run-status { background: #ecfdf5; color: #047857; }
+.app-run--stopped .app-run-status { background: #f3f4f6; color: #4b5563; }
+.app-run--problem .app-run-status { background: #fef2f2; color: #b91c1c; }
+.app-run-title { min-width: 0; }
+.app-run-stats { margin-left: auto; display: flex; flex-wrap: wrap; gap: .9rem; font-size: .8rem; color: var(--bs-secondary-color); }
+.app-run-stats .bi { margin-right: .3rem; }
+.app-run-body { border-top: 1px solid var(--app-border); padding: .25rem 0; background: #fcfcfd; }
+
+.app-log-row {
+  display: grid; grid-template-columns: 5.5rem 5rem 1fr; gap: .75rem; align-items: baseline;
+  padding: .45rem 1.25rem .45rem 2.6rem; font-size: .86rem; border-left: 3px solid transparent;
+}
+.app-log-row + .app-log-row { border-top: 1px dashed #eef0f3; }
+.app-log-time { font-family: var(--bs-font-monospace); font-size: .78rem; color: var(--bs-secondary-color); }
+.app-log-level {
+  justify-self: start; font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  padding: .1rem .45rem; border-radius: .25rem; background: #eef2ff; color: #3730a3;
+}
+.app-log-row--warning { border-left-color: #f59e0b; background: #fffbeb; }
+.app-log-row--warning .app-log-level { background: #fef3c7; color: #92400e; }
+.app-log-row--error { border-left-color: #ef4444; background: #fef2f2; }
+.app-log-row--error .app-log-level { background: #fee2e2; color: #991b1b; }
+.app-log-row--debug .app-log-level { background: #f3f4f6; color: #6b7280; }
+.app-log-row--end .app-log-msg { color: var(--bs-secondary-color); }
+.app-log-msg { min-width: 0; overflow-wrap: anywhere; }
+.app-log-details summary { font-size: .78rem; color: var(--bs-secondary-color); cursor: pointer; margin-top: .25rem; }
+.app-log-details pre {
+  background: #0b1220; color: #e5e7eb; font-size: .75rem; padding: .75rem; border-radius: .4rem;
+  margin: .4rem 0 0; max-height: 300px; overflow: auto; white-space: pre-wrap;
+}
+.app-log-empty { padding: .75rem 1.25rem .75rem 2.6rem; font-size: .85rem; color: var(--bs-secondary-color); }
+@media (max-width: 575.98px) {
+  .app-log-row { grid-template-columns: 4.5rem 1fr; padding-left: 1rem; }
+  .app-log-level { display: none; }
+  .app-run-stats { margin-left: 0; width: 100%; }
+}
+
+.app-manual { font-size: .95rem; line-height: 1.65; }
+.app-manual h1 { font-size: 1.4rem; }
+.app-manual h2 { font-size: 1.2rem; margin-top: 1.75rem; }
+.app-manual h3 { font-size: 1.05rem; margin-top: 1.25rem; }
+.app-manual pre { background: #f3f4f6; padding: .85rem 1rem; border-radius: .4rem; font-size: .82rem; }
+.app-manual code { font-size: .85em; }
+.app-manual table { width: 100%; margin-bottom: 1rem; font-size: .9rem; }
+.app-manual th, .app-manual td { border: 1px solid var(--app-border); padding: .4rem .6rem; }
+.app-steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.app-steps > li { counter-increment: step; position: relative; padding-left: 2.4rem; margin-bottom: 1.1rem; }
+.app-steps > li::before {
+  content: counter(step); position: absolute; left: 0; top: -.1rem;
+  width: 1.7rem; height: 1.7rem; border-radius: 50%; background: #eff6ff; color: var(--app-accent);
+  display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: .85rem;
+}
+.app-steps pre { background: #f3f4f6; padding: .75rem 1rem; border-radius: .4rem; font-size: .8rem; margin: .5rem 0 0; }
+
+/* ---- Activity timeline ---- */
+.app-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.app-chip { position: relative; }
+.app-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.app-chip span {
+  display: inline-flex; align-items: center; gap: .35rem; cursor: pointer;
+  padding: .35rem .8rem; border-radius: 2rem; border: 1px solid var(--app-border); background: #fff; font-size: .85rem;
+}
+.app-chip input:checked + span { background: #111827; border-color: #111827; color: #fff; }
+.app-chip input:focus-visible + span { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+.app-day { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--bs-secondary-color);
+  padding: .6rem 1.25rem; background: #fafbfc; border-bottom: 1px solid var(--app-border); }
+.app-event { display: flex; gap: .85rem; padding: .8rem 1.25rem; border-bottom: 1px solid var(--app-border); }
+.app-event--problem { background: #fffafa; }
+.app-event-icon { width: 2rem; height: 2rem; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .95rem; }
+.app-event-icon--blue { background: #eff6ff; color: #2563eb; }
+.app-event-icon--green { background: #ecfdf5; color: #059669; }
+.app-event-icon--purple { background: #f5f3ff; color: #7c3aed; }
+.app-event-icon--amber { background: #fffbeb; color: #d97706; }
+.app-event-icon--red { background: #fef2f2; color: #dc2626; }
+.app-event-icon--gray { background: #f3f4f6; color: #4b5563; }
+.app-event-text { font-size: .92rem; }
+.app-event-meta { font-size: .78rem; color: var(--bs-secondary-color); margin-top: .1rem; }
+.app-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem; }
+.app-summary-item { background: #fff; border: 1px solid var(--app-border); border-radius: .5rem; padding: .75rem 1rem; }
+.app-summary-item .value { font-size: 1.4rem; font-weight: 600; line-height: 1.2; }
+.app-summary-item .label { font-size: .8rem; color: var(--bs-secondary-color); }

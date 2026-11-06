@@ -78,6 +78,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "backend.services.audit.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
@@ -97,6 +98,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "frontend.context_processors.sidebar",
             ],
         },
     },
@@ -154,8 +156,24 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # MCP platform
 # ---------------------------------------------------------------------------
 
-# Public base URL of the MCP gateway. Hosted MCPs are reachable at <base>/<slug>/.
-MCP_PUBLIC_BASE_URL = env_str("MCP_PUBLIC_BASE_URL", default="https://mcp.itrendsolution.com")
+# Public address of the MCP gateway (this website's /mcp/ path). Each MCP is
+# reachable at <base>/<slug>/. In production: https://mcp.itrendsolution.com/mcp
+MCP_PUBLIC_BASE_URL = env_str("MCP_PUBLIC_BASE_URL", default="http://127.0.0.1:8000/mcp")
+
+# Shared secret that MCP servers send when asking the platform whether a token
+# is valid (POST /api/v1/tokens/introspect/). At least 32 characters. Leave it
+# empty to switch token checking off; MCP servers then refuse every request.
+MCP_INTROSPECTION_KEY = os.getenv("MCP_INTROSPECTION_KEY", "")
+if MCP_INTROSPECTION_KEY and len(MCP_INTROSPECTION_KEY) < 32:
+    raise ImproperlyConfigured("MCP_INTROSPECTION_KEY must be at least 32 characters.")
+
+# Your own MCPs: one folder each, containing an mcp.json file (see mcp_servers/README.md).
+MCP_SERVERS_DIR = Path(env_str("MCP_SERVERS_DIR", default=str(BASE_DIR / "mcp_servers")))
+# Output (stdout/stderr) of the MCPs the platform starts, one file per MCP.
+MCP_LOG_DIR = Path(env_str("MCP_LOG_DIR", default=str(BASE_DIR / "var" / "mcp_logs")))
+# Look for new or changed mcp.json files at most this often (seconds). 0 = only via
+# "manage.py sync_mcps" or the Rescan button.
+MCP_DISCOVERY_INTERVAL = int(env_str("MCP_DISCOVERY_INTERVAL", default="0" if TESTING else "30"))
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +297,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # ---------------------------------------------------------------------------
 
 LOG_DIR = BASE_DIR / "logs"
-LOG_LEVEL = env_str("DJANGO_LOG_LEVEL", default="INFO")
+# Tests only show warnings and errors, so their output stays readable.
+LOG_LEVEL = env_str("DJANGO_LOG_LEVEL", default="WARNING" if TESTING else "INFO")
 
 LOGGING = {
     "version": 1,

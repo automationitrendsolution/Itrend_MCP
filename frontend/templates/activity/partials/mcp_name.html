@@ -1,0 +1,1 @@
+{% if entry.mcp_server %}<a href="{% url 'frontend:mcp-detail' entry.mcp_server_id %}" class="fw-semibold text-decoration-none">{{ entry.mcp_server.name }}</a>{% else %}<strong>{{ entry.mcp_slug|default:"an MCP" }}</strong>{% endif %}

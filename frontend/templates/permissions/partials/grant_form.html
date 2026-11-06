@@ -1,0 +1,16 @@
+{# Grant form. The page fixes the MCP and/or the user by passing a form with hidden fields. Option: next. #}
+<form method="post" action="{% url 'frontend:permission-grant' %}" class="row g-2 align-items-end">
+  {% csrf_token %}
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  {% for field in grant_form.hidden_fields %}{{ field }}{% endfor %}
+  {% for field in grant_form.visible_fields %}
+    <div class="{% if field.name == 'permission_level' %}col-md-5{% else %}col-md-4{% endif %}">
+      <label class="form-label small mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+    </div>
+  {% endfor %}
+  <div class="col-md-auto">
+    <button type="submit" class="btn btn-primary w-100">Grant</button>
+  </div>
+  <div class="col-12 form-text mt-1">Granting again replaces the user's previous level on that MCP.</div>
+</form>

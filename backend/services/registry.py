@@ -13,6 +13,8 @@ from django.db.models import Count, Q
 
 from backend.models import MCPServer
 
+from . import audit
+
 logger = logging.getLogger(__name__)
 
 # Fields that may only be set when an MCP server is created.
@@ -55,7 +57,7 @@ def create_server(*, created_by, **fields) -> MCPServer:
     server = MCPServer(created_by=created_by, **fields)
     server.full_clean()
     server.save()
-    logger.info("MCP server %r (%s) created by %s", server.name, server.slug, created_by)
+    audit.record(audit.Action.MCP_CREATED, user=created_by, mcp_server=server, name=server.name)
     return server
 
 
@@ -66,16 +68,20 @@ def update_server(server: MCPServer, *, updated_by, **fields) -> MCPServer:
     )
     if blocked:
         raise ValueError(f"These fields cannot be changed after creation: {', '.join(sorted(blocked))}")
+    changed = sorted(name for name, value in fields.items() if value != getattr(server, name))
     for name, value in fields.items():
         setattr(server, name, value)
     server.full_clean()
     server.save()
-    logger.info("MCP server %r (%s) updated by %s", server.name, server.slug, updated_by)
+    audit.record(audit.Action.MCP_UPDATED, user=updated_by, mcp_server=server, changed_fields=changed)
     return server
 
 
 @transaction.atomic
 def delete_server(server: MCPServer, *, deleted_by) -> None:
-    # Stopping and removing a hosted server's container is added in Phase 5.
-    logger.info("MCP server %r (%s) deleted by %s", server.name, server.slug, deleted_by)
+    if server.is_local:
+        from . import runner  # local import: runner depends on this module's model only
+
+        runner.stop(server, by=deleted_by)
+    audit.record(audit.Action.MCP_DELETED, user=deleted_by, mcp_server=server, name=server.name)
     server.delete()

@@ -7,7 +7,7 @@ other approved clients connect to them over HTTPS with individual access tokens.
 
 Target URL: `https://mcp.itrendsolution.com`
 
-> **Status:** Phases 1 (foundation), 2 (MCP registry) and 3 (first remote MCP) are complete. See
+> **Status:** Phases 1 (foundation), 2 (MCP registry), 3 (first remote MCP) and 4 (authentication and permissions) are complete. Phase 5 part 1 (your own MCPs: add through code, start/stop from the website) is done. See
 > [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) for what works today and
 > [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together.
 
@@ -62,9 +62,26 @@ so it can never be used in production by accident.
 | `/accounts/login/` | Sign in |
 | `/accounts/profile/` | Your profile |
 | `/admin/` | Django admin (staff only) |
-| `/mcps/` | MCP servers: list, add, view, edit |
-| `/api/v1/mcps/` | MCP registry REST API (login required) |
+| `/mcps/` | All MCP servers. Each MCP has tabs: Overview, Logs, Who has access, User manual; administrators can Start / Stop / Restart |
+| `/tokens/` | Your access tokens: generate and revoke |
+| `/users/` | Users and service accounts (administrators) |
+| `/permissions/` | All MCP permissions (administrators) |
+| `/activity/` | Activity log as a readable timeline (administrators) |
+| `/api/v1/mcps/` | MCP registry REST API, read-only (login required) |
+| `/api/v1/tokens/` | Your tokens: list, create (`POST`), revoke (`DELETE /api/v1/tokens/<id>/`) |
+| `/api/v1/users/` | User list (administrators) |
+| `/api/v1/tokens/introspect/` | Token check for MCP servers (needs `MCP_INTROSPECTION_KEY`, not for people) |
+| `/mcp/<slug>/` | **MCP gateway**: the connection link for each MCP. Needs `Authorization: Bearer <token>` |
 | `/api/v1/health/` | Platform health check (public, returns 200 or 503) |
+
+## Adding your own MCP
+
+Put it in its own folder under `mcp_servers/` with an `mcp.json` file. The
+platform finds it automatically. Step by step: [mcp_servers/README.md](mcp_servers/README.md).
+
+```powershell
+uv run python manage.py sync_mcps   # optional: register new folders right now
+```
 
 ## Project layout
 

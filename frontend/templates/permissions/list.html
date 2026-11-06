@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Permissions{% endblock %}
+{% block page_title %}Permissions{% endblock %}
+
+{% block content %}
+<div class="card app-card mb-3">
+  <div class="card-header">How access works</div>
+  <div class="card-body small">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div><span class="badge text-bg-light border">View</span> see the MCP and its connection URL</div>
+        <div><span class="badge text-bg-info">Connect</span> view, plus generate tokens and connect</div>
+        <div><span class="badge text-bg-primary">Manage</span> connect, plus edit the MCP's details</div>
+        <div><span class="badge text-bg-dark">Admin</span> manage, plus grant and remove access</div>
+      </div>
+      <div class="col-md-6 text-body-secondary">
+        Administrators have Admin on every MCP. MCPs open to <em>All employees</em> give every person Connect
+        automatically; service accounts only get what is granted here. Removing a permission stops that user's
+        tokens for the MCP immediately.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card app-card mb-3">
+  <div class="card-header">Grant a permission</div>
+  <div class="card-body">
+    {% url 'frontend:permission-list' as here %}
+    {% include "permissions/partials/grant_form.html" with next=here %}
+  </div>
+</div>
+
+<form class="d-flex flex-wrap gap-2 mb-3" method="get">
+  <div class="input-group" style="max-width: 280px">
+    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+    <input type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Username" aria-label="Filter by username">
+  </div>
+  <select name="mcp" class="form-select w-auto" aria-label="Filter by MCP">
+    <option value="">All MCP servers</option>
+    {% for server in servers %}
+      <option value="{{ server.pk }}" {% if filters.mcp == server.pk|stringformat:"s" %}selected{% endif %}>{{ server.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-outline-secondary" type="submit">Filter</button>
+</form>
+
+<div class="card app-card">
+  {% include "permissions/partials/table.html" with permissions=page.object_list show_user=True show_mcp=True next=request.get_full_path %}
+  {% include "partials/pager.html" %}
+</div>
+{% endblock %}

@@ -51,7 +51,7 @@
       {% else %}
         <div class="card-body app-empty">
           <i class="bi bi-hdd-stack"></i>
-          <p class="mb-0">No MCP servers yet.{% if user.is_staff %} <a href="{% url 'frontend:mcp-create' %}">Add the first one</a>.{% endif %}</p>
+          <p class="mb-0">No MCP servers yet.{% if user.is_staff %} Add a folder with an <code>mcp.json</code> file to <code>mcp_servers/</code>.{% endif %}</p>
         </div>
       {% endif %}
     </div>

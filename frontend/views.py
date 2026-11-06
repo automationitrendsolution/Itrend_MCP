@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from functools import wraps
 
 from django.contrib import messages
@@ -7,22 +8,36 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.http import HttpRequest, HttpResponse
+from django.db.models import Count, Q
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from backend.models import MCPServer
+from backend.models import PERMISSION_LEVEL_HELP, AccessToken, MCPActivityLog, MCPPermission, MCPServer, PermissionLevel
 from backend.permissions import can_manage_mcps
-from backend.services import registry
+from backend.services import access, accounts, catalog, mcplogs, registry, runner, tokens
 from backend.services.health import check_platform
-from backend.validators import slug_format_validator, validate_slug_not_reserved
 
-from .forms import LoginForm, MCPServerForm
+from .markdown import render_markdown_file
+from .forms import (
+    AccessTokenForm,
+    LoginForm,
+    PermissionGrantForm,
+    ServiceAccountForm,
+)
 
 logger = logging.getLogger(__name__)
 
 MCP_PAGE_SIZE = 20
+USER_PAGE_SIZE = 25
+PERMISSION_PAGE_SIZE = 25
+ACTIVITY_PAGE_SIZE = 50
+MCP_EVENTS_SHOWN = 50
+MCP_RUNS_SHOWN = 10
 
 
 def staff_required(view):
@@ -36,6 +51,21 @@ def staff_required(view):
         return view(request, *args, **kwargs)
 
     return wrapper
+
+
+def redirect_back(request: HttpRequest, default: str) -> HttpResponse:
+    """Redirect to the ?next= URL if it is a safe local address, otherwise to `default`."""
+    target = request.POST.get("next") or request.GET.get("next") or ""
+    if target and url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(target)
+    return redirect(default)
+
+
+def visible_server_or_404(request: HttpRequest, pk: int) -> MCPServer:
+    # Servers the user may not see return 404, so their existence is not revealed.
+    return get_object_or_404(MCPServer.objects.visible_to(request.user), pk=pk)
 
 
 # ---------------------------------------------------------------------------
@@ -104,80 +134,406 @@ def mcp_list(request: HttpRequest) -> HttpResponse:
         "status_choices": MCPServer.Status.choices,
         "type_choices": MCPServer.DeploymentType.choices,
         "can_manage": can_manage_mcps(request.user),
+        "servers_dir": catalog.servers_dir(),
     }
     # HTMX search/filter/pagination only needs the table, not the whole page.
     template = "mcps/partials/table.html" if request.htmx else "mcps/list.html"
     return render(request, template, context)
 
 
-@login_required
-def mcp_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    # Servers the user may not see return 404, so their existence is not revealed.
-    server = get_object_or_404(registry.list_servers(request.user), pk=pk)
+@require_POST
+@staff_required
+def mcp_rescan(request: HttpRequest) -> HttpResponse:
+    """Look for new or changed mcp_servers/<slug>/mcp.json files now."""
+    report = catalog.sync(by=request.user)
+    for slug in report.created:
+        messages.success(request, f"New MCP found: {slug}.")
+    for slug in report.updated:
+        messages.info(request, f"Updated from mcp.json: {slug}.")
+    for error in report.errors:
+        messages.error(request, error)
+    if not (report.created or report.updated or report.errors):
+        messages.info(request, "No changes found in the MCP folders.")
+    return redirect_back(request, reverse("frontend:mcp-list"))
+
+
+MCP_TABS = [
+    ("overview", "Overview", "bi-info-circle", "frontend:mcp-detail"),
+    ("logs", "Logs", "bi-terminal", "frontend:mcp-logs"),
+    ("access", "Who has access", "bi-people", "frontend:mcp-access"),
+    ("manual", "User manual", "bi-book", "frontend:mcp-manual"),
+]
+
+
+def _mcp_page(request: HttpRequest, pk: int, tab: str) -> tuple[MCPServer, dict]:
+    """Shared by the four MCP tabs: the server, the visitor's rights, and the header state."""
+    server = visible_server_or_404(request, pk)
+    level = access.effective_level(request.user, server)
+    is_admin = can_manage_mcps(request.user)
+    can_admin_server = access.can_admin(request.user, server)
+    allowed_tabs = {"overview", "manual"} | ({"logs", "access"} if can_admin_server else set())
+    if tab not in allowed_tabs:
+        raise PermissionDenied
     context = {
         "server": server,
-        "deployments": server.deployments.select_related("requested_by")[:10],
-        "can_manage": can_manage_mcps(request.user),
+        "tab": tab,
+        "tabs": [t for t in MCP_TABS if t[0] in allowed_tabs],
+        "level": PermissionLevel(level),
+        "level_help": PERMISSION_LEVEL_HELP[level],
+        "is_admin": is_admin,
+        "can_admin_server": can_admin_server,
+        "manifest": catalog.manifest_for(server),
+        "runtime": runner.get_state(server),
     }
+    return server, context
+
+
+@login_required
+def mcp_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    server, context = _mcp_page(request, pk, "overview")
+    context.update(
+        {
+            "can_connect": access.can_connect(request.user, server) and not access.is_service_account(request.user),
+            "my_tokens": tokens.list_tokens(user=request.user, server=server)[:20],
+            "manifest_problem": catalog.manifest_problem(server) if server.is_local and not context["manifest"] else "",
+            # A local MCP whose folder still exists would come straight back, so it cannot be deleted here.
+            "can_delete": context["is_admin"] and not (server.is_local and context["manifest"]),
+        }
+    )
     return render(request, "mcps/detail.html", context)
 
 
-@staff_required
-def mcp_create(request: HttpRequest) -> HttpResponse:
-    initial = {}
-    if request.GET.get("type") in MCPServer.DeploymentType.values:
-        initial["deployment_type"] = request.GET["type"]
+@login_required
+def mcp_logs(request: HttpRequest, pk: int) -> HttpResponse:
+    server, context = _mcp_page(request, pk, "logs")
+    if context["is_admin"]:
+        context.update(_server_log_context(request, server, context["runtime"]))
+    context["events"] = MCPActivityLog.objects.filter(mcp_server=server).select_related("mcp_server")[:MCP_EVENTS_SHOWN]
+    return render(request, "mcps/logs.html", context)
 
-    form = MCPServerForm(request.POST or None, initial=initial, slug_check_url=reverse("frontend:mcp-slug-check"))
-    if request.method == "POST" and form.is_valid():
-        try:
-            server = registry.create_server(created_by=request.user, **form.cleaned_data)
-        except ValidationError as exc:
-            form.add_error(None, exc)
-        else:
-            messages.success(request, f"MCP server “{server.name}” was registered.")
-            return redirect("frontend:mcp-detail", pk=server.pk)
-    return render(request, "mcps/create.html", {"form": form})
+
+def _server_log_context(request: HttpRequest, server: MCPServer, runtime) -> dict:
+    """The MCP's output as readable runs (newest first), for the Logs tab."""
+    problems_only = request.GET.get("problems") == "1"
+    runs = mcplogs.summarize(mcplogs.parse(runner.read_log(server)), problems_only=problems_only)
+    return {"server": server, "runs": runs[:MCP_RUNS_SHOWN], "problems_only": problems_only, "runtime": runtime}
 
 
 @staff_required
-def mcp_edit(request: HttpRequest, pk: int) -> HttpResponse:
+def mcp_log_output(request: HttpRequest, pk: int) -> HttpResponse:
+    """HTMX partial: the MCP's output, refreshed every few seconds and when the filter changes."""
     server = get_object_or_404(MCPServer, pk=pk)
-    form = MCPServerForm(request.POST or None, instance=server)
-    if request.method == "POST" and form.is_valid():
-        changes = {name: form.cleaned_data[name] for name in form.changed_data}
-        try:
-            registry.update_server(server, updated_by=request.user, **changes)
-        except (ValidationError, ValueError) as exc:
-            form.add_error(None, exc)
-        else:
-            messages.success(request, f"MCP server “{server.name}” was updated.")
-            return redirect("frontend:mcp-detail", pk=server.pk)
-    return render(request, "mcps/edit.html", {"form": form, "server": server})
+    return render(request, "mcps/partials/log_runs.html", _server_log_context(request, server, runner.get_state(server)))
+
+
+@staff_required
+def mcp_log_download(request: HttpRequest, pk: int) -> HttpResponse:
+    """The complete raw output file, for troubleshooting."""
+    server = get_object_or_404(MCPServer, pk=pk)
+    path = runner.log_path(server)
+    if not path.exists():
+        raise Http404("No output yet.")
+    return FileResponse(path.open("rb"), as_attachment=True, filename=f"{server.slug}-output.log", content_type="text/plain")
+
+
+@login_required
+def mcp_access(request: HttpRequest, pk: int) -> HttpResponse:
+    server, context = _mcp_page(request, pk, "access")
+    context["permissions"] = access.list_permissions(server=server)
+    context["grant_form"] = PermissionGrantForm(server=server)
+    context["policy_choices"] = MCPServer.AccessPolicy.choices
+    return render(request, "mcps/access.html", context)
+
+
+@login_required
+def mcp_manual(request: HttpRequest, pk: int) -> HttpResponse:
+    server, context = _mcp_page(request, pk, "manual")
+    manifest = context["manifest"]
+    context["manual_html"] = render_markdown_file(manifest.manual_path) if manifest and manifest.manual_path else ""
+    context["can_connect"] = access.can_connect(request.user, server) and not access.is_service_account(request.user)
+    return render(request, "mcps/manual.html", context)
+
+
+@login_required
+def mcp_state(request: HttpRequest, pk: int) -> HttpResponse:
+    """HTMX partial: running/stopped badge and the Start/Stop buttons, refreshed every few seconds."""
+    server = visible_server_or_404(request, pk)
+    context = {
+        "server": server,
+        "is_admin": can_manage_mcps(request.user),
+        "manifest": catalog.manifest_for(server),
+        "runtime": runner.get_state(server),
+    }
+    return render(request, "mcps/partials/state.html", context)
+
+
+@require_POST
+@staff_required
+def mcp_control(request: HttpRequest, pk: int, action: str) -> HttpResponse:
+    """Start, stop or restart a local MCP. Administrators only."""
+    server = get_object_or_404(MCPServer, pk=pk)
+    operations = {"start": runner.start, "stop": runner.stop, "restart": runner.restart}
+    if action not in operations:
+        raise PermissionDenied
+    try:
+        operations[action](server, by=request.user)
+    except runner.RunnerError as exc:
+        messages.error(request, f"Could not {action} {server.name}: {exc}")
+    else:
+        done = {"start": "started", "stop": "stopped", "restart": "restarted"}[action]
+        messages.success(request, f"{server.name} was {done}.")
+    return redirect_back(request, reverse("frontend:mcp-detail", args=[server.pk]))
+
+
+@require_POST
+@staff_required
+def mcp_access_policy(request: HttpRequest, pk: int) -> HttpResponse:
+    server = get_object_or_404(MCPServer, pk=pk)
+    policy = request.POST.get("access_policy", "")
+    if policy not in MCPServer.AccessPolicy.values:
+        messages.error(request, "Choose who can use this MCP.")
+    elif policy != server.access_policy:
+        registry.update_server(server, updated_by=request.user, access_policy=policy)
+        messages.success(request, f"{server.name}: {server.get_access_policy_display()}.")
+    return redirect("frontend:mcp-access", pk=server.pk)
 
 
 @require_POST
 @staff_required
 def mcp_delete(request: HttpRequest, pk: int) -> HttpResponse:
     server = get_object_or_404(MCPServer, pk=pk)
+    if server.is_local and catalog.manifest_for(server):
+        messages.error(request, f"Delete the folder mcp_servers/{server.source_dir} first; otherwise {server.name} comes back.")
+        return redirect("frontend:mcp-detail", pk=server.pk)
     name = server.name
     registry.delete_server(server, deleted_by=request.user)
-    messages.success(request, f"MCP server “{name}” was deleted.")
+    messages.success(request, f"MCP server “{name}” was removed from the platform.")
     return redirect("frontend:mcp-list")
 
 
-@staff_required
-def mcp_slug_check(request: HttpRequest) -> HttpResponse:
-    """HTMX partial: live feedback on whether a slug can be used."""
-    slug = request.GET.get("slug", "").strip()
-    error = ""
-    if slug:
+# ---------------------------------------------------------------------------
+# Access tokens
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def token_list(request: HttpRequest) -> HttpResponse:
+    context = {
+        "tokens": tokens.list_tokens(user=request.user),
+        "can_create": not access.is_service_account(request.user),
+    }
+    return render(request, "tokens/list.html", context)
+
+
+@never_cache
+@login_required
+def token_create(request: HttpRequest, user_pk: int | None = None) -> HttpResponse:
+    """
+    Generate a token. Without user_pk: for yourself. With user_pk: an administrator
+    creating a token for a service account.
+
+    The token is shown in the response to the POST, once. It is never stored
+    in the session or anywhere else.
+    """
+    owner = request.user if user_pk is None else get_object_or_404(get_user_model(), pk=user_pk)
+    if not tokens.can_create_for(request.user, owner):
+        raise PermissionDenied
+
+    servers = access.connectable_servers(owner)
+    initial = {}
+    if request.GET.get("mcp", "").isdigit():
+        initial["mcp_server"] = int(request.GET["mcp"])
+    form = AccessTokenForm(request.POST or None, servers=servers, initial=initial)
+
+    if request.method == "POST" and form.is_valid():
         try:
-            slug_format_validator(slug)
-            validate_slug_not_reserved(slug)
+            token, plaintext = tokens.create_token(
+                owner=owner,
+                server=form.cleaned_data["mcp_server"],
+                name=form.cleaned_data["name"],
+                expires_in_days=form.cleaned_data["expires_in_days"],
+                created_by=request.user,
+            )
         except ValidationError as exc:
-            error = exc.messages[0]
+            form.add_error(None, exc)
         else:
-            if not registry.is_slug_available(slug):
-                error = "This slug is already used by another MCP server."
-    return render(request, "mcps/partials/slug_check.html", {"slug": slug, "error": error})
+            return render(request, "tokens/created.html", {"token": token, "plaintext": plaintext, "owner": owner})
+
+    return render(request, "tokens/create.html", {"form": form, "owner": owner, "servers": servers})
+
+
+@require_POST
+@login_required
+def token_revoke(request: HttpRequest, pk: int) -> HttpResponse:
+    token = get_object_or_404(AccessToken.objects.select_related("user", "mcp_server"), pk=pk)
+    if not tokens.can_revoke(request.user, token):
+        raise PermissionDenied
+    tokens.revoke_token(token, revoked_by=request.user)
+    messages.success(request, f"Token “{token.name}” was revoked. It stops working immediately.")
+    return redirect_back(request, reverse("frontend:token-list"))
+
+
+# ---------------------------------------------------------------------------
+# Permissions
+# ---------------------------------------------------------------------------
+
+
+@staff_required
+def permission_list(request: HttpRequest) -> HttpResponse:
+    filters = {"mcp": request.GET.get("mcp", ""), "q": request.GET.get("q", "").strip()}
+    permissions = access.list_permissions()
+    if filters["mcp"].isdigit():
+        permissions = permissions.filter(mcp_server_id=int(filters["mcp"]))
+    if filters["q"]:
+        permissions = permissions.filter(user__username__icontains=filters["q"])
+    context = {
+        "page": Paginator(permissions, PERMISSION_PAGE_SIZE).get_page(request.GET.get("page")),
+        "filters": filters,
+        "servers": MCPServer.objects.all(),
+        "grant_form": PermissionGrantForm(),
+    }
+    return render(request, "permissions/list.html", context)
+
+
+@require_POST
+@login_required
+def permission_grant(request: HttpRequest) -> HttpResponse:
+    form = PermissionGrantForm(request.POST)
+    if not form.is_valid():
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
+        return redirect_back(request, reverse("frontend:dashboard"))
+
+    server, user = form.cleaned_data["mcp_server"], form.cleaned_data["user"]
+    if not access.can_admin(request.user, server):
+        raise PermissionDenied
+    level = form.cleaned_data["permission_level"]
+    try:
+        access.grant_permission(server=server, user=user, level=level, granted_by=request.user)
+    except ValidationError as exc:
+        for error in exc.messages:
+            messages.error(request, error)
+    else:
+        messages.success(request, f"{user.get_username()} now has {PermissionLevel(level).label} on {server.name}.")
+    return redirect_back(request, reverse("frontend:mcp-detail", args=[server.pk]))
+
+
+@require_POST
+@login_required
+def permission_revoke(request: HttpRequest, pk: int) -> HttpResponse:
+    permission = get_object_or_404(MCPPermission.objects.select_related("user", "mcp_server"), pk=pk)
+    if not access.can_admin(request.user, permission.mcp_server):
+        raise PermissionDenied
+    access.revoke_permission(permission, revoked_by=request.user)
+    messages.success(request, f"Removed {permission.user.get_username()}'s permission on {permission.mcp_server.name}.")
+    return redirect_back(request, reverse("frontend:mcp-detail", args=[permission.mcp_server_id]))
+
+
+# ---------------------------------------------------------------------------
+# Users and service accounts (administrators)
+# ---------------------------------------------------------------------------
+
+
+@staff_required
+def user_list(request: HttpRequest) -> HttpResponse:
+    filters = {"q": request.GET.get("q", ""), "kind": request.GET.get("kind", "")}
+    users = accounts.list_users(search=filters["q"], kind=filters["kind"])
+    context = {"page": Paginator(users, USER_PAGE_SIZE).get_page(request.GET.get("page")), "filters": filters}
+    return render(request, "users/list.html", context)
+
+
+@staff_required
+def user_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    account = get_object_or_404(get_user_model().objects.select_related("service_account"), pk=pk)
+    context = {
+        "account": account,
+        "is_service": access.is_service_account(account),
+        "permissions": access.list_permissions(user=account),
+        "tokens": tokens.list_tokens(user=account),
+        "grant_form": PermissionGrantForm(user=account) if account.is_active else None,
+        "can_create_token": tokens.can_create_for(request.user, account),
+    }
+    return render(request, "users/detail.html", context)
+
+
+@require_POST
+@staff_required
+def user_set_active(request: HttpRequest, pk: int) -> HttpResponse:
+    account = get_object_or_404(get_user_model(), pk=pk)
+    active = request.POST.get("active") == "1"
+    try:
+        accounts.set_active(account, active, changed_by=request.user)
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+    else:
+        messages.success(request, f"{account.get_username()} was {'activated' if active else 'deactivated'}.")
+    return redirect("frontend:user-detail", pk=account.pk)
+
+
+@staff_required
+def service_account_create(request: HttpRequest) -> HttpResponse:
+    form = ServiceAccountForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            account = accounts.create_service_account(created_by=request.user, **form.cleaned_data)
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(
+                request,
+                f"Service account {account.user.get_username()} was created. Give it permissions, then generate a token.",
+            )
+            return redirect("frontend:user-detail", pk=account.user_id)
+    return render(request, "users/service_account_create.html", {"form": form})
+
+
+# ---------------------------------------------------------------------------
+# Activity log (administrators)
+# ---------------------------------------------------------------------------
+
+# The chips at the top of the Activity page.
+ACTIVITY_KINDS = {
+    "signins": ("Sign-ins", "bi-box-arrow-in-right", ["login", "login_failed", "logout"]),
+    "connections": ("Connections", "bi-plug", ["mcp_connection"]),
+    "access": ("Access & tokens", "bi-key", ["permission_granted", "permission_revoked", "token_created", "token_revoked"]),
+    "mcps": ("MCP servers", "bi-hdd-stack", ["mcp_created", "mcp_updated", "mcp_deleted", "mcp_started", "mcp_stopped"]),
+    "users": ("Users", "bi-people", ["user_activated", "user_deactivated", "service_account_created"]),
+}
+
+
+@staff_required
+def activity_list(request: HttpRequest) -> HttpResponse:
+    filters = {
+        "kind": request.GET.get("kind", ""),
+        "problems": request.GET.get("problems") == "1",
+        "q": request.GET.get("q", "").strip(),
+    }
+    entries = MCPActivityLog.objects.select_related("mcp_server")
+    if filters["kind"] in ACTIVITY_KINDS:
+        entries = entries.filter(action__in=ACTIVITY_KINDS[filters["kind"]][2])
+    if filters["problems"]:
+        entries = entries.exclude(result=MCPActivityLog.Result.SUCCESS)
+    if filters["q"]:
+        entries = entries.filter(
+            Q(username__icontains=filters["q"]) | Q(mcp_slug__icontains=filters["q"]) | Q(mcp_server__name__icontains=filters["q"])
+        )
+
+    since = timezone.now() - timedelta(hours=24)
+    recent = MCPActivityLog.objects.filter(timestamp__gte=since).aggregate(
+        connections=Count("id", filter=Q(action="mcp_connection", result="success")),
+        refused=Count("id", filter=Q(action="mcp_connection") & ~Q(result="success")),
+        failed_logins=Count("id", filter=Q(action="login_failed")),
+        changes=Count("id", filter=Q(action__in=ACTIVITY_KINDS["access"][2] + ACTIVITY_KINDS["mcps"][2] + ACTIVITY_KINDS["users"][2])),
+    )
+    query = request.GET.copy()
+    query.pop("page", None)
+    context = {
+        "page": Paginator(entries, ACTIVITY_PAGE_SIZE).get_page(request.GET.get("page")),
+        "filters": filters,
+        "kinds": [(key, label, icon) for key, (label, icon, _) in ACTIVITY_KINDS.items()],
+        "recent": recent,
+        "query": query.urlencode(),
+    }
+    template = "activity/partials/timeline.html" if request.htmx else "activity/list.html"
+    return render(request, template, context)

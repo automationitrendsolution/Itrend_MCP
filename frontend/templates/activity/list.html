@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Logs{% endblock %}
+{% block page_title %}Activity Logs{% endblock %}
+
+{% block content %}
+<div class="app-summary mb-3" aria-label="Last 24 hours">
+  <div class="app-summary-item"><div class="value">{{ recent.connections }}</div><div class="label"><i class="bi bi-plug me-1"></i>MCP connections · 24 h</div></div>
+  <div class="app-summary-item"><div class="value {% if recent.refused %}text-danger{% endif %}">{{ recent.refused }}</div><div class="label"><i class="bi bi-x-octagon me-1"></i>Refused connections · 24 h</div></div>
+  <div class="app-summary-item"><div class="value {% if recent.failed_logins %}text-danger{% endif %}">{{ recent.failed_logins }}</div><div class="label"><i class="bi bi-shield-exclamation me-1"></i>Failed sign-ins · 24 h</div></div>
+  <div class="app-summary-item"><div class="value">{{ recent.changes }}</div><div class="label"><i class="bi bi-pencil me-1"></i>Changes · 24 h</div></div>
+</div>
+
+<form class="card app-card mb-3" method="get" action="{% url 'frontend:activity-list' %}"
+      hx-get="{% url 'frontend:activity-list' %}" hx-target="#activityTimeline" hx-push-url="true"
+      hx-trigger="input changed delay:300ms from:#activitySearch, change, submit">
+  <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+    <div class="app-chips" role="radiogroup" aria-label="Show">
+      <label class="app-chip"><input type="radio" name="kind" value="" {% if not filters.kind %}checked{% endif %}><span>Everything</span></label>
+      {% for key, label, icon in kinds %}
+        <label class="app-chip"><input type="radio" name="kind" value="{{ key }}" {% if filters.kind == key %}checked{% endif %}><span><i class="bi {{ icon }}"></i>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" role="switch" id="problemsOnly" name="problems" value="1" {% if filters.problems %}checked{% endif %}>
+      <label class="form-check-label small" for="problemsOnly">Only problems</label>
+    </div>
+    <div class="input-group ms-lg-auto" style="max-width: 260px">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input type="search" id="activitySearch" name="q" value="{{ filters.q }}" class="form-control" placeholder="Person or MCP" aria-label="Search activity">
+    </div>
+    <noscript><button class="btn btn-outline-secondary" type="submit">Show</button></noscript>
+  </div>
+</form>
+
+<div id="activityTimeline">
+  {% include "activity/partials/timeline.html" %}
+</div>
+{% endblock %}

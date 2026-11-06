@@ -1,0 +1,49 @@
+{% load mcp_tags %}
+{# Explicit permissions. Options: show_mcp, show_user (booleans), next (URL to return to), empty (message). #}
+{% if permissions %}
+  <div class="table-responsive">
+    <table class="table align-middle mb-0 app-table small">
+      <thead>
+        <tr>
+          {% if show_user %}<th>User</th>{% endif %}
+          {% if show_mcp %}<th>MCP</th>{% endif %}
+          <th>Permission</th>
+          <th class="d-none d-md-table-cell">Granted by</th>
+          <th class="d-none d-lg-table-cell">Since</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for permission in permissions %}
+          <tr>
+            {% if show_user %}
+              <td>
+                {% if user.is_staff %}<a href="{% url 'frontend:user-detail' permission.user.pk %}" class="text-decoration-none">{{ permission.user.get_username }}</a>
+                {% else %}{{ permission.user.get_username }}{% endif %}
+                {% if permission.user.service_account %}<span class="badge text-bg-light border ms-1">Service</span>{% endif %}
+                {% if not permission.user.is_active %}<span class="badge text-bg-secondary ms-1">Inactive</span>{% endif %}
+              </td>
+            {% endif %}
+            {% if show_mcp %}<td><a href="{% url 'frontend:mcp-detail' permission.mcp_server.pk %}" class="text-decoration-none">{{ permission.mcp_server.name }}</a></td>{% endif %}
+            <td><span class="badge {{ permission.permission_level|badge_class }}">{{ permission.get_permission_level_display }}</span></td>
+            <td class="d-none d-md-table-cell">{{ permission.granted_by.get_username|default:"—" }}</td>
+            <td class="d-none d-lg-table-cell">{{ permission.updated_at|date:"DATE_FORMAT" }}</td>
+            <td class="text-end">
+              <form method="post" action="{% url 'frontend:permission-revoke' permission.pk %}" class="d-inline"
+                    data-confirm="Remove {{ permission.user.get_username }}'s access to {{ permission.mcp_server.name }}? Their tokens for it stop working immediately.">
+                {% csrf_token %}
+                {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+                <button type="submit" class="btn btn-outline-danger btn-sm">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="card-body app-empty py-4">
+    <i class="bi bi-person-lock"></i>
+    <p class="mb-0">{{ empty|default:"No permissions granted yet." }}</p>
+  </div>
+{% endif %}

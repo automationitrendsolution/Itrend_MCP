@@ -26,9 +26,11 @@ class ListPageTests(TestCase):
         self.assertNotContains(response, "Hidden MCP")
 
     def test_search_and_filters(self):
-        self.assertNotContains(self.client.get(self.url, {"q": "power"}), "MySQL MCP")
-        self.assertNotContains(self.client.get(self.url, {"status": "running"}), "Power BI MCP")
-        self.assertNotContains(self.client.get(self.url, {"type": "github"}), "MySQL MCP")
+        # The sidebar lists every visible MCP, so check the table's rows, not the whole page.
+        names = lambda **q: [s.name for s in self.client.get(self.url, q).context["page"].object_list]
+        self.assertEqual(names(q="power"), ["Power BI MCP"])
+        self.assertEqual(names(status="running"), ["MySQL MCP"])
+        self.assertEqual(names(type="github"), ["Power BI MCP"])
 
     def test_htmx_request_returns_only_the_table(self):
         response = self.client.get(self.url, {"q": "mysql"}, headers={"HX-Request": "true"})
@@ -36,8 +38,13 @@ class ListPageTests(TestCase):
         self.assertTemplateNotUsed(response, "mcps/list.html")
         self.assertNotContains(response, "<html")
 
-    def test_add_button_hidden_from_normal_users(self):
-        self.assertNotContains(self.client.get(self.url), reverse("frontend:mcp-create"))
+    def test_rescan_button_hidden_from_normal_users(self):
+        self.assertNotContains(self.client.get(self.url), reverse("frontend:mcp-rescan"))
+
+    def test_sidebar_lists_visible_mcps(self):
+        response = self.client.get(reverse("frontend:dashboard"))
+        self.assertEqual([s.name for s in response.context["sidebar_mcps"]], ["MySQL MCP", "Power BI MCP"])
+        self.assertContains(response, 'id="mcpSubnav"')
 
     def test_pagination(self):
         for i in range(25):
@@ -67,14 +74,14 @@ class DetailPageTests(TestCase):
         response = self.client.get(reverse("frontend:mcp-detail", args=[server.pk]))
         self.assertNotContains(response, "mcp-mysql:8000")
         self.assertNotContains(response, "max_rows")
-        self.assertNotContains(response, "deleteModal")
+        self.assertNotContains(response, reverse("frontend:mcp-delete", args=[server.pk]))
 
     def test_internal_settings_shown_to_staff(self):
         self.client.force_login(create_user("admin", is_staff=True))
         server = create_server(internal_endpoint="http://mcp-mysql:8000/mcp")
         response = self.client.get(reverse("frontend:mcp-detail", args=[server.pk]))
         self.assertContains(response, "mcp-mysql:8000")
-        self.assertContains(response, "deleteModal")
+        self.assertContains(response, reverse("frontend:mcp-delete", args=[server.pk]))
 
     def test_external_server_shows_protection_warning(self):
         server = create_server(slug="ext", deployment_type=MCPServer.DeploymentType.EXTERNAL, endpoint="https://ext.example.com/mcp")
@@ -89,84 +96,45 @@ class ManagePermissionTests(TestCase):
         self.server = create_server()
         self.client.force_login(create_user())
 
-    def test_create_page_forbidden(self):
-        self.assertEqual(self.client.get(reverse("frontend:mcp-create")).status_code, 403)
-        self.assertEqual(self.client.post(reverse("frontend:mcp-create"), {}).status_code, 403)
+    def test_start_stop_forbidden(self):
+        for action in ("start", "stop", "restart"):
+            url = reverse("frontend:mcp-control", args=[self.server.pk, action])
+            self.assertEqual(self.client.post(url).status_code, 403)
 
-    def test_edit_forbidden(self):
-        self.assertEqual(self.client.get(reverse("frontend:mcp-edit", args=[self.server.pk])).status_code, 403)
+    def test_rescan_and_access_policy_forbidden(self):
+        self.assertEqual(self.client.post(reverse("frontend:mcp-rescan")).status_code, 403)
+        url = reverse("frontend:mcp-access-policy", args=[self.server.pk])
+        self.assertEqual(self.client.post(url, {"access_policy": "restricted"}).status_code, 403)
+
+    def test_logs_and_access_tabs_forbidden(self):
+        self.assertEqual(self.client.get(reverse("frontend:mcp-logs", args=[self.server.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("frontend:mcp-log-output", args=[self.server.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("frontend:mcp-access", args=[self.server.pk])).status_code, 403)
 
     def test_delete_forbidden(self):
         self.assertEqual(self.client.post(reverse("frontend:mcp-delete", args=[self.server.pk])).status_code, 403)
         self.assertTrue(MCPServer.objects.exists())
 
-    def test_slug_check_forbidden(self):
-        self.assertEqual(self.client.get(reverse("frontend:mcp-slug-check"), {"slug": "x"}).status_code, 403)
 
-
-class CreateEditDeleteTests(TestCase):
+class AdminTests(TestCase):
     def setUp(self):
         self.admin = create_user("admin", is_staff=True)
         self.client.force_login(self.admin)
 
-    def post_create(self, **overrides):
-        data = {
-            "deployment_type": "zip",
-            "name": "ITrend MCP",
-            "slug": "itrend",
-            "description": "",
-            "transport_type": "streamable_http",
-            "endpoint": "",
-            "internal_endpoint": "",
-            "access_policy": "restricted",
-            "configuration": "",
-            **overrides,
-        }
-        return self.client.post(reverse("frontend:mcp-create"), data)
+    def test_old_add_and_edit_pages_are_gone(self):
+        server = create_server()
+        self.assertEqual(self.client.get("/mcps/add/").status_code, 404)
+        self.assertEqual(self.client.get(f"/mcps/{server.pk}/edit/").status_code, 404)
 
-    def test_create_hosted_server(self):
-        response = self.post_create()
-        server = MCPServer.objects.get(slug="itrend")
-        self.assertRedirects(response, reverse("frontend:mcp-detail", args=[server.pk]))
-        self.assertEqual(server.created_by, self.admin)
-        self.assertEqual(server.configuration, {})
-
-    def test_create_external_server(self):
-        self.post_create(deployment_type="external", slug="ext", endpoint="https://ext.example.com/mcp")
-        self.assertEqual(MCPServer.objects.get(slug="ext").endpoint, "https://ext.example.com/mcp")
-
-    def test_create_shows_errors(self):
-        response = self.post_create(slug="admin")
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "reserved")
-        self.assertFalse(MCPServer.objects.exists())
-
-    def test_external_without_endpoint_is_rejected(self):
-        response = self.post_create(deployment_type="external")
-        self.assertContains(response, "needs the URL")
-
-    def test_secret_in_configuration_is_rejected(self):
-        response = self.post_create(configuration='{"db_password": "hunter2"}')
-        self.assertContains(response, "looks like a secret")
-        self.assertFalse(MCPServer.objects.exists())
-
-    def test_create_preselects_type_from_query(self):
-        response = self.client.get(reverse("frontend:mcp-create"), {"type": "github"})
-        self.assertEqual(response.context["form"].initial["deployment_type"], "github")
-
-    def test_edit_cannot_change_slug_or_type(self):
-        server = create_server(slug="mysql")
-        self.client.post(
-            reverse("frontend:mcp-edit", args=[server.pk]),
-            {
-                "deployment_type": "external", "name": "Renamed", "slug": "hacked", "description": "",
-                "transport_type": "streamable_http", "endpoint": "", "internal_endpoint": "",
-                "access_policy": "all_users", "configuration": "{}", "status": "running", "health_status": "healthy",
-            },
-        )
+    def test_change_access_policy(self):
+        server = create_server(access_policy=MCPServer.AccessPolicy.RESTRICTED)
+        url = reverse("frontend:mcp-access-policy", args=[server.pk])
+        self.assertRedirects(self.client.post(url, {"access_policy": "all_users"}), reverse("frontend:mcp-access", args=[server.pk]))
         server.refresh_from_db()
-        self.assertEqual((server.name, server.slug, server.deployment_type), ("Renamed", "mysql", "zip"))
-        self.assertEqual(server.status, "running")
+        self.assertEqual(server.access_policy, "all_users")
+        self.client.post(url, {"access_policy": "nonsense"})
+        server.refresh_from_db()
+        self.assertEqual(server.access_policy, "all_users")
 
     def test_delete_requires_post(self):
         server = create_server()
@@ -175,10 +143,3 @@ class CreateEditDeleteTests(TestCase):
         self.assertRedirects(response, reverse("frontend:mcp-list"))
         self.assertFalse(MCPServer.objects.exists())
 
-    def test_slug_check(self):
-        create_server(slug="mysql")
-        check = lambda slug: self.client.get(reverse("frontend:mcp-slug-check"), {"slug": slug}).content.decode()
-        self.assertIn("Available", check("powerbi"))
-        self.assertIn("already used", check("mysql"))
-        self.assertIn("reserved", check("admin"))
-        self.assertIn("lowercase", check("Bad_Slug"))

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Token created{% endblock %}
+{% block page_title %}Token created{% endblock %}
+
+{% block content %}
+<div style="max-width: 760px">
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>Copy this token now.</strong> It is shown only once and cannot be displayed again.
+    If you lose it, revoke it and generate a new one.
+  </div>
+
+  <div class="card app-card mb-3">
+    <div class="card-header">{{ token.name }} <span class="text-body-secondary fw-normal">· {{ token.mcp_server.name }}{% if owner != user %} · for {{ owner.get_username }}{% endif %}</span></div>
+    <div class="card-body">
+      <label class="form-label small text-body-secondary" for="newToken">Access token</label>
+      <div class="input-group mb-3">
+        <input type="text" id="newToken" class="form-control font-monospace" value="{{ plaintext }}" readonly autocomplete="off" spellcheck="false">
+        <button class="btn btn-outline-secondary" type="button" data-copy-target="#newToken"><i class="bi bi-clipboard me-1"></i>Copy</button>
+      </div>
+
+      <label class="form-label small text-body-secondary" for="tokenUrl">Connection URL</label>
+      <div class="input-group mb-3">
+        <input type="text" id="tokenUrl" class="form-control font-monospace" value="{{ token.mcp_server.connection_url }}" readonly>
+        <button class="btn btn-outline-secondary" type="button" data-copy-target="#tokenUrl"><i class="bi bi-clipboard me-1"></i>Copy</button>
+      </div>
+
+      <div class="small text-body-secondary mb-2">Send the token in a header on every request (never put it in the URL):</div>
+      <pre class="bg-body-tertiary rounded p-2 small mb-0"><code>Authorization: Bearer &lt;your token&gt;</code></pre>
+
+      <dl class="row small mt-3 mb-0">
+        <dt class="col-4">Expires</dt><dd class="col-8">{{ token.expires_at|date:"DATETIME_FORMAT" }}</dd>
+        <dt class="col-4">Recognise it by</dt><dd class="col-8 mb-0"><code>{{ token.token_prefix }}…</code></dd>
+      </dl>
+    </div>
+  </div>
+
+  {% if owner != user %}
+    <a href="{% url 'frontend:user-detail' owner.pk %}" class="btn btn-primary">Back to {{ owner.get_username }}</a>
+  {% else %}
+    <a href="{% url 'frontend:token-list' %}" class="btn btn-primary">I have copied it, continue</a>
+  {% endif %}
+</div>
+{% endblock %}

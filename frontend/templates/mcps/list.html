@@ -29,7 +29,12 @@
   </form>
 
   {% if can_manage %}
-    <a href="{% url 'frontend:mcp-create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add MCP</a>
+    <form method="post" action="{% url 'frontend:mcp-rescan' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-secondary" title="Look for new or changed mcp.json files in mcp_servers/">
+        <i class="bi bi-arrow-repeat me-1"></i>Rescan MCP folders
+      </button>
+    </form>
   {% endif %}
 </div>
 

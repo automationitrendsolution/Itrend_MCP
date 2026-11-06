@@ -1,0 +1,40 @@
+{% extends "mcps/base_mcp.html" %}
+
+{% block tab %}
+{% if is_admin %}
+  <div class="card app-card mb-3">
+    <div class="card-header d-flex flex-wrap align-items-center gap-2">
+      <span><i class="bi bi-terminal me-1"></i>Server log</span>
+      <span class="small text-body-secondary fw-normal">Each time the MCP is started is one run · newest first · updates every 5 seconds</span>
+      <form id="logFilter" class="ms-auto d-flex align-items-center gap-2"
+            hx-get="{% url 'frontend:mcp-log-output' server.pk %}" hx-target="#mcpRuns" hx-trigger="change">
+        <div class="app-chips" role="radiogroup" aria-label="Show">
+          <label class="app-chip"><input type="radio" name="problems" value="" {% if not problems_only %}checked{% endif %}><span>All events</span></label>
+          <label class="app-chip"><input type="radio" name="problems" value="1" {% if problems_only %}checked{% endif %}><span><i class="bi bi-exclamation-triangle"></i>Problems only</span></label>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'frontend:mcp-log-download' server.pk %}" title="The complete technical output, for troubleshooting">
+          <i class="bi bi-download me-1"></i>Full log
+        </a>
+      </form>
+    </div>
+    {# Refreshes itself; the form above passes the chosen filter along. #}
+    <div id="mcpRuns" hx-get="{% url 'frontend:mcp-log-output' server.pk %}" hx-trigger="every 5s"
+         hx-include="#logFilter" hx-swap="innerHTML">
+      {% include "mcps/partials/log_runs.html" %}
+    </div>
+  </div>
+{% endif %}
+
+<div class="card app-card">
+  <div class="card-header"><i class="bi bi-clock-history me-1"></i>Who did what on this MCP</div>
+  {% if events %}
+    {% include "activity/partials/events.html" with entries=events hide_mcp=True %}
+    <div class="card-footer bg-white small text-body-secondary">
+      Showing the latest {{ events|length }} events.
+      {% if is_admin %}<a href="{% url 'frontend:activity-list' %}?q={{ server.slug|urlencode }}">See all in Activity Logs</a>{% endif %}
+    </div>
+  {% else %}
+    <div class="card-body app-empty"><i class="bi bi-clock-history"></i><p class="mb-0">Nothing has happened on this MCP yet.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

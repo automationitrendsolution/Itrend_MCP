@@ -12,22 +12,46 @@
     </a>
 
     <div class="app-nav-section">MCP</div>
-    <a class="app-nav-link {% if current == 'frontend:mcp-list' or current == 'frontend:mcp-detail' or current == 'frontend:mcp-edit' %}active{% endif %}" href="{% url 'frontend:mcp-list' %}">
+    {# "MCP Servers" opens a list of the MCPs you can see; each links to its page. #}
+    <button type="button" class="app-nav-link app-nav-toggle"
+            data-bs-toggle="collapse" data-bs-target="#mcpSubnav"
+            aria-expanded="{% if sidebar_in_mcps %}true{% else %}false{% endif %}" aria-controls="mcpSubnav">
       <i class="bi bi-hdd-stack"></i>MCP Servers
+      <span class="app-nav-count">{{ sidebar_mcps|length }}</span>
+      <i class="bi bi-chevron-down app-nav-chevron" aria-hidden="true"></i>
+    </button>
+    <div class="collapse {% if sidebar_in_mcps %}show{% endif %}" id="mcpSubnav">
+      <div class="app-subnav">
+        {% for mcp in sidebar_mcps %}
+          <a class="app-subnav-link {% if mcp.pk == sidebar_mcp_pk %}active{% endif %}" href="{% url 'frontend:mcp-detail' mcp.pk %}"
+             {% if mcp.pk == sidebar_mcp_pk %}aria-current="page"{% endif %}>
+            <span class="app-dot app-dot--{{ mcp.status }}" title="{{ mcp.get_status_display }}"></span>
+            <span class="text-truncate">{{ mcp.name }}</span>
+          </a>
+        {% empty %}
+          <div class="app-subnav-empty">No MCPs yet</div>
+        {% endfor %}
+        <a class="app-subnav-link app-subnav-all {% if current == 'frontend:mcp-list' %}active{% endif %}" href="{% url 'frontend:mcp-list' %}">
+          <i class="bi bi-grid"></i><span>All MCP servers</span>
+        </a>
+      </div>
+    </div>
+    <a class="app-nav-link {% if current == 'frontend:token-list' or current == 'frontend:token-create' %}active{% endif %}" href="{% url 'frontend:token-list' %}">
+      <i class="bi bi-key"></i>Access Tokens
     </a>
-    {% if user.is_staff %}
-      <a class="app-nav-link {% if current == 'frontend:mcp-create' %}active{% endif %}" href="{% url 'frontend:mcp-create' %}">
-        <i class="bi bi-plus-square"></i>Add MCP
-      </a>
-    {% endif %}
-    {% include "partials/nav_upcoming.html" with icon="bi-key" label="Access Tokens" phase=4 %}
 
     {% if user.is_staff %}
       <div class="app-nav-section">Administration</div>
-      {% include "partials/nav_upcoming.html" with icon="bi-people" label="Users" phase=4 %}
-      {% include "partials/nav_upcoming.html" with icon="bi-person-lock" label="Permissions" phase=4 %}
+      <a class="app-nav-link {% if current == 'frontend:user-list' or current == 'frontend:user-detail' or current == 'frontend:service-account-create' or current == 'frontend:user-token-create' %}active{% endif %}" href="{% url 'frontend:user-list' %}">
+        <i class="bi bi-people"></i>Users
+      </a>
+      <a class="app-nav-link {% if current == 'frontend:permission-list' %}active{% endif %}" href="{% url 'frontend:permission-list' %}">
+        <i class="bi bi-person-lock"></i>Permissions
+      </a>
       {% include "partials/nav_upcoming.html" with icon="bi-activity" label="Monitoring" phase=6 %}
-      {% include "partials/nav_upcoming.html" with icon="bi-journal-text" label="Activity Logs" phase=4 %}
+      <a class="app-nav-link {% if current == 'frontend:activity-list' %}active{% endif %}" href="{% url 'frontend:activity-list' %}">
+        <i class="bi bi-journal-text"></i>Activity Logs
+      </a>
       {% include "partials/nav_upcoming.html" with icon="bi-gear" label="Settings" phase=7 %}
     {% endif %}
   </nav>

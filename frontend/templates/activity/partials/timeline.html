@@ -1,0 +1,23 @@
+<div class="card app-card">
+  {% if page.object_list %}
+    {% include "activity/partials/events.html" with entries=page.object_list %}
+    {% if page.has_other_pages %}
+      <div class="card-footer bg-white d-flex justify-content-between align-items-center small">
+        <span class="text-body-secondary">{{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}</span>
+        <nav aria-label="Pages" class="btn-group">
+          {% if page.has_previous %}
+            <a class="btn btn-sm btn-outline-secondary" href="?{{ query }}&page={{ page.previous_page_number }}" hx-get="?{{ query }}&page={{ page.previous_page_number }}" hx-target="#activityTimeline" hx-push-url="true">Newer</a>
+          {% endif %}
+          {% if page.has_next %}
+            <a class="btn btn-sm btn-outline-secondary" href="?{{ query }}&page={{ page.next_page_number }}" hx-get="?{{ query }}&page={{ page.next_page_number }}" hx-target="#activityTimeline" hx-push-url="true">Older</a>
+          {% endif %}
+        </nav>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="card-body app-empty">
+      <i class="bi bi-journal-text"></i>
+      <p class="mb-0">{% if filters.q or filters.kind or filters.problems %}Nothing matches. Try “Everything”.{% else %}No activity recorded yet.{% endif %}</p>
+    </div>
+  {% endif %}
+</div>

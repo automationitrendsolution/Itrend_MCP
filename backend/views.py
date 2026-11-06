@@ -1,12 +1,27 @@
-from rest_framework import status, viewsets
-from rest_framework.permissions import AllowAny
+import hmac
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.http import HttpRequest, JsonResponse, StreamingHttpResponse
+from django.http.response import HttpResponseBase
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import mixins, status, viewsets
+from rest_framework.exceptions import NotAuthenticated, PermissionDenied
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .permissions import IsStaffOrReadOnly
-from .serializers import MCPServerSerializer
-from .services import registry
+from .permissions import IsAdministrator, MCPServerPermission
+from .serializers import (
+    AccessTokenCreateSerializer,
+    AccessTokenSerializer,
+    IntrospectionRequestSerializer,
+    MCPServerSerializer,
+    UserSerializer,
+)
+from .services import gateway, registry, tokens
 from .services.health import check_platform
 
 
@@ -31,19 +46,19 @@ class HealthView(APIView):
         )
 
 
-class MCPServerViewSet(viewsets.ModelViewSet):
+class MCPServerViewSet(viewsets.ReadOnlyModelViewSet):
     """
     /api/v1/mcps/
 
     Any logged-in user can list and view the MCP servers visible to them.
-    Only administrators can create, update or delete.
+    MCPs are added and changed through code (mcp_servers/<slug>/mcp.json), so
+    this API is read-only.
 
     Query parameters for the list: ?search=, ?status=, ?deployment_type=
     """
 
     serializer_class = MCPServerSerializer
-    permission_classes = [IsStaffOrReadOnly]
-    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    permission_classes = [MCPServerPermission]
 
     def get_queryset(self):
         params = self.request.query_params
@@ -54,11 +69,140 @@ class MCPServerViewSet(viewsets.ModelViewSet):
             deployment_type=params.get("deployment_type", ""),
         )
 
-    def perform_create(self, serializer):
-        serializer.instance = registry.create_server(created_by=self.request.user, **serializer.validated_data)
 
-    def perform_update(self, serializer):
-        registry.update_server(serializer.instance, updated_by=self.request.user, **serializer.validated_data)
+class AccessTokenViewSet(
+    mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet
+):
+    """
+    /api/v1/tokens/
+
+    GET     list your own tokens (the secret value is never returned)
+    POST    create a token: {"mcp_server": <id>, "name": "...", "expires_in_days": 90}
+            The response contains "token" once. Store it safely; it cannot be shown again.
+    DELETE  /api/v1/tokens/<id>/ revokes the token (it stays in the list as "revoked").
+    """
+
+    serializer_class = AccessTokenSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return tokens.list_tokens(user=self.request.user)
+
+    def create(self, request: Request) -> Response:
+        serializer = AccessTokenCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        token, plaintext = tokens.create_token(
+            owner=request.user,
+            server=data["mcp_server"],
+            name=data["name"],
+            expires_in_days=data["expires_in_days"],
+            created_by=request.user,
+        )
+        body = {**AccessTokenSerializer(token).data, "token": plaintext}
+        return Response(body, status=status.HTTP_201_CREATED, headers={"Cache-Control": "no-store"})
 
     def perform_destroy(self, instance):
-        registry.delete_server(instance, deleted_by=self.request.user)
+        tokens.revoke_token(instance, revoked_by=self.request.user)
+
+
+class UserListView(ListAPIView):
+    """GET /api/v1/users/  Administrators only. ?search= filters by name or email."""
+
+    serializer_class = UserSerializer
+    permission_classes = [IsAdministrator]
+
+    def get_queryset(self):
+        from .services.accounts import list_users
+
+        return list_users(search=self.request.query_params.get("search", ""))
+
+
+class TokenIntrospectionView(APIView):
+    """
+    POST /api/v1/tokens/introspect/   (for MCP servers, not for people)
+
+    An MCP server sends the bearer token it received and its own slug:
+        {"token": "itmcp_...", "mcp": "mysql"}
+    and authenticates itself with "Authorization: Bearer <MCP_INTROSPECTION_KEY>".
+
+    The answer is {"active": true, ...} only if the token may be used on that MCP
+    right now; otherwise {"active": false}, without saying why (the reason is
+    written to the activity log instead). Modelled on OAuth token introspection
+    (RFC 7662).
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+    # Called on every MCP request, by trusted servers holding the key.
+    throttle_classes: list = []
+
+    def post(self, request: Request) -> Response:
+        self._check_caller(request)
+        serializer = IntrospectionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = tokens.introspect(serializer.validated_data["token"], serializer.validated_data["mcp"])
+        if not result.active:
+            return Response({"active": False}, headers={"Cache-Control": "no-store"})
+        token = result.token
+        return Response(
+            {
+                "active": True,
+                "mcp": token.mcp_server.slug,
+                "username": token.user.get_username(),
+                "token_id": token.pk,
+                "permission": result.level,
+                "expires_at": int(token.expires_at.timestamp()),
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @staticmethod
+    def _check_caller(request: Request) -> None:
+        key = settings.MCP_INTROSPECTION_KEY
+        if not key:
+            raise PermissionDenied("Token introspection is not configured on this platform.")
+        scheme, _, supplied = request.headers.get("Authorization", "").partition(" ")
+        if scheme.lower() != "bearer" or not supplied:
+            raise NotAuthenticated("Send the introspection key as a bearer token.")
+        if not hmac.compare_digest(supplied.encode(), key.encode()):
+            raise PermissionDenied("Invalid introspection key.")
+
+
+# ---------------------------------------------------------------------------
+# MCP gateway: /mcp/<slug>/  (see backend/services/gateway.py)
+# ---------------------------------------------------------------------------
+
+
+def _gateway_error(error: gateway.GatewayError) -> JsonResponse:
+    response = JsonResponse({"error": {"code": error.code, "message": error.message}}, status=error.status)
+    if error.status == 401:
+        response["WWW-Authenticate"] = f'Bearer realm="iTrend MCP", error="{error.code}"'
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@csrf_exempt  # MCP clients authenticate with a bearer token, not a session cookie
+def mcp_gateway(request: HttpRequest, slug: str, rest: str | None = None) -> HttpResponseBase:
+    """Check the caller's token, then pass the request to the MCP and stream its answer back."""
+    try:
+        server = gateway.find_server(slug)
+        identity = gateway.authorize(server, request.headers.get("Authorization", ""))
+        upstream = gateway.forward(
+            server,
+            method=request.method,
+            rest=rest or "",
+            query=request.META.get("QUERY_STRING", ""),
+            headers={name.lower(): value for name, value in request.headers.items()},
+            body=request.body,
+            identity=identity,
+            scheme=request.scheme,
+        )
+    except gateway.GatewayError as error:
+        return _gateway_error(error)
+
+    response = StreamingHttpResponse(upstream.body, status=upstream.status)
+    for name, value in upstream.headers.items():
+        response[name] = value
+    response["X-Accel-Buffering"] = "no"  # let Server-Sent Events through Nginx immediately
+    return response

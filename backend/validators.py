@@ -9,8 +9,8 @@ from django.core.validators import RegexValidator, URLValidator
 # not collide with the website's own top-level paths.
 RESERVED_SLUGS = frozenset(
     {
-        "accounts", "admin", "api", "dashboard", "health", "login", "logout",
-        "mcps", "media", "static", "www",
+        "accounts", "activity", "admin", "api", "dashboard", "health", "login", "logout",
+        "mcp", "mcps", "media", "permissions", "static", "tokens", "users", "www",
     }
 )
 

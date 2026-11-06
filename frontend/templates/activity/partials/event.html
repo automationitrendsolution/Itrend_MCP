@@ -1,0 +1,48 @@
+{% load mcp_tags %}
+{# One activity entry written as a plain sentence. Option: hide_mcp (on an MCP's own page). #}
+{% with m=entry.metadata %}
+<div class="app-event {% if entry.result != 'success' %}app-event--problem{% endif %}">
+  <div class="app-event-icon app-event-icon--{{ entry|event_color }}" aria-hidden="true"><i class="bi {{ entry|event_icon }}"></i></div>
+  <div class="flex-grow-1" style="min-width: 0">
+    <div class="app-event-text">
+      <strong>{% if entry.username %}{{ entry.username }}{% else %}The platform{% endif %}</strong>
+      {% if entry.action == "login" %}signed in
+      {% elif entry.action == "logout" %}signed out
+      {% elif entry.action == "login_failed" %}
+        {% if m.reason == "locked_out" %}was blocked from signing in after too many wrong passwords{% else %}could not sign in (wrong username or password){% endif %}
+      {% elif entry.action == "mcp_created" %}
+        {% if m.source %}found a new MCP folder:{% else %}added the MCP{% endif %} {% include "activity/partials/mcp_name.html" %}
+      {% elif entry.action == "mcp_updated" %}
+        updated {% include "activity/partials/mcp_name.html" %}{% if m.changed_fields %} <span class="text-body-secondary">({{ m.changed_fields|field_names }})</span>{% endif %}
+      {% elif entry.action == "mcp_deleted" %}
+        removed the MCP <strong>{{ m.name|default:entry.mcp_slug }}</strong>
+      {% elif entry.action == "mcp_started" %}
+        {% if entry.result == "success" %}started {% include "activity/partials/mcp_name.html" %}
+        {% else %}tried to start {% include "activity/partials/mcp_name.html" %}, but it stopped straight away{% if m.exit_code is not None %} (exit code {{ m.exit_code }}){% endif %}{% endif %}
+      {% elif entry.action == "mcp_stopped" %}
+        stopped {% include "activity/partials/mcp_name.html" %}
+      {% elif entry.action == "permission_granted" %}
+        gave <strong>{{ m.target_user }}</strong> {{ m.level|capfirst }} access{% if not hide_mcp %} to {% include "activity/partials/mcp_name.html" %}{% endif %}
+        {% if m.previous_level %}<span class="text-body-secondary">(was {{ m.previous_level|capfirst }})</span>{% endif %}
+      {% elif entry.action == "permission_revoked" %}
+        removed <strong>{{ m.target_user }}</strong>'s access{% if not hide_mcp %} to {% include "activity/partials/mcp_name.html" %}{% endif %}
+      {% elif entry.action == "token_created" %}
+        created the token “{{ m.token_name }}”{% if m.owner and m.owner != entry.username %} for <strong>{{ m.owner }}</strong>{% endif %}{% if not hide_mcp %} on {% include "activity/partials/mcp_name.html" %}{% endif %}
+      {% elif entry.action == "token_revoked" %}
+        revoked the token “{{ m.token_name }}”{% if m.owner and m.owner != entry.username %} of <strong>{{ m.owner }}</strong>{% endif %}{% if not hide_mcp %} on {% include "activity/partials/mcp_name.html" %}{% endif %}
+      {% elif entry.action == "mcp_connection" %}
+        {% if entry.result == "success" %}used {% if hide_mcp %}this MCP{% else %}{% include "activity/partials/mcp_name.html" %}{% endif %}
+        {% else %}was refused by {% if hide_mcp %}this MCP{% else %}{% include "activity/partials/mcp_name.html" %}{% endif %}: {{ m.reason|deny_reason }}{% endif %}
+      {% elif entry.action == "user_activated" %}activated <strong>{{ m.target_user }}</strong>
+      {% elif entry.action == "user_deactivated" %}deactivated <strong>{{ m.target_user }}</strong>
+      {% elif entry.action == "service_account_created" %}created the service account <strong>{{ m.target_user }}</strong>
+      {% else %}{{ entry.get_action_display|lower }}{% endif %}
+    </div>
+    <div class="app-event-meta">
+      {{ entry.timestamp|time:"H:i:s" }}
+      {% if entry.source_ip %}<span class="mx-1">·</span>from {{ entry.source_ip }}{% endif %}
+      {% if m.token_prefix %}<span class="mx-1">·</span>token <code>{{ m.token_prefix }}…</code>{% endif %}
+    </div>
+  </div>
+</div>
+{% endwith %}

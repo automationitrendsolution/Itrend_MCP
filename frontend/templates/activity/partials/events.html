@@ -1,0 +1,8 @@
+{% load mcp_tags %}
+{# A list of activity entries, newest first, with a heading for each day. Options: entries, hide_mcp. #}
+{% for entry in entries %}
+  {% with day=entry.timestamp|day_label %}
+    {% ifchanged day %}<div class="app-day">{{ day }}</div>{% endifchanged %}
+  {% endwith %}
+  {% include "activity/partials/event.html" %}
+{% endfor %}
