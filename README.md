@@ -7,7 +7,7 @@ other approved clients connect to them over HTTPS with individual access tokens.
 
 Target URL: `https://mcp.itrendsolution.com`
 
-> **Status:** Phases 1 (foundation) and 2 (MCP registry) are complete. See
+> **Status:** Phases 1 (foundation), 2 (MCP registry) and 3 (first remote MCP) are complete. See
 > [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) for what works today and
 > [ARCHITECTURE.md](ARCHITECTURE.md) for how the system fits together.
 
@@ -72,7 +72,7 @@ so it can never be used in production by accident.
 config/        Django settings and root URLs
 frontend/      Django app for the website: views, forms, templates, static files
 backend/       Django app for models, business logic (services/) and the REST API
-mcp_servers/   Source for platform-hosted MCP servers (from Phase 3)
+mcp_servers/   MCP servers, each a separate project (mysql/: see its README)
 tests/         Automated tests
 docs/          Additional documentation
 logs/          Log files when DJANGO_LOG_TO_FILE=True (not committed)

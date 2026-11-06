@@ -4,11 +4,101 @@
 |---|---|---|
 | 1 | Project foundation | ✅ Complete (2026-11-04) |
 | 2 | MCP registry | ✅ Complete (2026-11-05) |
-| 3 | First remote MCP | ⏳ Next (needs a decision – see below) |
-| 4 | Authentication and permissions | Not started |
+| 3 | First remote MCP | ✅ Complete (2026-11-05) as a local process; container and Nginx deferred |
+| 4 | Authentication and permissions | ⏳ Next |
 | 5 | Deployment manager | Not started |
 | 6 | Monitoring | Not started |
 | 7 | Production deployment | Not started |
+
+---
+
+## Phase 3 – First remote MCP
+
+**Decision (2026-11-05):** run the first MCP as a normal local process instead of
+a Docker container. The code is container-ready; only the packaging is deferred.
+
+### What was developed
+- **`mcp_servers/mysql/`**: a standalone, read-only MySQL MCP server built
+  with the official MCP Python SDK (2.3), served over **Streamable HTTP** at
+  `http://127.0.0.1:8101/mcp`. It has its own `pyproject.toml`, `uv.lock` and
+  `.venv`; the website's environment does not contain the MCP SDK.
+- **Tools:** `list_tables`, `describe_table`, `run_query`, all marked read-only,
+  with typed (structured) output.
+- **Read-only, three ways:** SELECT-only MySQL account, every query inside a
+  `READ ONLY` transaction with a time limit, and a SQL guard that refuses
+  writes, multiple statements, comments, file access and locking.
+- **Secure connection:** bearer token required on every request (the SDK's
+  standard `TokenVerifier`, returning proper `401` + `WWW-Authenticate`),
+  localhost-only by default, DNS-rebinding protection, unauthenticated
+  `/health` that reveals only up/down.
+- **Demo setup script** creating database `mcp_demo`, user `mcp_readonly`
+  (SELECT on `mcp_demo` only) and the MCP's `.env`.
+- **Demo client** using the official MCP client, plus connection instructions
+  for MCP Inspector, Claude Code and `mcp.json`-style clients.
+
+### Files created
+`mcp_servers/mysql/`: `pyproject.toml`, `uv.lock`, `.python-version`,
+`.env.example`, `README.md`, `scripts/setup_demo_db.py`,
+`src/mysql_mcp/{__init__,config,sql_guard,db,auth,server,demo_client}.py`,
+`tests/{__init__,conftest,test_sql_guard,test_tools,test_http,test_mysql_integration}.py`
+
+### Files modified (platform)
+`ARCHITECTURE.md`, `DEVELOPMENT_PROGRESS.md`, `README.md`.
+No website code changed.
+
+### Dependencies (MySQL MCP only)
+`mcp[cli]` 2.3.0, `pymysql`, `python-dotenv`; dev: `pytest`. Nothing was added
+to the website.
+
+### Database changes
+On the local MySQL server (not the platform database):
+- New database `mcp_demo` with demo tables `customers`, `products`, `orders`.
+- New MySQL user `mcp_readonly@localhost` with `SELECT` on `mcp_demo.*` only.
+
+### Tests executed
+- MySQL MCP: `cd mcp_servers/mysql; uv run pytest`: **54 tests, all passing**,
+  none skipped (including the real-MySQL integration tests).
+- Website: `uv run python manage.py test`: **101 tests, all passing** (unchanged).
+- Manual end-to-end test with the official MCP client against the running server:
+  - connected (protocol 2026-07-28) and listed the three tools;
+  - `list_tables` and a JOIN/GROUP BY revenue query returned the demo data;
+  - `DELETE FROM orders` and `SELECT … INTO OUTFILE` were refused by the SQL guard;
+  - `SELECT … FROM itrend_mcp.auth_user` was refused **by MySQL** (no privilege);
+  - no token and wrong token → `401`; forged `Host` header → `421`.
+
+| Brief requirement (section 18) | Covered by |
+|---|---|
+| Connect to MySQL MCP, initialize session | `test_http.py` (SSE + `Mcp-Session-Id`), end-to-end clients |
+| List tools / call a tool | `test_tools.py`, `test_http.py` |
+| Unauthorized request | `test_http.py` (no token, wrong token, token in URL) |
+| Streaming behaviour | `test_http.py` (`text/event-stream` response) |
+| Expired / revoked token | Phase 4 (tokens do not expire yet) |
+
+### Commands
+```powershell
+cd mcp_servers\mysql
+uv sync
+uv run python scripts/setup_demo_db.py   # first time only
+uv run mysql-mcp                         # start the server
+uv run python -m mysql_mcp.demo_client   # in a second terminal
+uv run pytest
+```
+
+### Known limitations
+- One shared API key, which never expires. Phase 4 adds personal tokens with
+  expiry and revocation, checked by the platform.
+- Runs as a plain local process: no container, CPU/memory limits or restart
+  policy yet. The server must be started by hand.
+- No Nginx gateway yet, so the public URL `https://mcp.itrendsolution.com/mysql/`
+  does not work. Clients connect to `http://127.0.0.1:8101/mcp` directly.
+- The platform does not start, stop or health-check the MCP yet (Phases 5–6).
+
+### Next phase
+**Phase 4 – Authentication and permissions:** per-user MCP permissions,
+personal access tokens (shown once, stored hashed, with expiry and revocation),
+service identities for external servers such as PPC, and audit logs. The
+MySQL MCP's `StaticKeyVerifier` is then replaced by a verifier that checks
+platform-issued tokens.
 
 ---
 
@@ -94,7 +184,7 @@ Also run:
 **Phase 3 – First remote MCP:** a sample MySQL MCP served over Streamable HTTP
 and tested with a real MCP client. The project brief runs each MCP in its own
 Docker container behind Nginx. Docker and deployment are on hold for now, so
-Phase 3 needs a decision: run the first MCP as a plain local process, or bring Docker back.
+Phase 3 needed a decision. Outcome: run it as a plain local process (see Phase 3).
 
 ---
 

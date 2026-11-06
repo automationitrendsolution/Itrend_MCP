@@ -70,7 +70,8 @@ backend/                 Django app: data, logic and API
     exceptions.py        one error format for the whole API
     views.py             REST API views
     urls.py              REST API URLs at /api/v1/  (namespace "backend")
-mcp_servers/             source of platform-hosted MCP servers (Phase 3)
+mcp_servers/             MCP servers; each is a separate uv project, NOT part of Django
+    mysql/               read-only MySQL MCP (own pyproject.toml, uv.lock, .venv, tests)
 tests/                   automated tests
 ```
 
@@ -125,6 +126,17 @@ tests/                   automated tests
 | **Last deployment time is read from the deployment history**, not stored on the server | Avoids two copies of the same fact that could disagree. |
 | **One API error format**: `{"error": {"code", "message", "details"}}` | Clients handle every error the same way; unexpected errors never leak technical details. |
 | **Status and health are set by hand for now** | They become automatic with deployments (Phase 5) and health checks (Phase 6). The form says so. |
+
+### Phase 3 – First remote MCP
+
+| Decision | Why |
+|---|---|
+| **Each MCP is its own uv project** in `mcp_servers/<name>/` | Its packages never enter the website's environment, and one MCP cannot break another's dependencies. It can later be built into its own container image unchanged. |
+| **Local process for now, not Docker** | Docker and deployment are on hold. Nothing in the code depends on how it is started. |
+| **Official MCP Python SDK 2.x, Streamable HTTP** | The standard remote transport; works for both current and older (initialize-handshake) clients, as the tests show. |
+| **Authentication through the SDK's `TokenVerifier`** | Gives standards-compliant `401` + `WWW-Authenticate` responses. Phase 4 swaps the verifier, not the server. |
+| **Read-only enforced by MySQL, not just by our code** | A SELECT-only account and READ ONLY transactions mean a bug in the SQL guard still cannot change data. |
+| **A separate `mcp_demo` database for testing** | The MCP must never be pointed at the platform's own database, which holds users and password hashes. |
 
 ## Security baseline (Phase 1)
 
