@@ -1,35 +1,87 @@
 {% extends "base.html" %}
+{% load mcp_tags %}
 
 {% block title %}Profile{% endblock %}
 {% block page_title %}Profile{% endblock %}
-{% block page_description %}Your account on the iTrend MCP Platform.{% endblock %}
+{% block page_description %}Your account on the iTrend MCP Platform, what you can reach, and how the platform looks for you.{% endblock %}
 
 {% block content %}
-<div class="card app-card" style="max-width: 640px">
-  <div class="card-body">
-    <dl class="row mb-0">
-      <dt class="col-sm-4">Username</dt>
-      <dd class="col-sm-8">{{ user.get_username }}</dd>
+<div class="row g-4">
+  <div class="col-lg-5 d-flex flex-column gap-4">
+    <section class="card app-card" aria-labelledby="accountTitle">
+      <div class="card-header"><h2 class="pg-card-title" id="accountTitle">Account</h2></div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-4">Username</dt>
+          <dd class="col-sm-8">{{ user.get_username }}</dd>
 
-      <dt class="col-sm-4">Name</dt>
-      <dd class="col-sm-8">{{ user.get_full_name|default:"—" }}</dd>
+          <dt class="col-sm-4">Name</dt>
+          <dd class="col-sm-8">{{ user.get_full_name|default:"—" }}</dd>
 
-      <dt class="col-sm-4">Email</dt>
-      <dd class="col-sm-8">{{ user.email|default:"—" }}</dd>
+          <dt class="col-sm-4">Email</dt>
+          <dd class="col-sm-8 text-break">{{ user.email|default:"—" }}</dd>
 
-      <dt class="col-sm-4">Role</dt>
-      <dd class="col-sm-8">
-        {% if user.is_superuser %}<span class="badge text-bg-danger">Superuser</span>
-        {% elif user.is_staff %}<span class="badge text-bg-primary">Administrator</span>
-        {% else %}<span class="badge text-bg-secondary">User</span>{% endif %}
-      </dd>
+          <dt class="col-sm-4">Role</dt>
+          <dd class="col-sm-8">{% include "users/partials/role_badge.html" with account=user %}</dd>
 
-      <dt class="col-sm-4">Last login</dt>
-      <dd class="col-sm-8">{{ user.last_login|date:"DATETIME_FORMAT"|default:"—" }}</dd>
+          <dt class="col-sm-4">Last sign-in</dt>
+          <dd class="col-sm-8">{{ user.last_login|date:"j M Y, H:i"|default:"—" }}</dd>
 
-      <dt class="col-sm-4">Member since</dt>
-      <dd class="col-sm-8 mb-0">{{ user.date_joined|date:"DATE_FORMAT" }}</dd>
-    </dl>
+          <dt class="col-sm-4">Member since</dt>
+          <dd class="col-sm-8 mb-0">{{ user.date_joined|date:"j M Y" }}</dd>
+        </dl>
+      </div>
+      <div class="card-footer">Name, email and password are changed by a platform administrator.</div>
+    </section>
+
+    {% comment %} Appearance is a per-browser preference, applied instantly by static/js/app.js. {% endcomment %}
+    <section class="card app-card" aria-labelledby="appearanceTitle">
+      <div class="card-header"><h2 class="pg-card-title" id="appearanceTitle">Appearance</h2></div>
+      <div class="card-body">
+        <div class="pg-theme-options" role="radiogroup" aria-labelledby="appearanceTitle">
+          <button type="button" class="pg-theme-option" role="radio" aria-checked="false" data-pg-theme="light">
+            <span class="pg-theme-swatch pg-theme-swatch--light" aria-hidden="true"></span><span>Light</span>
+          </button>
+          <button type="button" class="pg-theme-option" role="radio" aria-checked="false" data-pg-theme="dark">
+            <span class="pg-theme-swatch pg-theme-swatch--dark" aria-hidden="true"></span><span>Dark</span>
+          </button>
+          <button type="button" class="pg-theme-option" role="radio" aria-checked="false" data-pg-theme="system">
+            <span class="pg-theme-swatch pg-theme-swatch--system" aria-hidden="true"></span><span>System</span>
+          </button>
+        </div>
+        <p class="form-text mb-0 mt-3">“System” follows your computer's light or dark setting. The choice is remembered in this browser.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-7">
+    <section class="card app-card" aria-labelledby="accessTitle">
+      <div class="card-header">
+        <h2 class="pg-card-title" id="accessTitle">Your access</h2>
+        <a href="{% url 'frontend:token-list' %}" class="ms-auto small">{{ my_active_tokens }} active token{{ my_active_tokens|pluralize }}</a>
+      </div>
+      {% if user.is_staff %}
+        <div class="pg-allgood"><i class="bi bi-shield-check text-success" aria-hidden="true"></i>As a platform administrator you have Admin on every MCP.</div>
+      {% endif %}
+      {% if my_permissions %}
+        <div class="table-responsive">
+          <table class="table align-middle mb-0 app-table">
+            <thead><tr><th scope="col">MCP</th><th scope="col">Your level</th><th scope="col" class="d-none d-sm-table-cell">Since</th></tr></thead>
+            <tbody>
+              {% for permission in my_permissions %}
+                <tr>
+                  <td><a href="{% url 'frontend:mcp-detail' permission.mcp_server.pk %}" class="fw-semibold text-decoration-none">{{ permission.mcp_server.name }}</a></td>
+                  <td><span class="badge pg-level {{ permission.permission_level|badge_class }}">{{ permission.get_permission_level_display }}</span></td>
+                  <td class="d-none d-sm-table-cell small text-body-secondary">{{ permission.updated_at|date:"j M Y" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% elif not user.is_staff %}
+        <div class="app-empty"><i class="bi bi-person-lock" aria-hidden="true"></i><p class="mb-0">No permissions granted to you directly. MCPs open to all employees are listed in the <a href="{% url 'frontend:mcp-list' %}">registry</a>.</p></div>
+      {% endif %}
+    </section>
   </div>
 </div>
 {% endblock %}

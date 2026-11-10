@@ -25,9 +25,9 @@
               </td>
             {% endif %}
             {% if show_mcp %}<td><a href="{% url 'frontend:mcp-detail' permission.mcp_server.pk %}" class="text-decoration-none">{{ permission.mcp_server.name }}</a></td>{% endif %}
-            <td><span class="badge {{ permission.permission_level|badge_class }}">{{ permission.get_permission_level_display }}</span></td>
+            <td><span class="badge pg-level {{ permission.permission_level|badge_class }}">{{ permission.get_permission_level_display }}</span></td>
             <td class="d-none d-md-table-cell">{{ permission.granted_by.get_username|default:"—" }}</td>
-            <td class="d-none d-lg-table-cell">{{ permission.updated_at|date:"DATE_FORMAT" }}</td>
+            <td class="d-none d-lg-table-cell">{{ permission.updated_at|date:"j M Y" }}</td>
             <td class="text-end">
               <form method="post" action="{% url 'frontend:permission-revoke' permission.pk %}" class="d-inline"
                     data-confirm="Remove {{ permission.user.get_username }}'s access to {{ permission.mcp_server.name }}? Their tokens for it stop working immediately.">

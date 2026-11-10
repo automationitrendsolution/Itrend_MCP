@@ -735,9 +735,9 @@ body.auth-body { background: var(--pg-bg); min-height: 100vh; }
 .pg-code-inline { white-space: nowrap; }
 
 .pg-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-s2); margin-bottom: var(--pg-s4); }
-.pg-filterbar .pg-filter-search { position: relative; flex: 1 1 240px; max-width: 340px; }
-.pg-filterbar .pg-filter-search .bi { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--pg-text-2); font-size: .8125rem; pointer-events: none; }
-.pg-filterbar .pg-filter-search .form-control { padding-left: 2rem; }
+.pg-filter-search { position: relative; flex: 1 1 240px; max-width: 340px; }
+.pg-filter-search .bi { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--pg-text-2); font-size: .8125rem; pointer-events: none; }
+.pg-filter-search .form-control { padding-left: 2rem; }
 .pg-filterbar .form-select { width: auto; flex: 0 1 auto; }
 @media (max-width: 575.98px) {
   .pg-filterbar .pg-filter-search { max-width: none; flex-basis: 100%; }
@@ -771,3 +771,46 @@ body.auth-body { background: var(--pg-bg); min-height: 100vh; }
   font-family: var(--pg-font-mono); font-size: .6875rem; font-weight: 500; font-variant-numeric: tabular-nums;
   color: var(--pg-text-2); background: var(--pg-surface); border: 1px solid var(--pg-border);
 }
+
+/* ===========================================================================
+ * 14. Governance: accounts, permission ladder, appearance
+ * ========================================================================= */
+.min-w-0 { min-width: 0; }
+.pg-account { display: flex; align-items: center; gap: .625rem; min-width: 0; max-width: 420px; }
+.pg-account .app-avatar .bi { font-size: .75rem; }
+.pg-page-desc .pg-meta { font-size: var(--pg-fs-small); }
+
+/* Four permission levels; each includes the ones before it (the arrow). */
+.pg-ladder { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--pg-s3); }
+.pg-ladder-step {
+  position: relative; padding: .875rem var(--pg-s4);
+  background: var(--pg-surface); border: 1px solid var(--pg-border); border-radius: var(--pg-r-lg); box-shadow: var(--pg-shadow-sm);
+}
+.pg-ladder-step p { margin: var(--pg-s2) 0 0; font-size: .8125rem; color: var(--pg-text); }
+.pg-ladder-step + .pg-ladder-step::before {
+  content: "\F285"; font-family: "bootstrap-icons"; position: absolute; left: -.72rem; top: 50%; transform: translateY(-50%);
+  width: 1.1rem; height: 1.1rem; display: flex; align-items: center; justify-content: center; font-size: .625rem;
+  color: var(--pg-text-2); background: var(--pg-bg); border-radius: 50%;
+}
+@media (max-width: 767.98px) {
+  .pg-ladder { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pg-ladder-step + .pg-ladder-step::before { display: none; }
+}
+
+/* Theme picker on the Profile page, with a tiny preview of each theme. */
+.pg-theme-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--pg-s3); }
+.pg-theme-option {
+  display: flex; flex-direction: column; gap: var(--pg-s2); align-items: stretch; padding: var(--pg-s2);
+  background: var(--pg-surface); color: var(--pg-text); font-size: .8125rem; font-weight: 500; text-align: left;
+  border: 1px solid var(--pg-border-strong); border-radius: var(--pg-r);
+}
+.pg-theme-option:hover { background: var(--pg-surface-hover); }
+.pg-theme-option[aria-checked="true"] { border-color: var(--pg-accent); box-shadow: 0 0 0 2px var(--pg-focus); }
+.pg-theme-option > span:last-child { padding: 0 2px 2px; }
+.pg-theme-swatch { display: block; height: 52px; border-radius: var(--pg-r-sm); border: 1px solid var(--pg-border); }
+.pg-theme-swatch--light { background: linear-gradient(90deg, #EEEEEA 0 28%, #F6F6F3 28%); }
+.pg-theme-swatch--dark { background: linear-gradient(90deg, #1D2126 0 28%, #171A1E 28%); }
+.pg-theme-swatch--system { background: linear-gradient(135deg, #F6F6F3 0 50%, #171A1E 50%); }
+.badge.pg-level::before { display: none; }
+/* The strongest badge (Superuser, Admin): solid graphite in light, a raised chip in dark (not a white block). */
+html[data-bs-theme="dark"] .badge.text-bg-dark { color: var(--pg-text) !important; background-color: #3A4048 !important; border-color: #4A515A; }

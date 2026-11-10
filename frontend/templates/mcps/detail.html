@@ -84,7 +84,7 @@
           {% if manifest %}
             <dt class="col-5">Port</dt><dd class="col-7">{{ manifest.port }}</dd>
           {% endif %}
-          <dt class="col-5">Added</dt><dd class="col-7 mb-0">{{ server.created_at|date:"DATETIME_FORMAT" }}</dd>
+          <dt class="col-5">Added</dt><dd class="col-7 mb-0">{{ server.created_at|date:"j M Y, H:i" }}</dd>
         </dl>
       </div>
       {% if is_admin %}

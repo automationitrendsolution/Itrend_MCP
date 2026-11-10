@@ -8,75 +8,94 @@
   <li><span aria-current="page">{{ account.get_username }}</span></li>
 {% endblock %}
 
-{% block content %}
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-  <a href="{% url 'frontend:user-list' %}" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> All users</a>
-  {% if is_service %}<span class="badge text-bg-light border ms-2"><i class="bi bi-robot me-1"></i>Service account</span>
-  {% elif account.is_superuser %}<span class="badge text-bg-danger ms-2">Superuser</span>
-  {% elif account.is_staff %}<span class="badge text-bg-primary ms-2">Administrator</span>{% endif %}
-  {% if account.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+{% block page_description %}
+  <span class="pg-meta">
+    {% include "users/partials/role_badge.html" %}
+    {% if account.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-light">Inactive</span>{% endif %}
+    {% if not is_service and account.get_full_name %}<span>{{ account.get_full_name }}</span>{% endif %}
+  </span>
+{% endblock %}
 
+{% block page_actions %}
+  {% if can_create_token and account.is_active %}
+    <a href="{% url 'frontend:user-token-create' account.pk %}" class="btn btn-outline-secondary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Generate token</a>
+  {% endif %}
   {% if account != user %}
-    <form method="post" action="{% url 'frontend:user-set-active' account.pk %}" class="ms-auto"
-          {% if account.is_active %}data-confirm="Deactivate {{ account.get_username }}? They are logged out and all their tokens stop working until reactivated."{% endif %}>
+    <form method="post" action="{% url 'frontend:user-set-active' account.pk %}"
+          {% if account.is_active %}data-confirm="Deactivate {{ account.get_username }}? They are signed out and all their tokens stop working until reactivated." data-confirm-action="Deactivate"{% endif %}>
       {% csrf_token %}
       {% if account.is_active %}
         <input type="hidden" name="active" value="0">
-        <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-person-x me-1"></i>Deactivate</button>
+        <button type="submit" class="btn btn-outline-danger"><i class="bi bi-person-x me-1" aria-hidden="true"></i>Deactivate</button>
       {% else %}
         <input type="hidden" name="active" value="1">
-        <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-person-check me-1"></i>Activate</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-person-check me-1" aria-hidden="true"></i>Activate</button>
       {% endif %}
     </form>
   {% endif %}
-</div>
+{% endblock %}
 
-<div class="row g-3">
-  <div class="col-lg-4">
-    <div class="card app-card">
-      <div class="card-header">Account</div>
+{% block content %}
+{% if not account.is_active %}
+  <div class="alert alert-warning d-flex gap-2 align-items-start" role="status">
+    <i class="bi bi-pause-circle mt-1" aria-hidden="true"></i>
+    <div>This account is deactivated: it cannot sign in, and none of its tokens work. Its permissions are kept for when it is activated again.</div>
+  </div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-4 d-flex flex-column gap-4">
+    <section class="card app-card" aria-labelledby="accountTitle">
+      <div class="card-header"><h2 class="pg-card-title" id="accountTitle">Account</h2></div>
       <div class="card-body">
         <dl class="row mb-0 small">
           {% if is_service %}
             <dt class="col-5">Description</dt><dd class="col-7">{{ account.service_account.description|default:"—"|linebreaksbr }}</dd>
             <dt class="col-5">Created by</dt><dd class="col-7">{{ account.service_account.created_by.get_username|default:"—" }}</dd>
-            <dt class="col-5">Login</dt><dd class="col-7">Not possible (no password)</dd>
+            <dt class="col-5">Sign-in</dt><dd class="col-7">Not possible (no password)</dd>
           {% else %}
             <dt class="col-5">Name</dt><dd class="col-7">{{ account.get_full_name|default:"—" }}</dd>
-            <dt class="col-5">Email</dt><dd class="col-7">{{ account.email|default:"—" }}</dd>
-            <dt class="col-5">Last login</dt><dd class="col-7">{{ account.last_login|date:"DATETIME_FORMAT"|default:"Never" }}</dd>
+            <dt class="col-5">Email</dt><dd class="col-7 text-break">{{ account.email|default:"—" }}</dd>
+            <dt class="col-5">Last sign-in</dt><dd class="col-7">{{ account.last_login|date:"j M Y, H:i"|default:"Never" }}</dd>
           {% endif %}
-          <dt class="col-5">Created</dt><dd class="col-7 mb-0">{{ account.date_joined|date:"DATE_FORMAT" }}</dd>
+          <dt class="col-5">Created</dt><dd class="col-7 mb-0">{{ account.date_joined|date:"j M Y" }}</dd>
         </dl>
-        {% if account.is_staff %}
-          <div class="small text-body-secondary mt-3">Administrators have Admin permission on every MCP automatically.</div>
-        {% elif not is_service %}
-          <div class="small text-body-secondary mt-3">Also has Connect on every MCP open to <em>All employees</em>.</div>
-        {% endif %}
       </div>
-    </div>
+      <div class="card-footer">
+        {% if account.is_staff %}<i class="bi bi-info-circle me-1" aria-hidden="true"></i>Platform administrators have Admin on every MCP automatically.
+        {% elif is_service %}<i class="bi bi-info-circle me-1" aria-hidden="true"></i>Service accounts only reach the MCPs granted below.
+        {% else %}<i class="bi bi-info-circle me-1" aria-hidden="true"></i>Also has Connect on every MCP open to <em>All employees</em>.{% endif %}
+      </div>
+    </section>
+
+    <section class="card app-card" aria-labelledby="historyTitle">
+      <div class="card-header">
+        <h2 class="pg-card-title" id="historyTitle">Access history</h2>
+        <a href="{% url 'frontend:activity-list' %}?q={{ account.get_username|urlencode }}" class="ms-auto small">All</a>
+      </div>
+      {% for entry in activity %}
+        {% include "activity/partials/event.html" %}
+      {% empty %}
+        <div class="app-empty"><i class="bi bi-clock-history" aria-hidden="true"></i><p class="mb-0">Nothing recorded yet.</p></div>
+      {% endfor %}
+    </section>
   </div>
 
-  <div class="col-lg-8">
-    <div class="card app-card mb-3">
-      <div class="card-header">MCP permissions</div>
+  <div class="col-lg-8 d-flex flex-column gap-4">
+    <section class="card app-card" aria-labelledby="permsTitle">
+      <div class="card-header"><h2 class="pg-card-title" id="permsTitle">MCP permissions</h2></div>
       {% include "permissions/partials/table.html" with show_mcp=True next=request.path empty="No explicit permissions." %}
       {% if grant_form %}
         <div class="card-body border-top">
           {% include "permissions/partials/grant_form.html" with next=request.path %}
         </div>
       {% endif %}
-    </div>
+    </section>
 
-    <div class="card app-card">
-      <div class="card-header d-flex align-items-center">
-        <span>Access tokens</span>
-        {% if can_create_token and account.is_active %}
-          <a href="{% url 'frontend:user-token-create' account.pk %}" class="btn btn-primary btn-sm ms-auto"><i class="bi bi-plus-lg me-1"></i>Generate token</a>
-        {% endif %}
-      </div>
+    <section class="card app-card" aria-labelledby="tokensTitle">
+      <div class="card-header"><h2 class="pg-card-title" id="tokensTitle">Access tokens</h2></div>
       {% include "tokens/partials/table.html" with show_mcp=True next=request.path empty="No tokens." %}
-    </div>
+    </section>
   </div>
 </div>
 {% endblock %}

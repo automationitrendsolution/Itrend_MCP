@@ -47,6 +47,7 @@ MCP_PAGE_SIZE = 20
 USER_PAGE_SIZE = 25
 PERMISSION_PAGE_SIZE = 25
 ACTIVITY_PAGE_SIZE = 50
+USER_ACTIVITY_SHOWN = 10
 MCP_EVENTS_SHOWN = 50
 MCP_RUNS_SHOWN = 10
 
@@ -100,7 +101,12 @@ class LogoutView(auth_views.LogoutView):
 
 @login_required
 def profile(request: HttpRequest) -> HttpResponse:
-    return render(request, "accounts/profile.html")
+    """Your account, your access at a glance, and display preferences (theme)."""
+    context = {
+        "my_permissions": access.list_permissions(user=request.user),
+        "my_active_tokens": tokens.list_tokens(user=request.user).filter(revoked_at__isnull=True, expires_at__gt=timezone.now()).count(),
+    }
+    return render(request, "accounts/profile.html", context)
 
 
 # ---------------------------------------------------------------------------
@@ -558,6 +564,9 @@ def user_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "tokens": tokens.list_tokens(user=account),
         "grant_form": PermissionGrantForm(user=account) if account.is_active else None,
         "can_create_token": tokens.can_create_for(request.user, account),
+        # Access history: what this account did, and what was done to it (granted, deactivated…).
+        "activity": MCPActivityLog.objects.filter(Q(user=account) | Q(metadata__target_user=account.get_username()))
+        .select_related("mcp_server")[:USER_ACTIVITY_SHOWN],
     }
     return render(request, "users/detail.html", context)
 
@@ -607,14 +616,27 @@ ACTIVITY_KINDS = {
 }
 
 
+# The "When" filter on the Audit Logs page: ?period=24h|7d|30d (empty = all time).
+ACTIVITY_PERIODS = {
+    "24h": ("Last 24 hours", timedelta(hours=24)),
+    "7d": ("Last 7 days", timedelta(days=7)),
+    "30d": ("Last 30 days", timedelta(days=30)),
+}
+
+
 @staff_required
 def activity_list(request: HttpRequest) -> HttpResponse:
     filters = {
         "kind": request.GET.get("kind", ""),
         "problems": request.GET.get("problems") == "1",
         "q": request.GET.get("q", "").strip(),
+        "period": request.GET.get("period", ""),
     }
     entries = MCPActivityLog.objects.select_related("mcp_server")
+    if filters["period"] in ACTIVITY_PERIODS:
+        entries = entries.filter(timestamp__gte=timezone.now() - ACTIVITY_PERIODS[filters["period"]][1])
+    else:
+        filters["period"] = ""
     if filters["kind"] in ACTIVITY_KINDS:
         entries = entries.filter(action__in=ACTIVITY_KINDS[filters["kind"]][2])
     if filters["problems"]:
@@ -637,6 +659,7 @@ def activity_list(request: HttpRequest) -> HttpResponse:
         "page": Paginator(entries, ACTIVITY_PAGE_SIZE).get_page(request.GET.get("page")),
         "filters": filters,
         "kinds": [(key, label, icon) for key, (label, icon, _) in ACTIVITY_KINDS.items()],
+        "periods": [(key, label) for key, (label, _) in ACTIVITY_PERIODS.items()],
         "recent": recent,
         "query": query.urlencode(),
     }

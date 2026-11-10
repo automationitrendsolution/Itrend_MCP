@@ -23,8 +23,8 @@
             {% if show_mcp %}<td>{{ token.mcp_server.name }}</td>{% endif %}
             {% if show_owner %}<td>{{ token.user.get_username }}</td>{% endif %}
             <td><span class="badge {{ token.state|badge_class }}">{{ token.state|capfirst }}</span></td>
-            <td class="d-none d-md-table-cell">{{ token.expires_at|date:"DATE_FORMAT" }}</td>
-            <td class="d-none d-lg-table-cell">{{ token.last_used_at|date:"DATETIME_FORMAT"|default:"Never" }}</td>
+            <td class="d-none d-md-table-cell">{{ token.expires_at|date:"j M Y" }}</td>
+            <td class="d-none d-lg-table-cell">{{ token.last_used_at|date:"j M Y, H:i"|default:"Never" }}</td>
             <td class="text-end">
               {% if token.state == "active" %}
                 <form method="post" action="{% url 'frontend:token-revoke' token.pk %}" class="d-inline"

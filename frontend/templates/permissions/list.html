@@ -2,52 +2,56 @@
 
 {% block title %}Permissions{% endblock %}
 {% block page_title %}Permissions{% endblock %}
-{% block page_description %}Who may view, connect to, manage or administer each MCP server.{% endblock %}
+{% block page_description %}Who may view, connect to, manage or administer each MCP server. Each level includes everything before it.{% endblock %}
 
 {% block content %}
-<div class="card app-card mb-3">
-  <div class="card-header">How access works</div>
-  <div class="card-body small">
-    <div class="row g-3">
-      <div class="col-md-6">
-        <div><span class="badge text-bg-light border">View</span> see the MCP and its connection URL</div>
-        <div><span class="badge text-bg-info">Connect</span> view, plus generate tokens and connect</div>
-        <div><span class="badge text-bg-primary">Manage</span> connect, plus edit the MCP's details</div>
-        <div><span class="badge text-bg-dark">Admin</span> manage, plus grant and remove access</div>
-      </div>
-      <div class="col-md-6 text-body-secondary">
-        Administrators have Admin on every MCP. MCPs open to <em>All employees</em> give every person Connect
-        automatically; service accounts only get what is granted here. Removing a permission stops that user's
-        tokens for the MCP immediately.
-      </div>
-    </div>
+<section class="pg-ladder mb-4" aria-label="Permission levels">
+  <div class="pg-ladder-step">
+    <span class="badge pg-level text-bg-light">View</span>
+    <p>See the MCP and its connection link.</p>
   </div>
-</div>
+  <div class="pg-ladder-step">
+    <span class="badge pg-level text-bg-info">Connect</span>
+    <p>Generate tokens and use the MCP from a client.</p>
+  </div>
+  <div class="pg-ladder-step">
+    <span class="badge pg-level text-bg-primary">Manage</span>
+    <p>Change the MCP's details. <span class="text-body-secondary">No extra effect today: details come from <code>mcp.json</code>.</span></p>
+  </div>
+  <div class="pg-ladder-step">
+    <span class="badge pg-level text-bg-dark">Admin</span>
+    <p>Grant and remove access to the MCP.</p>
+  </div>
+</section>
+<p class="small text-body-secondary mb-4">
+  <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Platform administrators have Admin on every MCP. MCPs open to <em>All employees</em>
+  give every person Connect automatically; service accounts only get what is granted here. Removing a permission stops that account's tokens for the MCP immediately.
+</p>
 
-<div class="card app-card mb-3">
-  <div class="card-header">Grant a permission</div>
+<section class="card app-card mb-4" aria-labelledby="grantTitle">
+  <div class="card-header"><h2 class="pg-card-title" id="grantTitle">Grant a permission</h2></div>
   <div class="card-body">
     {% url 'frontend:permission-list' as here %}
     {% include "permissions/partials/grant_form.html" with next=here %}
   </div>
-</div>
+</section>
 
-<form class="d-flex flex-wrap gap-2 mb-3" method="get">
-  <div class="input-group" style="max-width: 280px">
-    <span class="input-group-text"><i class="bi bi-search"></i></span>
+<form class="pg-filterbar" role="search" method="get">
+  <div class="pg-filter-search">
+    <i class="bi bi-search" aria-hidden="true"></i>
     <input type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Username" aria-label="Filter by username">
   </div>
-  <select name="mcp" class="form-select w-auto" aria-label="Filter by MCP">
+  <select name="mcp" class="form-select" aria-label="Filter by MCP" onchange="this.form.requestSubmit()">
     <option value="">All MCP servers</option>
     {% for server in servers %}
       <option value="{{ server.pk }}" {% if filters.mcp == server.pk|stringformat:"s" %}selected{% endif %}>{{ server.name }}</option>
     {% endfor %}
   </select>
-  <button class="btn btn-outline-secondary" type="submit">Filter</button>
+  <button class="btn btn-outline-secondary" type="submit">Search</button>
 </form>
 
-<div class="card app-card">
+<section class="card app-card" aria-label="Granted permissions">
   {% include "permissions/partials/table.html" with permissions=page.object_list show_user=True show_mcp=True next=request.get_full_path %}
   {% include "partials/pager.html" %}
-</div>
+</section>
 {% endblock %}

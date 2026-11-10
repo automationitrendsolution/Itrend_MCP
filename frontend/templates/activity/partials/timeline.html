@@ -15,9 +15,9 @@
       </div>
     {% endif %}
   {% else %}
-    <div class="card-body app-empty">
-      <i class="bi bi-journal-text"></i>
-      <p class="mb-0">{% if filters.q or filters.kind or filters.problems %}Nothing matches. Try “Everything”.{% else %}No activity recorded yet.{% endif %}</p>
+    <div class="app-empty">
+      <i class="bi bi-journal-text" aria-hidden="true"></i>
+      <p class="mb-0">{% if filters.q or filters.kind or filters.problems or filters.period %}Nothing matches these filters.{% else %}No activity recorded yet.{% endif %}</p>
     </div>
   {% endif %}
 </div>

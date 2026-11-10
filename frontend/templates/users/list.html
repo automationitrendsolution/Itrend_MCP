@@ -2,67 +2,81 @@
 
 {% block title %}Users{% endblock %}
 {% block page_title %}Users{% endblock %}
-{% block page_description %}People and service accounts, whether they can sign in, and what they can reach.{% endblock %}
+{% block page_description %}People and service accounts, whether they can sign in, and how many MCP permissions they hold.{% endblock %}
 
 {% block page_actions %}
+  <a href="{% url 'admin:auth_user_add' %}" class="btn btn-outline-secondary" title="New people are added in the Django admin for now"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Add person</a>
   <a href="{% url 'frontend:service-account-create' %}" class="btn btn-primary"><i class="bi bi-robot me-1" aria-hidden="true"></i>Add service account</a>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-  <form class="d-flex flex-wrap gap-2 flex-grow-1" method="get">
-    <div class="input-group" style="max-width: 320px">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Username, name or email" aria-label="Search users">
-    </div>
-    <select name="kind" class="form-select w-auto" aria-label="Filter by account type">
-      <option value="">All accounts</option>
-      <option value="people" {% if filters.kind == "people" %}selected{% endif %}>People</option>
-      <option value="service" {% if filters.kind == "service" %}selected{% endif %}>Service accounts</option>
-    </select>
-    <button class="btn btn-outline-secondary" type="submit">Filter</button>
-  </form>
-</div>
+<form class="pg-filterbar" role="search" method="get">
+  <div class="pg-filter-search">
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <input type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Username, name or email" aria-label="Search users">
+  </div>
+  <select name="kind" class="form-select" aria-label="Account type" onchange="this.form.requestSubmit()">
+    <option value="">All accounts</option>
+    <option value="people" {% if filters.kind == "people" %}selected{% endif %}>People</option>
+    <option value="service" {% if filters.kind == "service" %}selected{% endif %}>Service accounts</option>
+  </select>
+  <button class="btn btn-outline-secondary" type="submit">Search</button>
+</form>
 
 <div class="card app-card">
   {% if page.object_list %}
-    <div class="table-responsive">
+    <div class="table-responsive d-none d-md-block">
       <table class="table table-hover align-middle mb-0 app-table">
         <thead>
           <tr>
-            <th>Username</th>
-            <th class="d-none d-md-table-cell">Name / description</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th class="d-none d-lg-table-cell">Permissions</th>
-            <th class="d-none d-xl-table-cell">Last login</th>
+            <th scope="col">Account</th>
+            <th scope="col">Role</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="text-end">Permissions</th>
+            <th scope="col" class="d-none d-lg-table-cell">Last sign-in</th>
           </tr>
         </thead>
         <tbody>
           {% for account in page.object_list %}
             <tr>
-              <td><a href="{% url 'frontend:user-detail' account.pk %}" class="fw-semibold text-decoration-none">{{ account.get_username }}</a></td>
-              <td class="d-none d-md-table-cell small text-body-secondary">
-                {% if account.service_account %}{{ account.service_account.description|truncatechars:60|default:"—" }}{% else %}{{ account.get_full_name|default:account.email|default:"—" }}{% endif %}
-              </td>
               <td>
-                {% if account.service_account %}<span class="badge text-bg-light border"><i class="bi bi-robot me-1"></i>Service account</span>
-                {% elif account.is_superuser %}<span class="badge text-bg-danger">Superuser</span>
-                {% elif account.is_staff %}<span class="badge text-bg-primary">Administrator</span>
-                {% else %}<span class="badge text-bg-secondary">User</span>{% endif %}
+                <div class="pg-account">
+                  <span class="app-avatar" aria-hidden="true">{% if account.service_account %}<i class="bi bi-robot"></i>{% else %}{{ account.get_username|first|upper }}{% endif %}</span>
+                  <div class="min-w-0">
+                    <a href="{% url 'frontend:user-detail' account.pk %}" class="fw-semibold text-decoration-none">{{ account.get_username }}</a>
+                    <div class="small text-body-secondary text-truncate">
+                      {% if account.service_account %}{{ account.service_account.description|default:"No description" }}{% else %}{{ account.get_full_name|default:account.email|default:"—" }}{% endif %}
+                    </div>
+                  </div>
+                </div>
               </td>
-              <td>{% if account.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
-              <td class="d-none d-lg-table-cell">{{ account.permission_count }}</td>
-              <td class="d-none d-xl-table-cell small text-body-secondary">{% if account.service_account %}Cannot log in{% else %}{{ account.last_login|date:"DATETIME_FORMAT"|default:"Never" }}{% endif %}</td>
+              <td>{% include "users/partials/role_badge.html" %}</td>
+              <td>{% if account.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-light">Inactive</span>{% endif %}</td>
+              <td class="text-end">{{ account.permission_count }}</td>
+              <td class="d-none d-lg-table-cell small text-body-secondary">{% if account.service_account %}Cannot sign in{% else %}{{ account.last_login|date:"j M Y, H:i"|default:"Never" }}{% endif %}</td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    <ul class="pg-rows d-md-none">
+      {% for account in page.object_list %}
+        <li class="pg-row">
+          <div class="d-flex align-items-start gap-2">
+            <a href="{% url 'frontend:user-detail' account.pk %}" class="fw-semibold text-decoration-none me-auto">{{ account.get_username }}</a>
+            {% if account.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-light">Inactive</span>{% endif %}
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-2 small text-body-secondary">
+            {% include "users/partials/role_badge.html" %}
+            <span>{{ account.permission_count }} permission{{ account.permission_count|pluralize }}</span>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
     {% include "partials/pager.html" %}
   {% else %}
-    <div class="card-body app-empty"><i class="bi bi-people"></i><p class="mb-0">No accounts match.</p></div>
+    <div class="app-empty"><i class="bi bi-people" aria-hidden="true"></i><p class="mb-0">{% if filters.q or filters.kind %}No accounts match this search.{% else %}No accounts yet.{% endif %}</p></div>
   {% endif %}
 </div>
-<p class="small text-body-secondary mt-3"><i class="bi bi-info-circle me-1"></i>New people are added in the <a href="{% url 'admin:auth_user_add' %}">Django admin</a> for now.</p>
 {% endblock %}
