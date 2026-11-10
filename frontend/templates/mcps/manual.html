@@ -22,12 +22,14 @@
           <li>
             <strong>Add it to your MCP client.</strong> For example, in Claude Code:
             <pre>claude mcp add --transport http {{ server.slug }} {{ server.connection_url }} --header "Authorization: Bearer YOUR_TOKEN"</pre>
-            <div class="mt-2">Or in a JSON config for clients that connect over HTTP themselves (VS Code and others):</div>
+            <div class="mt-2"><strong>VS Code:</strong> put this in <code>.vscode/mcp.json</code> (or add the inner part to an existing <code>"servers"</code> list):</div>
             <pre>{
-  "{{ server.slug }}": {
-    "type": "http",
-    "url": "{{ server.connection_url }}",
-    "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+  "servers": {
+    "{{ server.slug }}": {
+      "type": "http",
+      "url": "{{ server.connection_url }}",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
   }
 }</pre>
             <div class="mt-2"><strong>Claude Desktop</strong> only starts local programs, so it connects through the small

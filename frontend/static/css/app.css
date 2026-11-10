@@ -666,7 +666,7 @@ html[data-bs-theme="dark"] .form-switch .form-check-input:checked { --bs-form-sw
   display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: var(--pg-fs-small);
   font-variant-numeric: tabular-nums;
 }
-.app-steps pre { background: var(--pg-code-bg); border: 1px solid var(--pg-border); padding: .75rem var(--pg-s4); border-radius: var(--pg-r); font-size: var(--pg-fs-small); margin: var(--pg-s2) 0 0; }
+.app-steps pre { background: var(--pg-code-bg); border: 1px solid var(--pg-border); padding: .75rem var(--pg-s4); border-radius: var(--pg-r); font-size: var(--pg-fs-small); margin: var(--pg-s2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* ===========================================================================
  * 10. Activity timeline and monitoring incidents
@@ -840,3 +840,53 @@ html[data-bs-theme="dark"] .pg-logo--dark { display: block; }
 .pg-auth-brand .app-brand-product { border-left: 0; padding-left: 0; font-size: .8125rem; letter-spacing: .08em; text-transform: uppercase; }
 .pg-auth-brand--left { align-items: flex-start; margin-bottom: 0; }
 .pg-auth-brand--left .pg-logo { height: 48px; }
+
+/* ===========================================================================
+ * 16. Sign-in page: animated artwork panel + form
+ * ========================================================================= */
+.pg-signin { display: grid; grid-template-columns: minmax(340px, 40%) 1fr; min-height: 100vh; background: var(--pg-surface); }
+html[data-bs-theme="dark"] .pg-signin { background: var(--pg-bg); }
+
+.pg-signin-art {
+  position: relative; overflow: hidden; margin: var(--pg-s3);
+  border-radius: 14px; background: #08090c; color: #F1F2EF;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+}
+.pg-signin-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pg-signin-art-text { position: relative; z-index: 1; padding: var(--pg-s7); max-width: 460px; }
+.pg-signin-mark { width: 56px; height: 56px; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .45)); }
+.pg-signin-art-title { margin: var(--pg-s5) 0 0; font-size: 1.75rem; font-weight: 600; line-height: 1.25; letter-spacing: -.02em; color: #F6F6F3; text-shadow: 0 2px 18px rgba(0, 0, 0, .5); }
+.pg-signin-art-sub { margin: var(--pg-s3) 0 0; font-size: .9375rem; color: rgba(241, 242, 239, .78); }
+
+.pg-signin-main { position: relative; display: flex; align-items: center; justify-content: center; padding: var(--pg-s8) var(--pg-s6); }
+.pg-signin-form { width: 100%; max-width: 380px; animation: pg-rise .5s ease-out both; }
+.pg-signin-form .pg-auth-brand { margin-bottom: var(--pg-s5); }
+.pg-signin-form .pg-logo { height: 60px; }
+.pg-signin-title { font-size: 1.5rem; font-weight: 600; letter-spacing: -.02em; text-align: center; margin: 0; }
+.pg-signin-sub { text-align: center; color: var(--pg-text-2); margin: var(--pg-s2) 0 var(--pg-s6); }
+.pg-signin-submit { height: 40px; font-size: .875rem; }
+.pg-signin-help { margin: var(--pg-s5) 0 0; text-align: center; font-size: .8125rem; color: var(--pg-text-2); }
+
+.pg-signin-theme {
+  position: absolute; top: var(--pg-s4); right: var(--pg-s4); display: flex; gap: 2px; padding: 2px;
+  background: var(--pg-surface-2); border: 1px solid var(--pg-border); border-radius: var(--pg-r-sm);
+}
+.pg-signin-theme .pg-icon-btn { width: 28px; height: 28px; font-size: .875rem; }
+.pg-signin-theme .pg-icon-btn[aria-checked="true"] { background: var(--pg-surface); color: var(--pg-text); box-shadow: var(--pg-shadow-sm), inset 0 0 0 1px var(--pg-border); }
+
+@keyframes pg-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Tablets and phones: the artwork becomes a band above the form. */
+@media (max-width: 991.98px) {
+  .pg-signin { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .pg-signin-art { height: 220px; }
+  .pg-signin-art-text { padding: var(--pg-s5); }
+  .pg-signin-art-title { font-size: 1.375rem; }
+  .pg-signin-main { padding: var(--pg-s6) var(--pg-s4) var(--pg-s7); }
+  .pg-signin-theme { top: var(--pg-s3); }
+}
+@media (max-width: 575.98px) {
+  .pg-signin-art { height: 168px; }
+  .pg-signin-art-sub, .pg-signin-mark { display: none; }
+  .pg-signin-form .pg-logo { height: 48px; }
+}

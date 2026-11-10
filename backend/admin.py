@@ -91,9 +91,8 @@ class MCPActivityLogAdmin(admin.ModelAdmin):
     """The activity log is append-only: nobody can add, change or delete entries here."""
 
     list_display = ("timestamp", "username", "action", "result", "mcp_slug", "source_ip")
-    list_filter = ("action", "result")
+    list_filter = ("action", "result", "timestamp")
     search_fields = ("username", "mcp_slug", "source_ip")
-    date_hierarchy = "timestamp"
 
     def has_add_permission(self, request):
         return False
@@ -111,6 +110,11 @@ class MCPActivityLogAdmin(admin.ModelAdmin):
 # ---------------------------------------------------------------------------
 
 
+# Note: no date_hierarchy in this file. With a time zone other than UTC it makes MySQL convert
+# dates itself, which needs MySQL's time zone tables (not installed on Windows by default).
+# The date list_filter used instead computes its ranges in Python.
+
+
 class ReadOnlyAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
@@ -122,22 +126,19 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 @admin.register(MCPHealthCheck)
 class MCPHealthCheckAdmin(ReadOnlyAdmin):
     list_display = ("checked_at", "mcp_server", "status", "response_time_ms", "cpu_percent", "memory_mb", "error_message")
-    list_filter = ("status", "mcp_server")
-    date_hierarchy = "checked_at"
+    list_filter = ("status", "mcp_server", "checked_at")
 
 
 @admin.register(MCPRequestStat)
 class MCPRequestStatAdmin(ReadOnlyAdmin):
     list_display = ("bucket_start", "mcp_server", "request_count", "error_count", "denied_count", "max_response_ms")
-    list_filter = ("mcp_server",)
-    date_hierarchy = "bucket_start"
+    list_filter = ("mcp_server", "bucket_start")
 
 
 @admin.register(MCPMonitorEvent)
 class MCPMonitorEventAdmin(ReadOnlyAdmin):
     list_display = ("created_at", "mcp_server", "kind", "level", "message")
-    list_filter = ("kind", "level", "mcp_server")
-    date_hierarchy = "created_at"
+    list_filter = ("kind", "level", "mcp_server", "created_at")
 
 
 @admin.register(MCPMonitorSettings)

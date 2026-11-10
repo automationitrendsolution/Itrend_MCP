@@ -1,46 +1,64 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Sign in{% endblock %}
 {% block body_class %}auth-body{% endblock %}
 
 {% block layout %}
-<main class="auth-wrapper">
-  <div style="width: 100%; max-width: 400px">
-    <div class="pg-auth-brand">
-      {% include "partials/brand.html" with alt="iTrend Solution" %}
-      <span class="app-brand-product">MCP Platform</span>
+<div class="pg-signin">
+  {% comment %} Left: animated artwork in the brand colours (static/js/login-art.js). Decorative only. {% endcomment %}
+  <aside class="pg-signin-art" aria-hidden="true">
+    <canvas class="pg-signin-canvas" data-login-art></canvas>
+    <div class="pg-signin-art-text">
+      <img class="pg-signin-mark" src="{% static 'images/brand/itrend-mark.png' %}" alt="" width="128" height="128">
+      <p class="pg-signin-art-title">Welcome back to the<br>iTrend MCP Platform</p>
+      <p class="pg-signin-art-sub">One secure place for every MCP server.</p>
+    </div>
+  </aside>
+
+  {% comment %} Right: the form. Only real features: no social sign-in, sign-up or reset links that would not work. {% endcomment %}
+  <main class="pg-signin-main">
+    <div class="pg-signin-theme" role="radiogroup" aria-label="Theme">
+      <button type="button" class="pg-icon-btn" role="radio" aria-checked="false" data-pg-theme="light" title="Light theme" aria-label="Light theme"><i class="bi bi-sun" aria-hidden="true"></i></button>
+      <button type="button" class="pg-icon-btn" role="radio" aria-checked="false" data-pg-theme="dark" title="Dark theme" aria-label="Dark theme"><i class="bi bi-moon" aria-hidden="true"></i></button>
+      <button type="button" class="pg-icon-btn" role="radio" aria-checked="false" data-pg-theme="system" title="Same as this computer" aria-label="System theme"><i class="bi bi-display" aria-hidden="true"></i></button>
     </div>
 
-    <div class="auth-card card">
-      <div class="card-body p-4">
-        <h1 class="h4 mb-1">Sign in</h1>
-        <p class="text-body-secondary mb-4">Use your company account to continue.</p>
-
-        {% if form.non_field_errors %}
-          <div class="alert alert-danger d-flex gap-2 align-items-start" role="alert">
-            <i class="bi bi-x-circle mt-1" aria-hidden="true"></i>
-            <div>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
-          </div>
-        {% endif %}
-
-        <form method="post" novalidate>
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ next }}">
-
-          <div class="mb-3">
-            <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
-            {{ form.username }}
-          </div>
-          <div class="mb-4">
-            <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
-            {{ form.password }}
-          </div>
-          <button type="submit" class="btn btn-primary w-100">Sign in</button>
-        </form>
+    <div class="pg-signin-form">
+      <div class="pg-auth-brand">
+        {% include "partials/brand.html" with alt="iTrend Solution" %}
       </div>
-    </div>
+      <h1 class="pg-signin-title">Sign in to MCP Platform</h1>
+      <p class="pg-signin-sub">Use your company account to continue.</p>
 
-    <p class="auth-foot"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Access is limited to authorised iTrend accounts. Sign-ins are recorded.</p>
-  </div>
-</main>
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger d-flex gap-2 align-items-start" role="alert">
+          <i class="bi bi-x-circle mt-1" aria-hidden="true"></i>
+          <div>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
+          {{ form.username }}
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+          {{ form.password }}
+        </div>
+        <button type="submit" class="btn btn-primary w-100 pg-signin-submit">Sign in</button>
+      </form>
+
+      <p class="pg-signin-help">
+        Need access, or forgot your password? Ask a platform administrator.
+      </p>
+      <p class="auth-foot"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Access is limited to authorised iTrend accounts. Sign-ins are recorded.</p>
+    </div>
+  </main>
+</div>
+<script src="{% static 'js/login-art.js' %}" defer></script>
 {% endblock %}

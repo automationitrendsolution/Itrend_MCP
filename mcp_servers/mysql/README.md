@@ -53,7 +53,38 @@ error messages.
 - **DNS-rebinding protection:** requests with an unexpected `Host` header are refused.
 - `GET /health` needs no token and returns only `ok` / `degraded`.
 
-## Setup
+## Connect to it
+
+Use the platform's address, never the MCP's own port: every request is then
+checked, logged and counted by the platform, and it is the only address other
+computers can reach.
+
+| | |
+|---|---|
+| Address | `http://127.0.0.1:8000/mcp/mysql/` (in production `https://mcp.itrendsolution.com/mcp/mysql/`) |
+| Header | `Authorization: Bearer <your token>` |
+| Token | Website → this MCP → **Generate token** (shown once) |
+
+Ready-made settings for Claude Code, Claude Desktop and VS Code are in the
+**Connect in 3 steps** panel next to this text.
+
+**Built-in demo client** (uses the official MCP Python client), from `mcp_servers\mysql`:
+
+```powershell
+$env:MCP_TOKEN = "itmcp_..."                              # the token you copied
+$env:MCP_PUBLIC_URL = "http://127.0.0.1:8000/mcp/mysql/"   # through the platform
+uv run python -m mysql_mcp.demo_client
+uv run python -m mysql_mcp.demo_client "SELECT * FROM customers LIMIT 3"
+```
+
+**MCP Inspector** (visual tester, needs Node.js): run
+`npx @modelcontextprotocol/inspector`, choose transport **Streamable HTTP**, URL
+`http://127.0.0.1:8000/mcp/mysql/`, and add the header
+`Authorization: Bearer <your token>`.
+
+## For administrators
+
+### Setup
 
 ```powershell
 cd mcp_servers\mysql
@@ -64,10 +95,9 @@ uv run python scripts/setup_demo_db.py
 ```
 
 The script also puts the same `MCP_INTROSPECTION_KEY` in the platform's `.env`
-and in this folder's `.env` (restart the website afterwards). Then, on the
-website, register this MCP with slug **`mysql`** (Add MCP → GitHub repository,
-internal endpoint `http://127.0.0.1:8101/mcp`) and give people **Connect**
-permission on it.
+and in this folder's `.env` (restart the website afterwards). The platform finds
+this MCP by itself from `mcp.json` (slug **`mysql`**, port 8101); there is nothing
+to register. Give people access on its **Who has access** tab (Connect or higher).
 
 To expose a real database instead, create a read-only account and fill in `.env`
 from `.env.example`:
@@ -77,55 +107,26 @@ CREATE USER 'mcp_readonly'@'%' IDENTIFIED BY '<strong password>';
 GRANT SELECT ON your_database.* TO 'mcp_readonly'@'%';
 ```
 
-## Run
+### Run
+
+Normally from the website: this MCP's page → **Start** (also Stop and Restart).
+The platform then watches it, shows its output on the **Logs** tab and restarts
+it if it crashes (while the monitor runs).
+
+For development you can also run it in a terminal; the website then shows it as
+"started outside the platform" and does not stop or restart it:
 
 ```powershell
 uv run mysql-mcp
 ```
 
-The server listens on `http://127.0.0.1:8101/mcp`. The platform website must
-be running too (`MCP_PLATFORM_URL`, default `http://127.0.0.1:8000`), because it
-checks every token.
+Either way it listens on `http://127.0.0.1:8101/mcp`, on this computer only. The
+platform website must be running too (`MCP_PLATFORM_URL`, default
+`http://127.0.0.1:8000`), because it checks every token. The demo client and
+MCP Inspector also work against `http://127.0.0.1:8101/mcp` directly, for
+testing on this computer; such requests skip the platform's request counts.
 
-## Try it
-
-First generate a token on the website: **Access Tokens → Generate token**,
-choose *MySQL MCP*, and copy the token (it is shown once).
-
-**Built-in demo client** (uses the official MCP Python client):
-
-```powershell
-$env:MCP_TOKEN = "itmcp_..."   # the token you copied
-uv run python -m mysql_mcp.demo_client
-uv run python -m mysql_mcp.demo_client "SELECT * FROM customers LIMIT 3"
-```
-
-**MCP Inspector** (visual tester, needs Node.js): run
-`npx @modelcontextprotocol/inspector`, choose transport **Streamable HTTP**, URL
-`http://127.0.0.1:8101/mcp`, and add the header
-`Authorization: Bearer <your token>`.
-
-**Claude Code:**
-
-```powershell
-claude mcp add --transport http itrend-mysql http://127.0.0.1:8101/mcp --header "Authorization: Bearer <your token>"
-```
-
-**Any client that uses an `mcp.json`-style config** (VS Code and others):
-
-```json
-{
-  "servers": {
-    "itrend-mysql": {
-      "type": "http",
-      "url": "http://127.0.0.1:8101/mcp",
-      "headers": { "Authorization": "Bearer <your token>" }
-    }
-  }
-}
-```
-
-## Tests
+### Tests
 
 ```powershell
 uv run pytest
