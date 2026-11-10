@@ -22,7 +22,7 @@
           <li>
             <strong>Add it to your MCP client.</strong> For example, in Claude Code:
             <pre>claude mcp add --transport http {{ server.slug }} {{ server.connection_url }} --header "Authorization: Bearer YOUR_TOKEN"</pre>
-            <div class="mt-2">Or in a JSON config (VS Code, Claude Desktop, other clients):</div>
+            <div class="mt-2">Or in a JSON config for clients that connect over HTTP themselves (VS Code and others):</div>
             <pre>{
   "{{ server.slug }}": {
     "type": "http",
@@ -30,6 +30,16 @@
     "headers": { "Authorization": "Bearer YOUR_TOKEN" }
   }
 }</pre>
+            <div class="mt-2"><strong>Claude Desktop</strong> only starts local programs, so it connects through the small
+              <code>mcp-remote</code> helper (needs Node.js). In Claude Desktop open <em>Settings → Developer → Edit Config</em>,
+              add this inside <code>"mcpServers"</code>, then quit Claude Desktop completely and reopen it:</div>
+            <pre>"{{ server.slug }}": {
+  "command": "npx",
+  "args": ["-y", "mcp-remote", "{{ server.connection_url }}",
+           "--header", "Authorization:${AUTH_HEADER}"],
+  "env": { "AUTH_HEADER": "Bearer YOUR_TOKEN" }
+}</pre>
+            <div class="form-text">The token is passed through <code>env</code> because on Windows <code>npx</code> can split arguments that contain a space.</div>
           </li>
         </ol>
         <div class="text-body-secondary"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Keep your token secret. If it leaks, revoke it under Access Tokens and make a new one.</div>
