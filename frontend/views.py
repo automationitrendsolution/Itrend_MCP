@@ -677,9 +677,9 @@ MONITOR_CHECKS_SHOWN = 20
 
 # Time ranges offered on the Monitoring pages: ?range=1h|24h|7d (default 24h).
 MONITOR_RANGES = {
-    "1h": {"key": "1h", "hours": 1, "short": "1 h", "long": "last hour", "label": "1 hour"},
-    "24h": {"key": "24h", "hours": 24, "short": "24 h", "long": "last 24 hours", "label": "24 hours"},
-    "7d": {"key": "7d", "hours": 168, "short": "7 d", "long": "last 7 days", "label": "7 days"},
+    "1h": {"key": "1h", "hours": 1, "short": "1 h", "long": "last hour", "label": "1 hour"},
+    "24h": {"key": "24h", "hours": 24, "short": "24 h", "long": "last 24 hours", "label": "24 hours"},
+    "7d": {"key": "7d", "hours": 168, "short": "7 d", "long": "last 7 days", "label": "7 days"},
 }
 
 

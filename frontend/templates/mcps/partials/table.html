@@ -8,12 +8,11 @@
         <thead>
           <tr>
             {% include "mcps/partials/sort_th.html" with key="name" label="Name" first="asc" %}
-            <th scope="col" class="d-none d-xl-table-cell">Connection link</th>
             <th scope="col" class="d-none d-lg-table-cell">Source</th>
             {% include "mcps/partials/sort_th.html" with key="status" label="Runtime" first="asc" %}
             <th scope="col">Health</th>
             {% include "mcps/partials/sort_th.html" with key="checked" label="Last check" first="desc" th_class="d-none d-lg-table-cell" %}
-            {% include "mcps/partials/sort_th.html" with key="created" label="Added" first="desc" th_class="d-none d-xxl-table-cell" %}
+            {% include "mcps/partials/sort_th.html" with key="created" label="Added" first="desc" th_class="d-none d-xl-table-cell" %}
           </tr>
         </thead>
         <tbody>
@@ -24,12 +23,11 @@
                 <a href="{% url 'frontend:mcp-detail' server.pk %}" class="fw-semibold text-decoration-none">{{ server.name }}</a>
                 <div class="small text-body-secondary text-truncate">{% if server.description %}{{ server.description }}{% else %}<code>{{ server.slug }}</code>{% endif %}</div>
               </td>
-              <td class="d-none d-xl-table-cell"><code class="pg-code-inline">{{ server.connection_url }}</code></td>
               <td class="d-none d-lg-table-cell text-body-secondary text-nowrap">{{ server.get_deployment_type_display }}</td>
               <td><span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span></td>
               <td>{% include "monitoring/partials/health_badge.html" %}</td>
               <td class="d-none d-lg-table-cell small text-body-secondary text-nowrap">{% if server.last_check_at and health != "stopped" and health != "down" %}{{ server.last_check_at|timesince }} ago{% else %}–{% endif %}</td>
-              <td class="d-none d-xxl-table-cell small text-body-secondary text-nowrap">{{ server.created_at|date:"j M Y" }}</td>
+              <td class="d-none d-xl-table-cell small text-body-secondary text-nowrap">{{ server.created_at|date:"j M Y" }}</td>
             </tr>
             {% endwith %}
           {% endfor %}

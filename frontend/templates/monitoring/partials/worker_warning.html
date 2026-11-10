@@ -1,7 +1,7 @@
 {# Shown when the monitor worker (manage.py monitor_mcps) is not running: no new checks are being made. #}
 {% if not worker_running %}
   <div class="alert alert-warning d-flex gap-2 align-items-start" role="status">
-    <i class="bi bi-exclamation-triangle mt-1"></i>
+    <i class="bi bi-exclamation-triangle mt-1" aria-hidden="true"></i>
     <div>
       <strong>The monitor is not running</strong>{% if worker_last_seen %} (last seen {{ worker_last_seen|timesince }} ago){% endif %}.
       No new health checks, CPU/RAM measurements or automatic restarts happen until it is started.

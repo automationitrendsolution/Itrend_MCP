@@ -13,9 +13,9 @@
       <i class="bi bi-chevron-right app-run-chevron" aria-hidden="true"></i>
       <span class="app-run-status">
         {% if status == "running" %}<span class="app-dot app-dot--running"></span>Running
-        {% elif run.ended_level == "error" %}<i class="bi bi-x-circle-fill"></i>{% if run.ended_how %}{{ run.ended_how|truncatechars:40 }}{% else %}Failed{% endif %}
-        {% elif run.is_open %}<i class="bi bi-question-circle-fill"></i>Ended (no stop recorded)
-        {% else %}<i class="bi bi-stop-circle-fill"></i>Stopped{% endif %}
+        {% elif run.ended_level == "error" %}<i class="bi bi-x-circle-fill" aria-hidden="true"></i>{% if run.ended_how %}{{ run.ended_how|truncatechars:40 }}{% else %}Failed{% endif %}
+        {% elif run.is_open %}<i class="bi bi-question-circle-fill" aria-hidden="true"></i>Ended (no stop recorded)
+        {% else %}<i class="bi bi-stop-circle-fill" aria-hidden="true"></i>Stopped{% endif %}
       </span>
       <span class="app-run-title">
         {% if run.started_at %}
@@ -26,11 +26,11 @@
         {% endif %}
       </span>
       <span class="app-run-stats">
-        {% if run.duration %}<span title="How long it ran"><i class="bi bi-hourglass-split"></i>{{ run.duration }}</span>{% endif %}
-        {% if run.health_ok or run.health_failed %}<span title="Health checks passed"><i class="bi bi-heart-pulse"></i>{{ run.health_ok }} health check{{ run.health_ok|pluralize }} OK{% if run.health_failed %} <span class="text-danger">/ {{ run.health_failed }} failed</span>{% endif %}</span>{% endif %}
-        <span title="Requests from MCP clients"><i class="bi bi-arrow-left-right"></i>{{ run.requests }} request{{ run.requests|pluralize }}</span>
-        {% if run.warnings %}<span class="text-warning-emphasis" title="Warnings"><i class="bi bi-exclamation-triangle-fill"></i>{{ run.warnings }}</span>{% endif %}
-        {% if run.errors %}<span class="text-danger" title="Errors"><i class="bi bi-x-octagon-fill"></i>{{ run.errors }}</span>{% endif %}
+        {% if run.duration %}<span title="How long it ran"><i class="bi bi-hourglass-split" aria-hidden="true"></i>{{ run.duration }}</span>{% endif %}
+        {% if run.health_ok or run.health_failed %}<span title="Health checks passed"><i class="bi bi-heart-pulse" aria-hidden="true"></i>{{ run.health_ok }} health check{{ run.health_ok|pluralize }} OK{% if run.health_failed %} <span class="text-danger">/ {{ run.health_failed }} failed</span>{% endif %}</span>{% endif %}
+        <span title="Requests from MCP clients"><i class="bi bi-arrow-left-right" aria-hidden="true"></i>{{ run.requests }} request{{ run.requests|pluralize }}</span>
+        {% if run.warnings %}<span class="text-warning-emphasis" title="Warnings"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>{{ run.warnings }}</span>{% endif %}
+        {% if run.errors %}<span class="text-danger" title="Errors"><i class="bi bi-x-octagon-fill" aria-hidden="true"></i>{{ run.errors }}</span>{% endif %}
       </span>
     </summary>
 

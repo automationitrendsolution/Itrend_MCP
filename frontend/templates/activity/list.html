@@ -6,10 +6,10 @@
 
 {% block content %}
 <div class="app-summary mb-3" aria-label="Last 24 hours">
-  <div class="app-summary-item"><div class="value">{{ recent.connections }}</div><div class="label"><i class="bi bi-plug me-1"></i>MCP connections · 24 h</div></div>
-  <div class="app-summary-item"><div class="value {% if recent.refused %}text-danger{% endif %}">{{ recent.refused }}</div><div class="label"><i class="bi bi-x-octagon me-1"></i>Refused connections · 24 h</div></div>
-  <div class="app-summary-item"><div class="value {% if recent.failed_logins %}text-danger{% endif %}">{{ recent.failed_logins }}</div><div class="label"><i class="bi bi-shield-exclamation me-1"></i>Failed sign-ins · 24 h</div></div>
-  <div class="app-summary-item"><div class="value">{{ recent.changes }}</div><div class="label"><i class="bi bi-pencil me-1"></i>Changes · 24 h</div></div>
+  <div class="app-summary-item"><div class="value">{{ recent.connections }}</div><div class="label"><i class="bi bi-plug me-1" aria-hidden="true"></i>MCP connections ·&nbsp;24&nbsp;h</div></div>
+  <div class="app-summary-item"><div class="value {% if recent.refused %}text-danger{% endif %}">{{ recent.refused }}</div><div class="label"><i class="bi bi-x-octagon me-1" aria-hidden="true"></i>Refused connections ·&nbsp;24&nbsp;h</div></div>
+  <div class="app-summary-item"><div class="value {% if recent.failed_logins %}text-danger{% endif %}">{{ recent.failed_logins }}</div><div class="label"><i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Failed sign-ins ·&nbsp;24&nbsp;h</div></div>
+  <div class="app-summary-item"><div class="value">{{ recent.changes }}</div><div class="label"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Changes ·&nbsp;24&nbsp;h</div></div>
 </div>
 
 <form class="card app-card mb-3 pg-filterbar-card" method="get" action="{% url 'frontend:activity-list' %}"
@@ -19,7 +19,7 @@
     <div class="app-chips" role="radiogroup" aria-label="Show">
       <label class="app-chip"><input type="radio" name="kind" value="" {% if not filters.kind %}checked{% endif %}><span>Everything</span></label>
       {% for key, label, icon in kinds %}
-        <label class="app-chip"><input type="radio" name="kind" value="{{ key }}" {% if filters.kind == key %}checked{% endif %}><span><i class="bi {{ icon }}"></i>{{ label }}</span></label>
+        <label class="app-chip"><input type="radio" name="kind" value="{{ key }}" {% if filters.kind == key %}checked{% endif %}><span><i class="bi {{ icon }}" aria-hidden="true"></i>{{ label }}</span></label>
       {% endfor %}
     </div>
     <div class="form-check form-switch mb-0">

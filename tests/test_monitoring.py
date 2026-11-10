@@ -583,7 +583,7 @@ class MonitoringPageTests(TestCase):
         unknown = self.client.get(url, {"range": "forever"})
         self.assertEqual(unknown.context["range"]["key"], "24h")
         hour = self.client.get(url, {"range": "1h"})
-        self.assertContains(hour, "Requests · 1 h")
+        self.assertContains(hour, "Requests · 1 h")  # number and unit never split
         self.assertContains(hour, f"{url}?range=1h")  # the live refresh keeps the range
 
         detail = reverse("frontend:monitoring-detail", args=[self.server.pk])

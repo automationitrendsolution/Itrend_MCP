@@ -41,7 +41,7 @@
             <tr>
               <td>
                 <div class="pg-account">
-                  <span class="app-avatar" aria-hidden="true">{% if account.service_account %}<i class="bi bi-robot"></i>{% else %}{{ account.get_username|first|upper }}{% endif %}</span>
+                  <span class="app-avatar" aria-hidden="true">{% if account.service_account %}<i class="bi bi-robot" aria-hidden="true"></i>{% else %}{{ account.get_username|first|upper }}{% endif %}</span>
                   <div class="min-w-0">
                     <a href="{% url 'frontend:user-detail' account.pk %}" class="fw-semibold text-decoration-none">{{ account.get_username }}</a>
                     <div class="small text-body-secondary text-truncate">

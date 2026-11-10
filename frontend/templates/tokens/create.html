@@ -12,7 +12,7 @@
 <div style="max-width: 640px">
   {% if owner != user %}
     <div class="alert alert-info small">
-      <i class="bi bi-robot me-1"></i>This token belongs to the service account <strong>{{ owner.get_username }}</strong>.
+      <i class="bi bi-robot me-1" aria-hidden="true"></i>This token belongs to the service account <strong>{{ owner.get_username }}</strong>.
       Give it to the system that uses this account, not to a person.
     </div>
   {% endif %}
@@ -20,7 +20,7 @@
   {% if not servers %}
     <div class="card app-card">
       <div class="card-body app-empty">
-        <i class="bi bi-hdd-stack"></i>
+        <i class="bi bi-hdd-stack" aria-hidden="true"></i>
         <p class="mb-0">
           {% if owner != user %}This service account has no CONNECT permission on any platform-hosted MCP yet. Grant it one first.
           {% else %}You do not have CONNECT permission on any platform-hosted MCP yet. Ask an administrator for access.{% endif %}
@@ -44,7 +44,7 @@
       </div>
     </form>
     <p class="small text-body-secondary mt-3">
-      <i class="bi bi-info-circle me-1"></i>External MCPs are not listed: their traffic does not pass through the platform, so platform tokens cannot protect them.
+      <i class="bi bi-info-circle me-1" aria-hidden="true"></i>External MCPs are not listed: their traffic does not pass through the platform, so platform tokens cannot protect them.
     </p>
   {% endif %}
 </div>

@@ -2,7 +2,7 @@
 {# One activity entry written as a plain sentence. Option: hide_mcp (on an MCP's own page). #}
 {% with m=entry.metadata %}
 <div class="app-event {% if entry.result != 'success' %}app-event--problem{% endif %}">
-  <div class="app-event-icon app-event-icon--{{ entry|event_color }}" aria-hidden="true"><i class="bi {{ entry|event_icon }}"></i></div>
+  <div class="app-event-icon app-event-icon--{{ entry|event_color }}" aria-hidden="true"><i class="bi {{ entry|event_icon }}" aria-hidden="true"></i></div>
   <div class="flex-grow-1" style="min-width: 0">
     <div class="app-event-text">
       <strong>{% if entry.username %}{{ entry.username }}{% else %}The platform{% endif %}</strong>

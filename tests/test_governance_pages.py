@@ -58,3 +58,29 @@ class ProfileTests(TestCase):
         self.assertContains(response, "Secret MCP")
         self.assertContains(response, 'data-pg-theme="dark"')  # the Appearance setting
         self.assertNotContains(response, "Administration")
+
+
+class AccessibilityTests(TestCase):
+    """Fixes from the Stage 7 review that are easy to break again."""
+
+    def test_help_text_has_the_id_its_field_points_to(self):
+        self.client.force_login(create_user("boss", is_staff=True))
+        response = self.client.get(reverse("frontend:service-account-create"))
+        self.assertContains(response, 'aria-describedby="id_name_helptext"')
+        self.assertContains(response, 'id="id_name_helptext"')
+
+    def test_manual_headings_sit_below_the_page_title(self):
+        from frontend.markdown import render_markdown
+
+        html = render_markdown("# Title\n\n## Part\n\n###### Deep")
+        self.assertIn("<h2>Title</h2>", html)
+        self.assertIn("<h3>Part</h3>", html)
+        self.assertIn("<h6>Deep</h6>", html)  # never beyond h6
+        self.assertNotIn("<h1>", html)
+
+    def test_every_main_page_has_exactly_one_h1(self):
+        self.client.force_login(create_user("boss", is_staff=True))
+        for name in ("frontend:dashboard", "frontend:mcp-list", "frontend:token-list", "frontend:user-list",
+                     "frontend:permission-list", "frontend:activity-list", "frontend:monitoring", "frontend:profile"):
+            with self.subTest(page=name):
+                self.assertEqual(self.client.get(reverse(name)).content.count(b"<h1"), 1)

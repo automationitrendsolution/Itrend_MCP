@@ -3,7 +3,7 @@
 
 {% block tab %}
 {% if manifest_problem and is_admin %}
-  <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>{{ manifest_problem }}</div>
+  <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>{{ manifest_problem }}</div>
 {% endif %}
 
 <div class="row g-3">
@@ -15,25 +15,25 @@
           <label class="form-label small text-body-secondary" for="connectionUrl">Connection URL</label>
           <div class="input-group">
             <input type="text" id="connectionUrl" class="form-control font-monospace" value="{{ server.connection_url }}" readonly>
-            <button class="btn btn-outline-secondary" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard me-1"></i>Copy</button>
+            <button class="btn btn-outline-secondary" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard me-1" aria-hidden="true"></i>Copy</button>
           </div>
           <div class="alert alert-warning small mt-3 mb-0">
-            <i class="bi bi-exclamation-triangle me-1"></i>This MCP runs outside the platform, so platform tokens and permissions do not protect it.
+            <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>This MCP runs outside the platform, so platform tokens and permissions do not protect it.
           </div>
         {% else %}
           <label class="form-label small text-body-secondary" for="connectionUrl">Connection link – share this with people who have access</label>
           <div class="input-group">
             <input type="text" id="connectionUrl" class="form-control font-monospace" value="{{ server.connection_url }}" readonly>
-            <button class="btn btn-outline-secondary" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard me-1"></i>Copy</button>
+            <button class="btn btn-outline-secondary" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard me-1" aria-hidden="true"></i>Copy</button>
           </div>
           <div class="small text-body-secondary mt-3">
-            <i class="bi bi-shield-lock me-1"></i>The platform checks every request: the client must send a personal access token
+            <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>The platform checks every request: the client must send a personal access token
             (<code>Authorization: Bearer …</code>) for this MCP. Step-by-step instructions are in the
             <a href="{% url 'frontend:mcp-manual' server.pk %}">User manual</a> tab.
           </div>
           {% if is_admin and manifest %}
             <div class="small text-body-secondary mt-2">
-              <i class="bi bi-info-circle me-1"></i>Administrators: the MCP itself listens on <code>{{ manifest.local_url }}</code>.
+              <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Administrators: the MCP itself listens on <code>{{ manifest.local_url }}</code>.
               Use that only for testing on this computer; it skips the platform's checks and logging.
             </div>
           {% endif %}
@@ -46,14 +46,14 @@
         <div class="card-header d-flex align-items-center">
           <span>Your tokens for this MCP</span>
           {% if can_connect %}
-            <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}" class="btn btn-primary btn-sm ms-auto"><i class="bi bi-plus-lg me-1"></i>Generate token</a>
+            <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}" class="btn btn-primary btn-sm ms-auto"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Generate token</a>
           {% endif %}
         </div>
         {% if can_connect %}
           {% include "tokens/partials/table.html" with tokens=my_tokens next=request.path empty="You have no tokens for this MCP." %}
         {% else %}
           <div class="card-body small text-body-secondary">
-            <i class="bi bi-lock me-1"></i>You can view this MCP but not connect to it. Ask an administrator for <strong>Connect</strong> permission.
+            <i class="bi bi-lock me-1" aria-hidden="true"></i>You can view this MCP but not connect to it. Ask an administrator for <strong>Connect</strong> permission.
           </div>
         {% endif %}
       </div>
@@ -74,7 +74,7 @@
             </dd>
           {% endif %}
           {% if is_admin %}
-            <dt class="col-5">Requests · 24 h</dt>
+            <dt class="col-5">Requests ·&nbsp;24&nbsp;h</dt>
             <dd class="col-7">{{ traffic.requests }}{% if traffic.errors %} <span class="text-danger">({{ traffic.errors }} failed)</span>{% endif %}</dd>
           {% endif %}
           <dt class="col-5">Slug</dt><dd class="col-7"><code>{{ server.slug }}</code></dd>
@@ -122,7 +122,7 @@
             <p>Removes this MCP, its permissions and access tokens from the platform. This cannot be undone.</p>
             <form method="post" action="{% url 'frontend:mcp-delete' server.pk %}" data-confirm="Remove {{ server.name }} from the platform? Its permissions and tokens are deleted too.">
               {% csrf_token %}
-              <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Remove</button>
+              <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button>
             </form>
           </div>
         </div>

@@ -1,7 +1,7 @@
 {% load mcp_tags %}
 {# A list of tokens. Options: show_mcp, show_owner (booleans), empty (message), next (URL to return to after revoking). #}
 {% if tokens %}
-  <div class="table-responsive">
+  <div class="table-responsive d-none d-md-block">
     <table class="table align-middle mb-0 app-table small">
       <thead>
         <tr>
@@ -19,7 +19,7 @@
         {% for token in tokens %}
           <tr>
             <td class="fw-semibold">{{ token.name }}</td>
-            <td><code>{{ token.token_prefix }}…</code></td>
+            <td><code class="pg-code-inline">{{ token.token_prefix }}…</code></td>
             {% if show_mcp %}<td>{{ token.mcp_server.name }}</td>{% endif %}
             {% if show_owner %}<td>{{ token.user.get_username }}</td>{% endif %}
             <td><span class="badge {{ token.state|badge_class }}">{{ token.state|capfirst }}</span></td>
@@ -28,10 +28,10 @@
             <td class="text-end">
               {% if token.state == "active" %}
                 <form method="post" action="{% url 'frontend:token-revoke' token.pk %}" class="d-inline"
-                      data-confirm="Revoke “{{ token.name }}”? Anything using it will stop working immediately.">
+                      data-confirm="Revoke “{{ token.name }}”? Anything using it will stop working immediately." data-confirm-action="Revoke">
                   {% csrf_token %}
                   {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
-                  <button type="submit" class="btn btn-outline-danger btn-sm">Revoke</button>
+                  <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Revoke {{ token.name }}">Revoke</button>
                 </form>
               {% endif %}
             </td>
@@ -40,9 +40,33 @@
       </tbody>
     </table>
   </div>
+  <ul class="pg-rows d-md-none">
+    {% for token in tokens %}
+      <li class="pg-row">
+        <div class="d-flex align-items-start gap-2">
+          <span class="fw-semibold me-auto">{{ token.name }}</span>
+          <span class="badge {{ token.state|badge_class }}">{{ token.state|capfirst }}</span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-2 small text-body-secondary">
+          <code class="pg-code-inline">{{ token.token_prefix }}…</code>
+          {% if show_mcp %}<span>{{ token.mcp_server.name }}</span>{% endif %}
+          {% if show_owner %}<span>{{ token.user.get_username }}</span>{% endif %}
+          <span>expires {{ token.expires_at|date:"j M Y" }}</span>
+        </div>
+        {% if token.state == "active" %}
+          <form method="post" action="{% url 'frontend:token-revoke' token.pk %}" class="mt-2"
+                data-confirm="Revoke “{{ token.name }}”? Anything using it will stop working immediately." data-confirm-action="Revoke">
+            {% csrf_token %}
+            {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+            <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Revoke {{ token.name }}">Revoke</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
 {% else %}
-  <div class="card-body app-empty">
-    <i class="bi bi-key"></i>
+  <div class="app-empty">
+    <i class="bi bi-key" aria-hidden="true"></i>
     <p class="mb-0">{{ empty|default:"No tokens yet." }}</p>
   </div>
 {% endif %}

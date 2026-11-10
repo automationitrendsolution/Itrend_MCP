@@ -11,7 +11,7 @@
 {% block content %}
 <div style="max-width: 760px">
   <div class="alert alert-warning">
-    <i class="bi bi-exclamation-triangle me-1"></i>
+    <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
     <strong>Copy this token now.</strong> It is shown only once and cannot be displayed again.
     If you lose it, revoke it and generate a new one.
   </div>
@@ -22,13 +22,13 @@
       <label class="form-label small text-body-secondary" for="newToken">Access token</label>
       <div class="input-group mb-3">
         <input type="text" id="newToken" class="form-control font-monospace" value="{{ plaintext }}" readonly autocomplete="off" spellcheck="false">
-        <button class="btn btn-outline-secondary" type="button" data-copy-target="#newToken"><i class="bi bi-clipboard me-1"></i>Copy</button>
+        <button class="btn btn-outline-secondary" type="button" data-copy-target="#newToken"><i class="bi bi-clipboard me-1" aria-hidden="true"></i>Copy</button>
       </div>
 
       <label class="form-label small text-body-secondary" for="tokenUrl">Connection URL</label>
       <div class="input-group mb-3">
         <input type="text" id="tokenUrl" class="form-control font-monospace" value="{{ token.mcp_server.connection_url }}" readonly>
-        <button class="btn btn-outline-secondary" type="button" data-copy-target="#tokenUrl"><i class="bi bi-clipboard me-1"></i>Copy</button>
+        <button class="btn btn-outline-secondary" type="button" data-copy-target="#tokenUrl"><i class="bi bi-clipboard me-1" aria-hidden="true"></i>Copy</button>
       </div>
 
       <div class="small text-body-secondary mb-2">Send the token in a header on every request (never put it in the URL):</div>

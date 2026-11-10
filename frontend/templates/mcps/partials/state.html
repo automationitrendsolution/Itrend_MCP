@@ -10,24 +10,24 @@
       {% endif %}
     </span>
     {% if runtime.started_at %}
-      <span class="small text-body-secondary">since {{ runtime.started_at|time:"H:i" }} {{ runtime.started_at|date:"j M" }}</span>
+      <span class="small text-body-secondary d-none d-sm-inline">since {{ runtime.started_at|time:"H:i" }} {{ runtime.started_at|date:"j M" }}</span>
     {% endif %}
 
     {% if is_admin %}
       {% if runtime.can_start %}
         <form method="post" action="{% url 'frontend:mcp-control' server.pk 'start' %}">
           {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
-          <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill me-1"></i>Start</button>
+          <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill me-1" aria-hidden="true"></i>Start</button>
         </form>
       {% endif %}
       {% if runtime.can_stop %}
         <form method="post" action="{% url 'frontend:mcp-control' server.pk 'restart' %}">
           {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
-          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-clockwise me-1"></i>Restart</button>
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Restart</button>
         </form>
         <form method="post" action="{% url 'frontend:mcp-control' server.pk 'stop' %}" data-confirm="Stop {{ server.name }}? People using it will be disconnected.">
           {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
-          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-stop-fill me-1"></i>Stop</button>
+          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-stop-fill me-1" aria-hidden="true"></i>Stop</button>
         </form>
       {% endif %}
     {% endif %}

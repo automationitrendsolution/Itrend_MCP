@@ -16,7 +16,7 @@
   <div class="app-summary-item"><div class="value {% if row.auto_restarts %}text-warning-emphasis{% endif %}">{{ row.auto_restarts }}</div><div class="label">Auto-restarts · {{ range.short }}</div></div>
 </div>
 {% if last.error_message and row.health == "unhealthy" %}
-  <div class="alert alert-danger small"><i class="bi bi-x-octagon me-1"></i>{{ last.error_message }}</div>
+  <div class="alert alert-danger small"><i class="bi bi-x-octagon me-1" aria-hidden="true"></i>{{ last.error_message }}</div>
 {% endif %}
 {% endwith %}
 

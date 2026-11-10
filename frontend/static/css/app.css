@@ -651,9 +651,9 @@ html[data-bs-theme="dark"] .form-switch .form-check-input:checked { --bs-form-sw
 }
 
 .app-manual { font-size: .875rem; line-height: 1.7; }
-.app-manual h1 { font-size: 1.25rem; }
-.app-manual h2 { font-size: 1.0625rem; margin-top: var(--pg-s7); }
-.app-manual h3 { font-size: .9375rem; margin-top: var(--pg-s5); }
+.app-manual h2 { font-size: 1.25rem; }
+.app-manual h3 { font-size: 1.0625rem; margin-top: var(--pg-s7); }
+.app-manual h4, .app-manual h5, .app-manual h6 { font-size: .9375rem; margin-top: var(--pg-s5); }
 .app-manual pre { background: var(--pg-code-bg); border: 1px solid var(--pg-border); padding: .75rem var(--pg-s4); border-radius: var(--pg-r); font-size: var(--pg-fs-small); }
 .app-manual code { font-size: .85em; }
 .app-manual table { width: 100%; margin-bottom: var(--pg-s4); font-size: .8125rem; }
@@ -814,3 +814,9 @@ body.auth-body { background: var(--pg-bg); min-height: 100vh; }
 .badge.pg-level::before { display: none; }
 /* The strongest badge (Superuser, Admin): solid graphite in light, a raised chip in dark (not a white block). */
 html[data-bs-theme="dark"] .badge.text-bg-dark { color: var(--pg-text) !important; background-color: #3A4048 !important; border-color: #4A515A; }
+
+/* Stage 7 review fixes */
+.pg-facts { display: flex; flex-wrap: wrap; gap: var(--pg-s1) var(--pg-s4); margin: var(--pg-s2) 0 0; font-size: var(--pg-fs-small); }
+.pg-facts > div { display: flex; gap: .35rem; }
+.pg-facts dt { font-weight: 400; color: var(--pg-text-2); }
+.pg-facts dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }

@@ -2,7 +2,7 @@
 {# Monitoring incidents, newest first. Option: hide_mcp (on one MCP's page). #}
 {% for event in events %}
   <div class="app-event {% if event.level != 'info' %}app-event--problem{% endif %}">
-    <div class="app-event-icon app-event-icon--{{ event|monitor_color }}" aria-hidden="true"><i class="bi {{ event|monitor_icon }}"></i></div>
+    <div class="app-event-icon app-event-icon--{{ event|monitor_color }}" aria-hidden="true"><i class="bi {{ event|monitor_icon }}" aria-hidden="true"></i></div>
     <div class="flex-grow-1" style="min-width: 0">
       <div class="app-event-text">
         {% if not hide_mcp %}<a href="{% url 'frontend:monitoring-detail' event.mcp_server_id %}" class="fw-semibold text-decoration-none">{{ event.mcp_server.name }}</a> · {% endif %}{{ event.get_kind_display }}
@@ -12,5 +12,5 @@
     </div>
   </div>
 {% empty %}
-  <div class="app-empty"><i class="bi bi-check2-circle"></i><p class="mb-0">No incidents recorded.</p></div>
+  <div class="app-empty"><i class="bi bi-check2-circle" aria-hidden="true"></i><p class="mb-0">No incidents recorded.</p></div>
 {% endfor %}

@@ -43,7 +43,7 @@
               <div class="form-check form-switch">
                 {{ field }}
                 <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                <div class="form-text">{{ field.help_text }}</div>
+                <div class="form-text" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>
               </div>
             </div>
           {% else %}
@@ -55,7 +55,7 @@
         Enforced now: request timeout and requests at the same time (by the gateway); automatic restarts and the memory limit (by the monitor).
         The CPU level only raises a warning. Hard operating-system limits come with containers.
       </div>
-      <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1"></i>Save settings</button>
+      <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>Save settings</button>
     </form>
   </div>
 </section>

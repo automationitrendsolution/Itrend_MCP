@@ -2,16 +2,16 @@
 {% include "monitoring/partials/worker_warning.html" %}
 
 <div class="app-summary mb-3" aria-label="Overview">
-  <div class="app-summary-item"><div class="value">{{ counts.monitored }}</div><div class="label"><i class="bi bi-hdd-stack me-1"></i>Monitored MCPs</div></div>
-  <div class="app-summary-item"><div class="value {% if counts.healthy %}text-success{% endif %}">{{ counts.healthy }}</div><div class="label"><i class="bi bi-heart-pulse me-1"></i>Healthy now</div></div>
-  <div class="app-summary-item"><div class="value {% if counts.problems %}text-danger{% endif %}">{{ counts.problems }}</div><div class="label"><i class="bi bi-exclamation-triangle me-1"></i>Down or not answering</div></div>
-  <div class="app-summary-item"><div class="value">{{ traffic.requests }}</div><div class="label"><i class="bi bi-arrow-left-right me-1"></i>Requests · {{ range.short }}</div></div>
-  <div class="app-summary-item"><div class="value {% if traffic.errors %}text-danger{% endif %}">{{ traffic.errors }}</div><div class="label"><i class="bi bi-bug me-1"></i>Failed requests · {{ range.short }}</div></div>
+  <div class="app-summary-item"><div class="value">{{ counts.monitored }}</div><div class="label"><i class="bi bi-hdd-stack me-1" aria-hidden="true"></i>Monitored MCPs</div></div>
+  <div class="app-summary-item"><div class="value {% if counts.healthy %}text-success{% endif %}">{{ counts.healthy }}</div><div class="label"><i class="bi bi-heart-pulse me-1" aria-hidden="true"></i>Healthy now</div></div>
+  <div class="app-summary-item"><div class="value {% if counts.problems %}text-danger{% endif %}">{{ counts.problems }}</div><div class="label"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Down or not answering</div></div>
+  <div class="app-summary-item"><div class="value">{{ traffic.requests }}</div><div class="label"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Requests · {{ range.short }}</div></div>
+  <div class="app-summary-item"><div class="value {% if traffic.errors %}text-danger{% endif %}">{{ traffic.errors }}</div><div class="label"><i class="bi bi-bug me-1" aria-hidden="true"></i>Failed requests · {{ range.short }}</div></div>
 </div>
 
 <div class="card app-card mb-3">
   <div class="card-header">MCP servers</div>
-  <div class="table-responsive">
+  <div class="table-responsive d-none d-md-block">
     <table class="table app-table align-middle mb-0">
       <thead>
         <tr>
@@ -47,11 +47,30 @@
           </tr>
           {% endwith %}
         {% empty %}
-          <tr><td colspan="9"><div class="app-empty"><i class="bi bi-hdd-stack"></i><p class="mb-0">No MCP servers yet.</p></div></td></tr>
+          <tr><td colspan="9"><div class="app-empty"><i class="bi bi-hdd-stack" aria-hidden="true"></i><p class="mb-0">No MCP servers yet.</p></div></td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <ul class="pg-rows d-md-none">
+    {% for row in rows %}
+      <li class="pg-row">
+        <div class="d-flex align-items-start gap-2">
+          <a href="{% url 'frontend:monitoring-detail' row.server.pk %}" class="fw-semibold text-decoration-none me-auto">{{ row.server.name }}</a>
+          {% include "monitoring/partials/health_badge.html" with health=row.health %}
+        </div>
+        <dl class="pg-facts">
+          {% if row.live %}
+            <div><dt>Response</dt><dd>{{ row.last.response_time_ms|floatformat:0 }}&nbsp;ms</dd></div>
+            <div><dt>CPU</dt><dd>{% if row.last.cpu_percent is not None %}{{ row.last.cpu_percent|floatformat:1 }}&nbsp;%{% else %}–{% endif %}</dd></div>
+            <div><dt>RAM</dt><dd>{% if row.last.memory_mb is not None %}{{ row.last.memory_mb|floatformat:0 }}&nbsp;MB{% else %}–{% endif %}</dd></div>
+          {% endif %}
+          <div><dt>Requests</dt><dd>{{ row.traffic.requests }}</dd></div>
+          <div><dt>Failed</dt><dd>{{ row.traffic.errors }}</dd></div>
+        </dl>
+      </li>
+    {% endfor %}
+  </ul>
   <div class="card-footer small text-body-secondary">
     CPU is the share of the whole server. A dash means it was not measured: the MCP is stopped, was started outside the platform, or has only been sampled once.
     Uptime is the share of checks that passed in the {{ range.long }}.

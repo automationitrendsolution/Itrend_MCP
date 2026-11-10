@@ -4,7 +4,7 @@
 <div class="row g-3">
   <div class="col-xl-5 order-xl-2">
     <div class="card app-card">
-      <div class="card-header"><i class="bi bi-plug me-1"></i>Connect in 3 steps</div>
+      <div class="card-header"><i class="bi bi-plug me-1" aria-hidden="true"></i>Connect in 3 steps</div>
       <div class="card-body small">
         <ol class="app-steps">
           <li>
@@ -32,20 +32,20 @@
 }</pre>
           </li>
         </ol>
-        <div class="text-body-secondary"><i class="bi bi-shield-lock me-1"></i>Keep your token secret. If it leaks, revoke it under Access Tokens and make a new one.</div>
+        <div class="text-body-secondary"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Keep your token secret. If it leaks, revoke it under Access Tokens and make a new one.</div>
       </div>
     </div>
   </div>
 
   <div class="col-xl-7 order-xl-1">
     <div class="card app-card">
-      <div class="card-header"><i class="bi bi-book me-1"></i>About {{ server.name }}</div>
+      <div class="card-header"><i class="bi bi-book me-1" aria-hidden="true"></i>About {{ server.name }}</div>
       <div class="card-body app-manual">
         {% if manual_html %}
           {{ manual_html }}
         {% else %}
           <div class="app-empty">
-            <i class="bi bi-book"></i>
+            <i class="bi bi-book" aria-hidden="true"></i>
             <p class="mb-0">No manual yet.{% if is_admin and manifest %} Add a <code>{{ manifest.manual }}</code> file to <code>mcp_servers/{{ server.source_dir }}/</code>.{% endif %}</p>
           </div>
         {% endif %}

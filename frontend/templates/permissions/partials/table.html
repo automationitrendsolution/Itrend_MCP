@@ -43,7 +43,7 @@
   </div>
 {% else %}
   <div class="card-body app-empty py-4">
-    <i class="bi bi-person-lock"></i>
+    <i class="bi bi-person-lock" aria-hidden="true"></i>
     <p class="mb-0">{{ empty|default:"No permissions granted yet." }}</p>
   </div>
 {% endif %}
