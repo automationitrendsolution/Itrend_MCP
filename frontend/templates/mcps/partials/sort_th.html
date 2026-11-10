@@ -1,0 +1,12 @@
+{% comment %} A sortable column heading. Parameters: key (sort key), label, first ("asc" or "desc": the direction on first click).
+   Works without JavaScript (plain link); with HTMX only the table is reloaded. {% endcomment %}
+{% with desc_key="-"|add:key %}
+{% if sort == key %}{% firstof desc_key as next_sort %}{% elif sort == desc_key %}{% firstof key as next_sort %}{% elif first == "desc" %}{% firstof desc_key as next_sort %}{% else %}{% firstof key as next_sort %}{% endif %}
+<th scope="col" class="{{ th_class }}" aria-sort="{% if sort == key %}ascending{% elif sort == desc_key %}descending{% else %}none{% endif %}">
+  <a class="pg-sort {% if sort == key or sort == desc_key %}is-active{% endif %}"
+     href="?{% if query %}{{ query }}&amp;{% endif %}sort={{ next_sort }}"
+     hx-get="?{% if query %}{{ query }}&amp;{% endif %}sort={{ next_sort }}" hx-target="#mcpTable" hx-push-url="true">
+    {{ label }}<i class="bi {% if sort == key %}bi-arrow-up{% elif sort == desc_key %}bi-arrow-down{% else %}bi-arrow-down-up{% endif %}" aria-hidden="true"></i>
+  </a>
+</th>
+{% endwith %}

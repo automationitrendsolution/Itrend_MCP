@@ -12,23 +12,23 @@
 {% block content %}
 <div class="app-mcp-header">
   <div class="me-auto" style="min-width: 0">
-    <a href="{% url 'frontend:monitoring' %}" class="small text-decoration-none"><i class="bi bi-arrow-left me-1"></i>All MCPs</a>
-    <h1 class="text-truncate mt-1">{{ server.name }}</h1>
+    <h1 class="text-truncate">{{ server.name }}</h1>
     <div class="small text-body-secondary mt-1"><code>{{ server.slug }}</code><span class="mx-1">·</span>{{ server.get_deployment_type_display }}</div>
   </div>
-  <div class="d-flex gap-2">
-    <a href="{% url 'frontend:mcp-detail' server.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-hdd-stack me-1"></i>MCP page</a>
-    <a href="{% url 'frontend:mcp-logs' server.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-terminal me-1"></i>Logs</a>
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    {% include "monitoring/partials/range_switch.html" %}
+    <a href="{% url 'frontend:mcp-detail' server.pk %}" class="btn btn-outline-secondary"><i class="bi bi-hdd-stack me-1" aria-hidden="true"></i>MCP page</a>
+    <a href="{% url 'frontend:mcp-logs' server.pk %}" class="btn btn-outline-secondary"><i class="bi bi-terminal me-1" aria-hidden="true"></i>Logs</a>
   </div>
 </div>
 
 {# Live figures, refreshed every 10 seconds. The settings form below is not refreshed, so typing is never lost. #}
-<div hx-get="{% url 'frontend:monitoring-detail' server.pk %}" hx-trigger="every 10s" hx-swap="innerHTML">
+<div hx-get="{% url 'frontend:monitoring-detail' server.pk %}?range={{ range.key }}" hx-trigger="every 10s" hx-swap="innerHTML">
   {% include "monitoring/partials/detail_live.html" %}
 </div>
 
-<div class="card app-card mt-3" id="limits">
-  <div class="card-header">Limits and automatic restarts</div>
+<section class="card app-card mt-4" id="limits" aria-labelledby="limitsTitle">
+  <div class="card-header"><h2 class="pg-card-title" id="limitsTitle">Limits and automatic restarts</h2></div>
   <div class="card-body">
     {% if not server.is_local %}
       <p class="text-body-secondary small">This MCP is not run by the platform, so only the gateway limits (timeout, requests at the same time) apply to it.</p>
@@ -58,5 +58,5 @@
       <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1"></i>Save settings</button>
     </form>
   </div>
-</div>
+</section>
 {% endblock %}

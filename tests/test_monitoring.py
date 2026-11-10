@@ -573,6 +573,29 @@ class MonitoringPageTests(TestCase):
         self.assertContains(bad, "is-invalid")
         self.assertEqual(MCPMonitorSettings.objects.get(mcp_server=self.server).health_check_interval_seconds, 60)
 
+    def test_time_range(self):
+        three_hours_ago = timezone.now() - timedelta(hours=3)
+        traffic.record(self.server, 200, 30, now=three_hours_ago)
+        self.client.force_login(self.admin)
+        url = reverse("frontend:monitoring")
+        self.assertEqual(self.client.get(url, {"range": "1h"}).context["traffic"]["requests"], 2)
+        self.assertEqual(self.client.get(url, {"range": "24h"}).context["traffic"]["requests"], 3)
+        unknown = self.client.get(url, {"range": "forever"})
+        self.assertEqual(unknown.context["range"]["key"], "24h")
+        hour = self.client.get(url, {"range": "1h"})
+        self.assertContains(hour, "Requests · 1 h")
+        self.assertContains(hour, f"{url}?range=1h")  # the live refresh keeps the range
+
+        detail = reverse("frontend:monitoring-detail", args=[self.server.pk])
+        week = self.client.get(detail, {"range": "7d"})
+        self.assertTrue(week.context["hours"][0]["by_day"])
+        self.assertEqual(sum(row["requests"] for row in week.context["hours"]), 3)
+        self.assertEqual(len(self.client.get(detail, {"range": "1h"}).context["hours"]), 1)
+
+    def test_zero_healthy_is_not_shown_as_good_news(self):
+        self.client.force_login(self.admin)
+        self.assertNotContains(self.client.get(reverse("frontend:monitoring")), 'class="value text-success">0<')
+
     def test_sidebar_links_to_monitoring_for_administrators(self):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("frontend:dashboard")), reverse("frontend:monitoring"))
@@ -617,3 +640,40 @@ class HealthApiTests(TestCase):
         body = self.client.get(self.url(self.hidden)).json()
         self.assertIsNone(body["last_check"])
         self.assertIsNone(body["last_24h"]["uptime_percent"])
+
+
+class HealthRuleTests(TestCase):
+    """What health an MCP shows (backend.services.monitoring.health_of): old results never look current."""
+
+    def setUp(self):
+        self.server = create_server(slug="mysql", deployment_type=MCPServer.DeploymentType.LOCAL, status=MCPServer.Status.RUNNING)
+
+    def health(self, status, minutes_ago):
+        return monitoring.health_of(self.server, status, timezone.now() - timedelta(minutes=minutes_ago))
+
+    def test_recent_check_counts(self):
+        self.assertEqual(self.health("healthy", 1), "healthy")
+        self.assertEqual(self.health("unhealthy", 1), "unhealthy")
+
+    def test_old_check_is_stale(self):
+        self.assertEqual(self.health("healthy", 60 * 24 * 3), "stale")
+
+    def test_state_wins_over_an_old_check(self):
+        self.server.status = MCPServer.Status.FAILED
+        self.assertEqual(self.health("healthy", 1), "down")
+        self.server.status = MCPServer.Status.STOPPED
+        self.assertEqual(self.health("healthy", 1), "stopped")
+
+    def test_never_checked_and_not_ours(self):
+        self.assertEqual(monitoring.health_of(self.server, None, None), "no_data")
+        self.server.deployment_type = MCPServer.DeploymentType.EXTERNAL
+        self.assertEqual(self.health("healthy", 1), "not_monitored")
+
+    def test_stale_figures_are_not_shown_on_the_monitoring_page(self):
+        check = MCPHealthCheck.objects.create(mcp_server=self.server, status="healthy", response_time_ms=47, cpu_percent=0.1, memory_mb=48)
+        MCPHealthCheck.objects.filter(pk=check.pk).update(checked_at=timezone.now() - timedelta(days=3))
+        self.client.force_login(create_user("boss", is_staff=True))
+        response = self.client.get(reverse("frontend:monitoring-detail", args=[self.server.pk]))
+        self.assertEqual(response.context["row"]["health"], "stale")
+        self.assertContains(response, "No recent check")
+        self.assertNotContains(response, "48 MB</div>")

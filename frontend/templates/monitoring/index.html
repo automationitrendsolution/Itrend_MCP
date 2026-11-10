@@ -4,9 +4,11 @@
 {% block page_title %}Monitoring{% endblock %}
 {% block page_description %}Real health checks, resource use, gateway traffic and incidents for every MCP server.{% endblock %}
 
+{% block page_actions %}{% include "monitoring/partials/range_switch.html" %}{% endblock %}
+
 {% block content %}
 {# Everything below refreshes itself every 10 seconds. Figures come from real checks and real gateway traffic only. #}
-<div hx-get="{% url 'frontend:monitoring' %}" hx-trigger="every 10s" hx-swap="innerHTML">
+<div hx-get="{% url 'frontend:monitoring' %}?range={{ range.key }}" hx-trigger="every 10s" hx-swap="innerHTML">
   {% include "monitoring/partials/overview_live.html" %}
 </div>
 {% endblock %}

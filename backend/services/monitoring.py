@@ -179,6 +179,35 @@ class ResourceSampler:
 # ---------------------------------------------------------------------------
 
 
+# A check older than this is not shown as the current health (e.g. the monitor stopped).
+STALE_AFTER = timedelta(minutes=10)
+LIVE_HEALTH = {Status.HEALTHY, Status.UNHEALTHY}
+
+
+def health_of(server: MCPServer, last_status: str | None, last_checked_at: datetime | None) -> str:
+    """
+    The health to show for an MCP right now, from its state and its latest check:
+
+        not_monitored  the platform does not run it
+        stopped        stopped on purpose (an old check would mislead)
+        down           stopped unexpectedly
+        no_data        running, never checked
+        stale          running, but the last check is older than STALE_AFTER
+        healthy / unhealthy   the latest check, when it is recent
+    """
+    if not server.is_local:
+        return "not_monitored"
+    if server.status in {MCPServer.Status.STOPPED, MCPServer.Status.PENDING}:
+        return "stopped"
+    if server.status == MCPServer.Status.FAILED:
+        return "down"
+    if not last_status or last_checked_at is None:
+        return "no_data"
+    if last_checked_at < timezone.now() - STALE_AFTER:
+        return "stale"
+    return last_status
+
+
 def last_check(server: MCPServer) -> MCPHealthCheck | None:
     return MCPHealthCheck.objects.filter(mcp_server=server).first()
 

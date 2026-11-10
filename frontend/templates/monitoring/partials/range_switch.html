@@ -1,0 +1,8 @@
+{% comment %} Time range for traffic, uptime and restart figures: last hour / 24 hours / 7 days.
+   Plain links (?range=…), so it works without JavaScript and the URL can be shared. {% endcomment %}
+<nav class="pg-segmented" aria-label="Time range">
+  {% for option in ranges %}
+    <a href="?range={{ option.key }}" class="{% if option.key == range.key %}is-active{% endif %}"
+       {% if option.key == range.key %}aria-current="true"{% endif %}>{{ option.label }}</a>
+  {% endfor %}
+</nav>

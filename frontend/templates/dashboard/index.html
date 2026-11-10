@@ -4,56 +4,128 @@
 {% block title %}Overview{% endblock %}
 {% block page_title %}Overview{% endblock %}
 {% block page_description %}Welcome back, {{ user.get_short_name|default:user.get_username }}. The MCP servers you can see and the state of the platform.{% endblock %}
+{% block page_actions %}
+  {% if is_admin %}
+    <a href="{% url 'frontend:monitoring' %}" class="btn btn-outline-secondary"><i class="bi bi-activity me-1" aria-hidden="true"></i>Monitoring</a>
+  {% endif %}
+  {% if can_create_token %}
+    <a href="{% url 'frontend:token-create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Generate token</a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-{# MCP counts only include servers this user can see. #}
-<div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
-  {% include "dashboard/partials/stat_card.html" with label="MCP servers" icon="bi-hdd-stack" value=counts.total %}
-  {% include "dashboard/partials/stat_card.html" with label="Running" icon="bi-play-circle" value=counts.running %}
-  {% include "dashboard/partials/stat_card.html" with label="Stopped" icon="bi-stop-circle" value=counts.stopped %}
-  {% include "dashboard/partials/stat_card.html" with label="Unhealthy" icon="bi-exclamation-triangle" value=counts.unhealthy %}
-  {% include "dashboard/partials/stat_card.html" with label="Active users" icon="bi-people" value=active_user_count %}
-</div>
-
-<div class="row g-3">
-  <div class="col-lg-5">
-    <div class="card app-card h-100">
-      <div class="card-header d-flex align-items-center">
-        <span>Platform status</span>
-        <span class="htmx-indicator spinner-border spinner-border-sm text-secondary ms-auto" id="statusSpinner" role="status" aria-label="Refreshing"></span>
-      </div>
-      <div class="card-body"
-           hx-get="{% url 'frontend:system-status' %}"
-           hx-trigger="load, every 30s"
-           hx-indicator="#statusSpinner">
-        <span class="text-body-secondary">Checking…</span>
-      </div>
+{% comment %} Every number here is real: counts from the registry (only MCPs this person can see),
+   traffic from the gateway's counters, health from the monitor's last check. {% endcomment %}
+<section class="app-summary mb-4" aria-label="Key figures">
+  <div class="app-summary-item"><div class="value">{{ counts.total }}</div><div class="label">MCP servers</div></div>
+  <div class="app-summary-item"><div class="value">{{ counts.running }}</div><div class="label">Running</div></div>
+  <div class="app-summary-item"><div class="value">{{ counts.stopped }}</div><div class="label">Stopped</div></div>
+  <div class="app-summary-item"><div class="value {% if counts.unhealthy %}text-danger{% endif %}">{{ counts.unhealthy }}</div><div class="label">Unhealthy</div></div>
+  {% if is_admin %}
+    <div class="app-summary-item"><div class="value">{{ traffic.requests }}</div><div class="label">Requests · 24 h</div></div>
+    <div class="app-summary-item">
+      <div class="value {% if traffic.errors %}text-danger{% endif %}">{% if traffic.error_rate is not None %}{{ traffic.error_rate|floatformat:1 }}<span class="pg-unit">%</span>{% else %}–{% endif %}</div>
+      <div class="label">Error rate · 24 h</div>
     </div>
-  </div>
+    <div class="app-summary-item">
+      <div class="value">{% if traffic.avg_response_ms is not None %}{{ traffic.avg_response_ms|floatformat:0 }}<span class="pg-unit">ms</span>{% else %}–{% endif %}</div>
+      <div class="label">Avg. latency · 24 h</div>
+    </div>
+    <div class="app-summary-item"><div class="value">{{ active_user_count }}</div><div class="label">Active accounts</div></div>
+  {% else %}
+    <div class="app-summary-item"><div class="value">{{ my_active_tokens }}</div><div class="label">Your active tokens</div></div>
+  {% endif %}
+</section>
 
-  <div class="col-lg-7">
-    <div class="card app-card h-100">
-      <div class="card-header d-flex align-items-center">
-        <span>Recently added MCP servers</span>
-        <a href="{% url 'frontend:mcp-list' %}" class="ms-auto small text-decoration-none">View all</a>
+{% if is_admin %}
+  <section class="card app-card mb-4" aria-labelledby="warningsTitle">
+    <div class="card-header"><h2 class="pg-card-title" id="warningsTitle">Needs attention</h2>{% if warnings %}<span class="badge text-bg-warning">{{ warnings|length }}</span>{% endif %}</div>
+    {% if warnings %}
+      <ul class="pg-list">
+        {% for warning in warnings %}
+          <li class="pg-list-item">
+            <i class="bi {% if warning.level == 'error' %}bi-x-octagon text-danger{% else %}bi-exclamation-triangle text-warning{% endif %}" aria-hidden="true"></i>
+            <span class="visually-hidden">{% if warning.level == 'error' %}Error:{% else %}Warning:{% endif %}</span>
+            <span class="flex-grow-1">{{ warning.text }}</span>
+            <a href="{{ warning.url }}" class="pg-list-action">{{ warning.action }}<i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="pg-allgood"><i class="bi bi-check-circle text-success" aria-hidden="true"></i>Nothing needs attention: no failed MCPs, no failed checks, no folder problems.</div>
+    {% endif %}
+  </section>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <section class="card app-card" aria-labelledby="serversTitle">
+      <div class="card-header">
+        <h2 class="pg-card-title" id="serversTitle">MCP servers</h2>
+        <a href="{% url 'frontend:mcp-list' %}" class="ms-auto small">Open registry</a>
       </div>
-      {% if recent_servers %}
-        <ul class="list-group list-group-flush">
-          {% for server in recent_servers %}
-            <li class="list-group-item d-flex align-items-center gap-2">
-              <a href="{% url 'frontend:mcp-detail' server.pk %}" class="text-decoration-none fw-semibold">{{ server.name }}</a>
-              <span class="small text-body-secondary d-none d-sm-inline">{{ server.get_deployment_type_display }}</span>
-              <span class="badge {{ server.status|badge_class }} ms-auto">{{ server.get_status_display }}</span>
-            </li>
-          {% endfor %}
-        </ul>
+      {% if servers %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0 app-table">
+            <thead><tr><th scope="col">Name</th><th scope="col">Runtime</th><th scope="col">Health</th><th scope="col" class="d-none d-sm-table-cell">Last check</th></tr></thead>
+            <tbody>
+              {% for server in servers %}
+                {% with health=server|health_key %}
+                <tr>
+                  <td><a href="{% url 'frontend:mcp-detail' server.pk %}" class="fw-semibold text-decoration-none">{{ server.name }}</a></td>
+                  <td><span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span></td>
+                  <td>{% include "monitoring/partials/health_badge.html" %}</td>
+                  <td class="d-none d-sm-table-cell small text-body-secondary">{% if server.last_check_at and health != "stopped" and health != "down" %}{{ server.last_check_at|timesince }} ago{% else %}–{% endif %}</td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if counts.total > servers|length %}
+          <div class="card-footer">Showing {{ servers|length }} of {{ counts.total }}. <a href="{% url 'frontend:mcp-list' %}">See all</a></div>
+        {% endif %}
       {% else %}
-        <div class="card-body app-empty">
-          <i class="bi bi-hdd-stack"></i>
-          <p class="mb-0">No MCP servers yet.{% if user.is_staff %} Add a folder with an <code>mcp.json</code> file to <code>mcp_servers/</code>.{% endif %}</p>
+        <div class="app-empty">
+          <i class="bi bi-hdd-stack" aria-hidden="true"></i>
+          <p class="mb-0">{% if is_admin %}No MCP servers yet. Add a folder with an <code>mcp.json</code> file to <code>mcp_servers/</code>.{% else %}No MCP servers are available to you yet. Ask an administrator for access.{% endif %}</p>
         </div>
       {% endif %}
-    </div>
+    </section>
+  </div>
+
+  <div class="col-xl-4 d-flex flex-column gap-4">
+    <section class="card app-card" aria-labelledby="platformTitle">
+      <div class="card-header">
+        <h2 class="pg-card-title" id="platformTitle">Platform</h2>
+        <span class="htmx-indicator spinner-border spinner-border-sm text-secondary ms-auto" id="statusSpinner" role="status" aria-label="Refreshing"></span>
+      </div>
+      <div class="card-body py-2" hx-get="{% url 'frontend:system-status' %}" hx-trigger="load, every 30s" hx-indicator="#statusSpinner">
+        <span class="text-body-secondary small">Checking…</span>
+      </div>
+    </section>
+
+    {% if is_admin %}
+      <section class="card app-card flex-grow-1" aria-labelledby="activityTitle">
+        <div class="card-header">
+          <h2 class="pg-card-title" id="activityTitle">Recent activity</h2>
+          <a href="{% url 'frontend:activity-list' %}" class="ms-auto small">Audit log</a>
+        </div>
+        {% for entry in activity %}
+          {% include "activity/partials/event.html" %}
+        {% empty %}
+          <div class="app-empty"><i class="bi bi-journal-text" aria-hidden="true"></i><p class="mb-0">No activity yet.</p></div>
+        {% endfor %}
+      </section>
+    {% else %}
+      <section class="card app-card" aria-labelledby="accessTitle">
+        <div class="card-header"><h2 class="pg-card-title" id="accessTitle">Connecting</h2></div>
+        <div class="card-body small">
+          <p class="mb-3">To use an MCP from Claude, VS Code or a server, open it in the registry, copy its connection link and generate a token for it.</p>
+          <a href="{% url 'frontend:token-list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-key me-1" aria-hidden="true"></i>Your tokens</a>
+        </div>
+      </section>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

@@ -3,7 +3,7 @@
 {# Shared by the four tabs of an MCP: Overview, Logs, Who has access, User manual. #}
 
 {% block title %}{{ server.name }}{% endblock %}
-{% block page_title %}MCP Servers{% endblock %}
+{% block page_title %}{{ server.name }}{% endblock %}
 
 {% block breadcrumb %}
   <li><a href="{{ nav_section.url }}">{{ nav_section.label }}</a></li>
@@ -15,10 +15,11 @@
 <div class="app-mcp-header">
   <div class="me-auto" style="min-width: 0">
     <h1 class="text-truncate">{{ server.name }}</h1>
-    <div class="small text-body-secondary mt-1">
+    {% if server.description %}<p class="pg-page-desc">{{ server.description }}</p>{% endif %}
+    <div class="pg-meta mt-2">
       <code>{{ server.slug }}</code>
-      <span class="mx-1">·</span>{{ server.get_access_policy_display }}
-      <span class="mx-1">·</span><span title="{{ level_help }}">Your access: <strong>{{ level.label }}</strong></span>
+      <span><i class="bi {% if server.access_policy == 'all_users' %}bi-people{% else %}bi-lock{% endif %}" aria-hidden="true"></i>{{ server.get_access_policy_display }}</span>
+      <span title="{{ level_help }}"><i class="bi bi-person-check" aria-hidden="true"></i>Your access: <strong>{{ level.label }}</strong></span>
     </div>
   </div>
   {# Live state + Start / Stop / Restart. Refreshes every 5 seconds. #}
@@ -29,7 +30,7 @@
   {% for key, label, icon, url_name in tabs %}
     <li class="nav-item">
       <a class="nav-link {% if key == tab %}active{% endif %}" href="{% url url_name server.pk %}" {% if key == tab %}aria-current="page"{% endif %}>
-        <i class="bi {{ icon }} me-1"></i>{{ label }}
+        <i class="bi {{ icon }} me-1" aria-hidden="true"></i>{{ label }}
       </a>
     </li>
   {% endfor %}

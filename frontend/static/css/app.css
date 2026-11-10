@@ -46,7 +46,7 @@ kbd {
 }
 
 /* Metrics line up: digits all the same width. */
-.pg-num, .table td, .app-stat-value, .app-summary-item .value, .app-run-stats, .app-nav-count { font-variant-numeric: tabular-nums; }
+.pg-num, .table td, .app-summary-item .value, .app-run-stats, .app-nav-count { font-variant-numeric: tabular-nums; }
 
 /* Keyboard focus is always visible; mouse clicks do not leave rings behind. */
 :focus-visible { outline: 2px solid var(--pg-accent); outline-offset: 2px; }
@@ -294,21 +294,15 @@ html[data-bs-theme="dark"] .app-nav-link.active { background: var(--pg-surface-2
   --bs-list-group-item-padding-y: .625rem;
 }
 
-/* Metric tile (dashboard) */
-.app-stat .card-body { padding: var(--pg-s4); }
-.app-stat-label { display: flex; align-items: center; gap: var(--pg-s2); color: var(--pg-text-2); font-size: var(--pg-fs-small); font-weight: 500; }
-.app-stat-label .bi { font-size: .875rem; }
-.app-stat-value { font-size: 1.625rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; margin-top: var(--pg-s2); }
-
 /* Summary strip: several metrics in one bordered row, separated by hairlines. */
 .app-summary {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  /* The 1px gap shows this background as hairlines between the items. */
-  background: var(--pg-border); border: 1px solid var(--pg-border); border-radius: var(--pg-r-lg);
+  background: var(--pg-surface); border: 1px solid var(--pg-border); border-radius: var(--pg-r-lg);
   box-shadow: var(--pg-shadow-sm); overflow: hidden;
-  gap: 1px;
 }
-.app-summary-item { background: var(--pg-surface); padding: .875rem var(--pg-s4); min-width: 0; }
+/* Hairlines on every side of every item; the panel clips the outer ones, so wrapped rows
+   stay neatly divided and a row that is not full simply ends. */
+.app-summary-item { padding: .875rem var(--pg-s4); min-width: 0; box-shadow: 1px 0 0 var(--pg-border), 0 1px 0 var(--pg-border), -1px 0 0 var(--pg-border), 0 -1px 0 var(--pg-border); }
 .app-summary-item .value { font-size: 1.375rem; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; }
 .app-summary-item .value .badge { font-size: .8125rem; vertical-align: middle; }
 .app-summary-item .label { margin-top: 2px; font-size: var(--pg-fs-small); color: var(--pg-text-2); }
@@ -710,3 +704,70 @@ body.auth-body { background: var(--pg-bg); min-height: 100vh; }
 .auth-foot { margin-top: var(--pg-s5); text-align: center; font-size: var(--pg-fs-small); color: var(--pg-text-2); }
 .app-brand--light { height: auto; padding: 0; border: 0; }
 .pg-error-code { font-family: var(--pg-font-mono); font-size: .8125rem; font-weight: 500; color: var(--pg-text-2); letter-spacing: .04em; }
+
+/* ===========================================================================
+ * 12. Lists inside panels (Overview warnings, platform status)
+ * ========================================================================= */
+.pg-card-title { font-size: .875rem; font-weight: 600; margin: 0; letter-spacing: 0; }
+.pg-unit { font-size: .8125rem; font-weight: 500; color: var(--pg-text-2); margin-left: 2px; }
+.pg-list { list-style: none; margin: 0; padding: 0; }
+.pg-list-item {
+  display: flex; align-items: center; gap: var(--pg-s3);
+  padding: .625rem var(--pg-s4); border-bottom: 1px solid var(--pg-border); font-size: .8125rem;
+}
+.pg-list-item:last-child { border-bottom: 0; }
+.pg-list-action { white-space: nowrap; font-weight: 500; text-decoration: none; font-size: var(--pg-fs-small); }
+.pg-allgood { display: flex; align-items: center; gap: var(--pg-s2); padding: .75rem var(--pg-s4); font-size: .8125rem; color: var(--pg-text-2); }
+
+/* ===========================================================================
+ * 13. Registry: sortable headings, phone list, filter bar
+ * ========================================================================= */
+.pg-sort { display: inline-flex; align-items: center; gap: .3rem; color: inherit; text-decoration: none; }
+.pg-sort .bi { font-size: .75rem; opacity: .45; }
+.pg-sort:hover { color: var(--pg-text); }
+.pg-sort:hover .bi, .pg-sort.is-active .bi { opacity: 1; }
+.pg-sort.is-active { color: var(--pg-text); }
+
+.pg-rows { list-style: none; margin: 0; padding: 0; }
+.pg-row { padding: .75rem var(--pg-s4); border-bottom: 1px solid var(--pg-border); }
+.pg-row:last-child { border-bottom: 0; }
+.pg-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pg-code-inline { white-space: nowrap; }
+
+.pg-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-s2); margin-bottom: var(--pg-s4); }
+.pg-filterbar .pg-filter-search { position: relative; flex: 1 1 240px; max-width: 340px; }
+.pg-filterbar .pg-filter-search .bi { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--pg-text-2); font-size: .8125rem; pointer-events: none; }
+.pg-filterbar .pg-filter-search .form-control { padding-left: 2rem; }
+.pg-filterbar .form-select { width: auto; flex: 0 1 auto; }
+@media (max-width: 575.98px) {
+  .pg-filterbar .pg-filter-search { max-width: none; flex-basis: 100%; }
+  .pg-filterbar .form-select { flex: 1 1 0; min-width: 0; }
+}
+
+/* MCP page header details */
+.pg-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-s1) var(--pg-s4); font-size: var(--pg-fs-small); color: var(--pg-text-2); }
+.pg-meta > span { display: inline-flex; align-items: center; gap: .35rem; }
+.pg-meta strong { color: var(--pg-text); font-weight: 500; }
+.app-mcp-header .pg-page-desc { margin-top: var(--pg-s2); }
+.pg-danger-zone { border-color: var(--pg-danger-border); }
+.pg-danger-zone > .card-header { color: var(--pg-danger-text); }
+.pg-filterbar--inset { margin: 0; padding: .625rem var(--pg-s4); border-bottom: 1px solid var(--pg-border); background: var(--pg-surface-2); }
+.pg-filterbar--inset .app-chip span { height: 26px; }
+
+/* Segmented control (Monitoring time range) */
+.pg-segmented {
+  display: inline-flex; padding: 2px; gap: 2px;
+  background: var(--pg-surface-2); border: 1px solid var(--pg-border); border-radius: var(--pg-r-sm);
+}
+.pg-segmented a {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 .625rem;
+  border-radius: calc(var(--pg-r-sm) - 2px);
+  font-size: .8125rem; font-weight: 500; color: var(--pg-text-2); text-decoration: none; white-space: nowrap;
+}
+.pg-segmented a:hover { color: var(--pg-text); }
+.pg-segmented a.is-active { background: var(--pg-surface); color: var(--pg-text); box-shadow: var(--pg-shadow-sm), inset 0 0 0 1px var(--pg-border); }
+.pg-repeat {
+  display: inline-block; margin-left: .35rem; padding: 0 .35rem; border-radius: var(--pg-r-xs);
+  font-family: var(--pg-font-mono); font-size: .6875rem; font-weight: 500; font-variant-numeric: tabular-nums;
+  color: var(--pg-text-2); background: var(--pg-surface); border: 1px solid var(--pg-border);
+}

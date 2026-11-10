@@ -15,6 +15,7 @@ BADGE_CLASSES = {
     # Monitoring (Phase 6)
     "down": "text-bg-danger",
     "no_data": "text-bg-light border",
+    "stale": "text-bg-light border",
     "not_monitored": "text-bg-light border",
     # Deployment status
     "in_progress": "text-bg-info",
@@ -129,6 +130,7 @@ HEALTH_LABELS = {
     "down": "Down",
     "stopped": "Stopped",
     "no_data": "Not checked yet",
+    "stale": "No recent check",
     "not_monitored": "Not monitored",
 }
 
@@ -153,3 +155,14 @@ def monitor_icon(event) -> str:
 @register.filter
 def monitor_color(event) -> str:
     return MONITOR_EVENT_STYLES.get(event.level, ("bi-dot", "gray"))[1]
+
+
+@register.filter
+def health_key(server) -> str:
+    """
+    The health to show for an MCP (see backend.services.monitoring.health_of), using
+    the latest check annotated on the row as last_check_status / last_check_at.
+    """
+    from backend.services.monitoring import health_of
+
+    return health_of(server, getattr(server, "last_check_status", None), getattr(server, "last_check_at", None))

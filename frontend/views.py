@@ -8,7 +8,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -108,14 +108,65 @@ def profile(request: HttpRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+OVERVIEW_SERVERS_SHOWN = 8
+OVERVIEW_ACTIVITY_SHOWN = 8
+
+
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
+    """Overview. Every figure comes from the database or a real check; nothing is estimated."""
+    user = request.user
+    is_admin = can_manage_mcps(user)
+    servers = list(with_last_check(registry.list_servers(user)).order_by("name")[:OVERVIEW_SERVERS_SHOWN])
     context = {
-        "counts": registry.get_counts(request.user),
+        "counts": registry.get_counts(user),
         "active_user_count": get_user_model().objects.filter(is_active=True).count(),
-        "recent_servers": registry.list_servers(request.user).order_by("-created_at")[:5],
+        "servers": servers,
+        "is_admin": is_admin,
+        "my_active_tokens": tokens.list_tokens(user=user).filter(revoked_at__isnull=True, expires_at__gt=timezone.now()).count(),
+        "can_create_token": not access.is_service_account(user),
     }
+    if is_admin:
+        traffic_24h = traffic.totals()
+        if traffic_24h["requests"]:
+            traffic_24h["error_rate"] = round(100 * traffic_24h["errors"] / traffic_24h["requests"], 1)
+        context.update(
+            {
+                "traffic": traffic_24h,
+                "warnings": _overview_warnings(),
+                "activity": MCPActivityLog.objects.select_related("mcp_server")[:OVERVIEW_ACTIVITY_SHOWN],
+            }
+        )
     return render(request, "dashboard/index.html", context)
+
+
+def with_last_check(servers):
+    """Add each MCP's latest monitoring check (last_check_status, last_check_at) in the same query."""
+    latest = MCPHealthCheck.objects.filter(mcp_server=OuterRef("pk")).order_by("-checked_at", "-id")
+    return servers.annotate(
+        last_check_status=Subquery(latest.values("status")[:1]),
+        last_check_at=Subquery(latest.values("checked_at")[:1]),
+    )
+
+
+def _overview_warnings() -> list[dict]:
+    """Things an administrator should act on, most serious first. Empty when all is well."""
+    warnings = []
+    for server in MCPServer.objects.filter(status=MCPServer.Status.FAILED).order_by("name"):
+        warnings.append({"level": "error", "text": f"{server.name} stopped unexpectedly.", "url": reverse("frontend:mcp-logs", args=[server.pk]), "action": "View logs"})
+    day_ago = timezone.now() - timedelta(hours=24)
+    for event in MCPMonitorEvent.objects.filter(kind=MCPMonitorEvent.Kind.GAVE_UP, created_at__gte=day_ago).select_related("mcp_server")[:3]:
+        warnings.append({"level": "error", "text": event.message, "url": reverse("frontend:monitoring-detail", args=[event.mcp_server_id]), "action": "Monitoring"})
+    running = with_last_check(MCPServer.objects.filter(status=MCPServer.Status.RUNNING)).order_by("name")
+    for server in running:
+        if server.last_check_status in {MCPHealthCheck.Status.UNHEALTHY, MCPHealthCheck.Status.DOWN}:
+            warnings.append({"level": "warning", "text": f"{server.name} is running but not answering properly.", "url": reverse("frontend:monitoring-detail", args=[server.pk]), "action": "Monitoring"})
+    if running and not monitoring.worker_is_running():
+        warnings.append({"level": "warning", "text": "The monitor is not running: no health checks or automatic restarts.", "url": reverse("frontend:monitoring"), "action": "Details"})
+    _, folder_problems = catalog.discover()
+    for problem in folder_problems[:3]:
+        warnings.append({"level": "warning", "text": problem, "url": reverse("frontend:mcp-list"), "action": "Registry"})
+    return warnings
 
 
 @login_required
@@ -136,12 +187,20 @@ def mcp_list(request: HttpRequest) -> HttpResponse:
         "status": request.GET.get("status", ""),
         "deployment_type": request.GET.get("type", ""),
     }
-    servers = registry.list_servers(request.user, **filters)
+    sort = request.GET.get("sort", "name")
+    if sort not in MCP_SORTS:
+        sort = "name"
+    servers = with_last_check(registry.list_servers(request.user, **filters)).order_by(*MCP_SORTS[sort])
     page = Paginator(servers, MCP_PAGE_SIZE).get_page(request.GET.get("page"))
 
+    query = request.GET.copy()
+    for key in ("page", "sort"):
+        query.pop(key, None)
     context = {
         "page": page,
         "filters": filters,
+        "sort": sort,
+        "query": query.urlencode(),  # current search and filters, kept by sort and page links
         "status_choices": MCPServer.Status.choices,
         # Only offer types that some visible MCP really has; the others would always give an empty list.
         "type_choices": _used_choices(MCPServer.DeploymentType.choices, MCPServer.objects.visible_to(request.user), "deployment_type"),
@@ -151,6 +210,19 @@ def mcp_list(request: HttpRequest) -> HttpResponse:
     # HTMX search/filter/pagination only needs the table, not the whole page.
     template = "mcps/partials/table.html" if request.htmx else "mcps/list.html"
     return render(request, template, context)
+
+
+# Registry sort options: ?sort=<key>. A leading "-" means newest/last first.
+MCP_SORTS = {
+    "name": ("name",),
+    "-name": ("-name",),
+    "status": ("status", "name"),
+    "-status": ("-status", "name"),
+    "created": ("created_at", "name"),
+    "-created": ("-created_at", "name"),
+    "checked": ("last_check_at", "name"),
+    "-checked": ("-last_check_at", "name"),
+}
 
 
 def _used_choices(choices, queryset, field: str) -> list[tuple[str, str]]:
@@ -215,8 +287,12 @@ def mcp_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "manifest_problem": catalog.manifest_problem(server) if server.is_local and not context["manifest"] else "",
             # A local MCP whose folder still exists would come straight back, so it cannot be deleted here.
             "can_delete": context["is_admin"] and not (server.is_local and context["manifest"]),
+            "last_check": monitoring.last_check(server),
+            "traffic": traffic.totals(server) if context["is_admin"] else None,
         }
     )
+    last = context["last_check"]
+    context["health_now"] = monitoring.health_of(server, last.status if last else None, last.checked_at if last else None)
     return render(request, "mcps/detail.html", context)
 
 
@@ -231,9 +307,21 @@ def mcp_logs(request: HttpRequest, pk: int) -> HttpResponse:
 
 def _server_log_context(request: HttpRequest, server: MCPServer, runtime) -> dict:
     """The MCP's output as readable runs (newest first), for the Logs tab."""
-    problems_only = request.GET.get("problems") == "1"
-    runs = mcplogs.summarize(mcplogs.parse(runner.read_log(server)), problems_only=problems_only)
-    return {"server": server, "runs": runs[:MCP_RUNS_SHOWN], "problems_only": problems_only, "runtime": runtime}
+    severity = request.GET.get("severity", "")
+    if request.GET.get("problems") == "1" and not severity:  # older links: ?problems=1
+        severity = "problems"
+    if severity not in mcplogs.SEVERITIES:
+        severity = ""
+    search = request.GET.get("q", "").strip()[:100]
+    runs = mcplogs.summarize(mcplogs.parse(runner.read_log(server)), severity=severity, search=search)
+    return {
+        "server": server,
+        "runs": runs[:MCP_RUNS_SHOWN],
+        "severity": severity,
+        "search": search,
+        "problems_only": bool(severity),  # some messages below still read this
+        "runtime": runtime,
+    }
 
 
 @staff_required
@@ -564,29 +652,40 @@ MONITOR_EVENTS_SHOWN = 30
 MONITOR_CHECKS_SHOWN = 20
 
 
-def _monitoring_row(server: MCPServer) -> dict:
-    data = monitoring.summary(server)
+# Time ranges offered on the Monitoring pages: ?range=1h|24h|7d (default 24h).
+MONITOR_RANGES = {
+    "1h": {"key": "1h", "hours": 1, "short": "1 h", "long": "last hour", "label": "1 hour"},
+    "24h": {"key": "24h", "hours": 24, "short": "24 h", "long": "last 24 hours", "label": "24 hours"},
+    "7d": {"key": "7d", "hours": 168, "short": "7 d", "long": "last 7 days", "label": "7 days"},
+}
+
+
+def _monitor_range(request: HttpRequest) -> dict:
+    return MONITOR_RANGES.get(request.GET.get("range", ""), MONITOR_RANGES["24h"])
+
+
+def _monitoring_row(server: MCPServer, hours: int = 24) -> dict:
+    data = monitoring.summary(server, hours=hours)
     last = data["last"]
-    if not server.is_local:
-        health = "not_monitored"
-    elif server.status in {MCPServer.Status.STOPPED, MCPServer.Status.PENDING}:
-        health = "stopped"  # an old check would be misleading
-    else:
-        health = last.status if last else "no_data"
-    return {"server": server, "health": health, **data}
+    health = monitoring.health_of(server, last.status if last else None, last.checked_at if last else None)
+    # Response time, CPU and RAM are only shown from a recent check of a running MCP.
+    return {"server": server, "health": health, "live": health in monitoring.LIVE_HEALTH, **data}
 
 
 @staff_required
 def monitoring_overview(request: HttpRequest) -> HttpResponse:
-    rows = [_monitoring_row(server) for server in MCPServer.objects.order_by("name")]
+    period = _monitor_range(request)
+    rows = [_monitoring_row(server, period["hours"]) for server in MCPServer.objects.order_by("name")]
     context = {
         "rows": rows,
+        "range": period,
+        "ranges": MONITOR_RANGES.values(),
         "counts": {
             "monitored": sum(1 for row in rows if row["server"].is_local),
             "healthy": sum(1 for row in rows if row["health"] == "healthy"),
             "problems": sum(1 for row in rows if row["health"] in {"unhealthy", "down"}),
         },
-        "traffic": traffic.totals(),
+        "traffic": traffic.totals(hours=period["hours"]),
         "events": MCPMonitorEvent.objects.select_related("mcp_server")[:MONITOR_EVENTS_SHOWN],
         "worker_running": monitoring.worker_is_running(),
         "worker_last_seen": monitoring.worker_last_seen(),
@@ -599,6 +698,7 @@ def monitoring_overview(request: HttpRequest) -> HttpResponse:
 @staff_required
 def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
     server = get_object_or_404(MCPServer, pk=pk)
+    period = _monitor_range(request)
     limits = traffic.limits_for(server)
     form = MonitorSettingsForm(request.POST or None, instance=limits)
 
@@ -614,10 +714,12 @@ def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
     context = {
         "server": server,
-        "row": _monitoring_row(server),
+        "row": _monitoring_row(server, period["hours"]),
+        "range": period,
+        "ranges": MONITOR_RANGES.values(),
         "checks": MCPHealthCheck.objects.filter(mcp_server=server)[:MONITOR_CHECKS_SHOWN],
         "events": MCPMonitorEvent.objects.filter(mcp_server=server)[:MONITOR_EVENTS_SHOWN],
-        "hours": _hourly_traffic(server),
+        "hours": _traffic_rows(server, period["hours"]),
         "in_progress": traffic.in_progress(server),
         "form": form,
         "worker_running": monitoring.worker_is_running(),
@@ -626,19 +728,25 @@ def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
     return render(request, template, context)
 
 
-def _hourly_traffic(server: MCPServer) -> list[dict]:
-    """Gateway traffic of the last 24 hours, one row per hour that had requests (newest first)."""
-    since = timezone.now() - timedelta(hours=24)
-    hours: dict = {}
+def _traffic_rows(server: MCPServer, hours: int = 24) -> list[dict]:
+    """
+    Gateway traffic over the last `hours`, newest first: one row per hour that had requests,
+    or one per day for ranges longer than a day.
+    """
+    since = timezone.now() - timedelta(hours=hours)
+    by_day = hours > 24
+    rows_by_time: dict = {}
     for stat in MCPRequestStat.objects.filter(mcp_server=server, bucket_start__gte=since):
         hour = timezone.localtime(stat.bucket_start).replace(minute=0, second=0, microsecond=0)
-        row = hours.setdefault(hour, {"hour": hour, "requests": 0, "errors": 0, "denied": 0, "total_ms": 0.0, "max_ms": 0.0})
+        if by_day:
+            hour = hour.replace(hour=0)
+        row = rows_by_time.setdefault(hour, {"hour": hour, "by_day": by_day, "requests": 0, "errors": 0, "denied": 0, "total_ms": 0.0, "max_ms": 0.0})
         row["requests"] += stat.request_count
         row["errors"] += stat.error_count
         row["denied"] += stat.denied_count
         row["total_ms"] += stat.total_response_ms
         row["max_ms"] = max(row["max_ms"], stat.max_response_ms)
-    rows = sorted(hours.values(), key=lambda row: row["hour"], reverse=True)
+    rows = sorted(rows_by_time.values(), key=lambda row: row["hour"], reverse=True)
     for row in rows:
         row["avg_ms"] = round(row["total_ms"] / row["requests"], 1) if row["requests"] else None
     return rows

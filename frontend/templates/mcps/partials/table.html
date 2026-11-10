@@ -1,52 +1,76 @@
 {% load mcp_tags %}
+{% comment %} The registry list. Replaced by HTMX on search, filter, sort and paging.
+   Desktop and tablet: a sortable table. Phones: the same rows as a readable list. {% endcomment %}
 <div class="card app-card">
   {% if page.object_list %}
-    <div class="table-responsive">
+    <div class="table-responsive d-none d-md-block">
       <table class="table table-hover align-middle mb-0 app-table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th class="d-none d-lg-table-cell">Connection link</th>
-            <th class="d-none d-md-table-cell">Source</th>
-            <th>Status</th>
-            <th>Health</th>
-            <th class="d-none d-xl-table-cell">Created</th>
+            {% include "mcps/partials/sort_th.html" with key="name" label="Name" first="asc" %}
+            <th scope="col" class="d-none d-xl-table-cell">Connection link</th>
+            <th scope="col" class="d-none d-lg-table-cell">Source</th>
+            {% include "mcps/partials/sort_th.html" with key="status" label="Runtime" first="asc" %}
+            <th scope="col">Health</th>
+            {% include "mcps/partials/sort_th.html" with key="checked" label="Last check" first="desc" th_class="d-none d-lg-table-cell" %}
+            {% include "mcps/partials/sort_th.html" with key="created" label="Added" first="desc" th_class="d-none d-xxl-table-cell" %}
           </tr>
         </thead>
         <tbody>
           {% for server in page.object_list %}
+            {% with health=server|health_key %}
             <tr>
-              <td>
+              <td style="max-width: 360px">
                 <a href="{% url 'frontend:mcp-detail' server.pk %}" class="fw-semibold text-decoration-none">{{ server.name }}</a>
-                {% if server.description %}<div class="small text-body-secondary text-truncate" style="max-width: 320px">{{ server.description }}</div>{% endif %}
+                <div class="small text-body-secondary text-truncate">{% if server.description %}{{ server.description }}{% else %}<code>{{ server.slug }}</code>{% endif %}</div>
               </td>
-              <td class="d-none d-lg-table-cell"><code class="small">{{ server.connection_url }}</code></td>
-              <td class="d-none d-md-table-cell">{{ server.get_deployment_type_display }}</td>
+              <td class="d-none d-xl-table-cell"><code class="pg-code-inline">{{ server.connection_url }}</code></td>
+              <td class="d-none d-lg-table-cell text-body-secondary text-nowrap">{{ server.get_deployment_type_display }}</td>
               <td><span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span></td>
-              <td><span class="badge {{ server.health_status|badge_class }}">{{ server.get_health_status_display }}</span></td>
-              <td class="d-none d-xl-table-cell small text-body-secondary">{{ server.created_at|date:"DATE_FORMAT" }}</td>
+              <td>{% include "monitoring/partials/health_badge.html" %}</td>
+              <td class="d-none d-lg-table-cell small text-body-secondary text-nowrap">{% if server.last_check_at and health != "stopped" and health != "down" %}{{ server.last_check_at|timesince }} ago{% else %}–{% endif %}</td>
+              <td class="d-none d-xxl-table-cell small text-body-secondary text-nowrap">{{ server.created_at|date:"j M Y" }}</td>
             </tr>
+            {% endwith %}
           {% endfor %}
         </tbody>
       </table>
     </div>
 
+    <ul class="pg-rows d-md-none">
+      {% for server in page.object_list %}
+        {% with health=server|health_key %}
+        <li class="pg-row">
+          <div class="d-flex align-items-start gap-2">
+            <a href="{% url 'frontend:mcp-detail' server.pk %}" class="fw-semibold text-decoration-none me-auto">{{ server.name }}</a>
+            <span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span>
+          </div>
+          {% if server.description %}<div class="small text-body-secondary pg-clamp-2 mt-1">{{ server.description }}</div>{% endif %}
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-2 small text-body-secondary">
+            {% include "monitoring/partials/health_badge.html" %}
+            <span>{{ server.get_deployment_type_display }}</span>
+          </div>
+        </li>
+        {% endwith %}
+      {% endfor %}
+    </ul>
+
     {% if page.has_other_pages %}
-      <div class="card-footer d-flex justify-content-between align-items-center small">
-        <span class="text-body-secondary">{{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}</span>
+      <div class="card-footer pg-pager">
+        <span>{{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}</span>
         <nav aria-label="Pagination" class="btn-group">
           {% if page.has_previous %}
-            <a class="btn btn-sm btn-outline-secondary" hx-get="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.previous_page_number }}" hx-target="#mcpTable" hx-push-url="true" href="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.previous_page_number }}">Previous</a>
+            <a class="btn btn-sm btn-outline-secondary" hx-get="?{% if query %}{{ query }}&amp;{% endif %}sort={{ sort }}&amp;page={{ page.previous_page_number }}" hx-target="#mcpTable" hx-push-url="true" href="?{% if query %}{{ query }}&amp;{% endif %}sort={{ sort }}&amp;page={{ page.previous_page_number }}">Previous</a>
           {% endif %}
           {% if page.has_next %}
-            <a class="btn btn-sm btn-outline-secondary" hx-get="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.next_page_number }}" hx-target="#mcpTable" hx-push-url="true" href="?q={{ filters.search|urlencode }}&status={{ filters.status|urlencode }}&type={{ filters.deployment_type|urlencode }}&page={{ page.next_page_number }}">Next</a>
+            <a class="btn btn-sm btn-outline-secondary" hx-get="?{% if query %}{{ query }}&amp;{% endif %}sort={{ sort }}&amp;page={{ page.next_page_number }}" hx-target="#mcpTable" hx-push-url="true" href="?{% if query %}{{ query }}&amp;{% endif %}sort={{ sort }}&amp;page={{ page.next_page_number }}">Next</a>
           {% endif %}
         </nav>
       </div>
     {% endif %}
   {% else %}
-    <div class="card-body app-empty">
-      <i class="bi bi-hdd-stack"></i>
+    <div class="app-empty">
+      <i class="bi bi-hdd-stack" aria-hidden="true"></i>
       {% if filters.search or filters.status or filters.deployment_type %}
         <p class="mb-0">No MCP servers match these filters.</p>
       {% elif can_manage %}

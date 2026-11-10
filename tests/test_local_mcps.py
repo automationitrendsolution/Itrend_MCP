@@ -291,3 +291,40 @@ class LocalMcpPageTests(FolderTestCase):
         response = self.client.get(reverse("frontend:mcp-state", args=[server.pk]), HTTP_HX_REQUEST="true")
         self.assertContains(response, "Stopped")
         self.assertNotContains(response, "<html")
+
+
+class LogFilterPageTests(FolderTestCase):
+    """The Logs tab's severity and search filters, through the real pages."""
+
+    def setUp(self):
+        super().setUp()
+        from .test_mcp_logs import LOG
+
+        self.client.force_login(create_user("admin", is_staff=True))
+        self.server = self.fake_mcp()
+        path = runner.log_path(self.server)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(LOG, encoding="utf-8")
+        self.url = reverse("frontend:mcp-log-output", args=[self.server.pk])
+
+    def test_search(self):
+        response = self.client.get(self.url, {"q": "lost connection"})
+        self.assertContains(response, "Query failed")
+        self.assertNotContains(response, "Query took 9 s")
+
+    def test_errors_only(self):
+        response = self.client.get(self.url, {"severity": "errors"})
+        self.assertContains(response, "Query failed")
+        self.assertNotContains(response, "Query took 9 s")
+
+    def test_old_problems_link_still_works_and_bad_values_are_ignored(self):
+        self.assertNotContains(self.client.get(self.url, {"problems": "1"}), "Ready – accepting connections")
+        self.assertContains(self.client.get(self.url, {"severity": "nonsense"}), "Ready – accepting connections")
+
+    def test_no_match_message(self):
+        self.assertContains(self.client.get(self.url, {"q": "zebra"}), "No events match “zebra”")
+
+    def test_full_page_keeps_the_chosen_filters(self):
+        page = self.client.get(reverse("frontend:mcp-logs", args=[self.server.pk]), {"severity": "errors", "q": "query"})
+        self.assertContains(page, 'value="query"')
+        self.assertContains(page, 'value="errors" checked')

@@ -8,10 +8,6 @@
 
 <div class="row g-3">
   <div class="col-lg-7">
-    {% if server.description %}
-      <div class="card app-card mb-3"><div class="card-body">{{ server.description|linebreaksbr }}</div></div>
-    {% endif %}
-
     <div class="card app-card mb-3">
       <div class="card-header">How to connect</div>
       <div class="card-body">
@@ -69,6 +65,18 @@
       <div class="card-header">Details</div>
       <div class="card-body">
         <dl class="row mb-0 small">
+          <dt class="col-5">Runtime</dt><dd class="col-7"><span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span></dd>
+          {% if server.is_local %}
+            <dt class="col-5">Health</dt>
+            <dd class="col-7">
+              {% with health=health_now %}{% include "monitoring/partials/health_badge.html" %}{% endwith %}
+              {% if last_check and health_now != "stopped" and health_now != "down" %}<div class="text-body-secondary mt-1">checked {{ last_check.checked_at|timesince }} ago</div>{% endif %}
+            </dd>
+          {% endif %}
+          {% if is_admin %}
+            <dt class="col-5">Requests · 24 h</dt>
+            <dd class="col-7">{{ traffic.requests }}{% if traffic.errors %} <span class="text-danger">({{ traffic.errors }} failed)</span>{% endif %}</dd>
+          {% endif %}
           <dt class="col-5">Slug</dt><dd class="col-7"><code>{{ server.slug }}</code></dd>
           <dt class="col-5">Source</dt><dd class="col-7">{{ server.get_deployment_type_display }}</dd>
           <dt class="col-5">Who can use it</dt><dd class="col-7">{{ server.get_access_policy_display }}</dd>
@@ -79,11 +87,14 @@
           <dt class="col-5">Added</dt><dd class="col-7 mb-0">{{ server.created_at|date:"DATETIME_FORMAT" }}</dd>
         </dl>
       </div>
+      {% if is_admin %}
+        <div class="card-footer"><a href="{% url 'frontend:monitoring-detail' server.pk %}"><i class="bi bi-activity me-1" aria-hidden="true"></i>Monitoring, limits and incidents</a></div>
+      {% endif %}
     </div>
 
     {% if is_admin %}
       <div class="card app-card mb-3">
-        <div class="card-header">How the platform runs it <span class="badge text-bg-light border ms-1">Administrators only</span></div>
+        <div class="card-header">How the platform runs it <span class="badge text-bg-light ms-auto">Administrators only</span></div>
         <div class="card-body small">
           {% if manifest %}
             <div class="text-body-secondary mb-1">Folder</div>
@@ -105,8 +116,8 @@
       </div>
 
       {% if can_delete %}
-        <div class="card app-card border-danger-subtle">
-          <div class="card-header text-danger">Remove from the platform</div>
+        <div class="card app-card pg-danger-zone">
+          <div class="card-header">Remove from the platform</div>
           <div class="card-body small">
             <p>Removes this MCP, its permissions and access tokens from the platform. This cannot be undone.</p>
             <form method="post" action="{% url 'frontend:mcp-delete' server.pk %}" data-confirm="Remove {{ server.name }} from the platform? Its permissions and tokens are deleted too.">

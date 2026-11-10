@@ -16,31 +16,32 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-  {# HTMX: the table refreshes as you type or change a filter; the URL updates so results can be bookmarked. #}
-  <form class="d-flex flex-wrap gap-2 flex-grow-1" method="get" action="{% url 'frontend:mcp-list' %}"
-        hx-get="{% url 'frontend:mcp-list' %}" hx-target="#mcpTable" hx-push-url="true"
-        hx-trigger="input changed delay:300ms from:#search, change from:select, submit">
-    <div class="input-group" style="max-width: 320px">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="search" id="search" name="q" value="{{ filters.search }}" class="form-control" placeholder="Search name, slug or description" aria-label="Search MCP servers">
-    </div>
-    <select name="status" class="form-select w-auto" aria-label="Filter by status">
-      <option value="">All statuses</option>
-      {% for value, label in status_choices %}
-        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <select name="type" class="form-select w-auto" aria-label="Filter by deployment type">
-      <option value="">All deployment types</option>
+{% comment %} HTMX: the list refreshes as you type or change a filter; the URL updates so results can be bookmarked.
+   The current sort order is kept. {% endcomment %}
+<form class="pg-filterbar" role="search" method="get" action="{% url 'frontend:mcp-list' %}"
+      hx-get="{% url 'frontend:mcp-list' %}" hx-target="#mcpTable" hx-push-url="true"
+      hx-trigger="input changed delay:300ms from:#search, change from:select, submit">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <div class="pg-filter-search">
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <input type="search" id="search" name="q" value="{{ filters.search }}" class="form-control" placeholder="Search name, slug or description" aria-label="Search MCP servers">
+  </div>
+  <select name="status" class="form-select" aria-label="Filter by runtime status">
+    <option value="">Any status</option>
+    {% for value, label in status_choices %}
+      <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  {% if type_choices|length > 1 %}
+    <select name="type" class="form-select" aria-label="Filter by source">
+      <option value="">Any source</option>
       {% for value, label in type_choices %}
         <option value="{{ value }}" {% if filters.deployment_type == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <noscript><button class="btn btn-outline-secondary" type="submit">Filter</button></noscript>
-  </form>
-
-</div>
+  {% endif %}
+  <noscript><button class="btn btn-outline-secondary" type="submit">Filter</button></noscript>
+</form>
 
 <div id="mcpTable">
   {% include "mcps/partials/table.html" %}

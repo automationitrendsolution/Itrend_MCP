@@ -57,6 +57,8 @@ class LogEvent:
     level: str  # info | warning | error | debug
     message: str
     details: list[str] = field(default_factory=list)  # e.g. traceback lines
+    count: int = 1  # identical lines in a row are shown once, with this count
+    last_time: str = ""  # time of the last repeat
 
     @property
     def details_text(self) -> str:
@@ -93,11 +95,11 @@ class LogRun:
 
     @property
     def warnings(self) -> int:
-        return sum(1 for e in self.events if e.level == "warning")
+        return sum(e.count for e in self.events if e.level == "warning")
 
     @property
     def errors(self) -> int:
-        return sum(1 for e in self.events if e.level == "error") + (self.ended_level == "error")
+        return sum(e.count for e in self.events if e.level == "error") + (self.ended_level == "error")
 
 
 def _parse_time(text: str) -> datetime | None:
@@ -218,10 +220,44 @@ def _request(run: LogRun, time: str, method: str, path: str, status: int) -> Non
         run.events.append(LogEvent(time, "warning", f"A client was refused: {reason} ({status})"))
 
 
-def summarize(runs: list[LogRun], *, problems_only: bool = False) -> list[LogRun]:
-    """Newest run first, optionally keeping only warnings and errors."""
-    result = list(reversed(runs))
-    if problems_only:
-        for run in result:
-            run.events = [e for e in run.events if e.level in {"warning", "error"}]
+SEVERITIES = {
+    "": None,  # everything
+    "problems": {"warning", "error"},
+    "errors": {"error"},
+}
+
+
+def summarize(runs: list[LogRun], *, problems_only: bool = False, severity: str = "", search: str = "") -> list[LogRun]:
+    """
+    Newest run first, optionally filtered.
+
+    severity: "" (all), "problems" (warnings and errors) or "errors".
+    search:   text that must appear in an event's message or technical details
+              (case does not matter). Runs with no matching event are left out.
+    """
+    levels = SEVERITIES.get("problems" if problems_only and not severity else severity)
+    needle = search.strip().lower()
+    result = []
+    for run in reversed(runs):
+        if levels is not None:
+            run.events = [e for e in run.events if e.level in levels]
+        if needle:
+            run.events = [e for e in run.events if needle in e.message.lower() or needle in e.details_text.lower()]
+            if not run.events:
+                continue
+        run.events = _collapse(run.events)
+        result.append(run)
     return result
+
+
+def _collapse(events: list[LogEvent]) -> list[LogEvent]:
+    """Show identical lines that follow each other once, with a count ("×12")."""
+    collapsed: list[LogEvent] = []
+    for event in events:
+        previous = collapsed[-1] if collapsed else None
+        if previous and not event.details and not previous.details and (event.level, event.message) == (previous.level, previous.message):
+            previous.count += 1
+            previous.last_time = event.time
+        else:
+            collapsed.append(event)
+    return collapsed
