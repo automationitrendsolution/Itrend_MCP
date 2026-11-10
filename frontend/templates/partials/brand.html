@@ -1,0 +1,8 @@
+{% load static %}{% comment %}
+The iTrend Solution logo. The light-theme file has dark lettering, the dark-theme file light
+lettering; CSS shows the right one for the active theme. The colourful "i" alone is shown when
+the sidebar is collapsed. Parameter: alt (empty when a surrounding link already names it).
+{% endcomment %}
+<img class="pg-logo pg-logo--light" src="{% static 'images/brand/itrend-logo.png' %}" alt="{{ alt|default:'' }}" width="184" height="83">
+<img class="pg-logo pg-logo--dark" src="{% static 'images/brand/itrend-logo-dark.png' %}" alt="{{ alt|default:'' }}" width="184" height="83">
+<img class="pg-logo-mark" src="{% static 'images/brand/itrend-mark.png' %}" alt="" width="59" height="59">

@@ -6,11 +6,9 @@
 {% block layout %}
 <main class="auth-wrapper">
   <div style="width: 100%; max-width: 400px">
-    <div class="app-brand app-brand--light mb-4 justify-content-center">
-      <span class="app-brand-link">
-        <span class="app-brand-mark">{% include "partials/brand_mark.html" %}</span>
-        <span>iTrend <strong>MCP</strong> Platform</span>
-      </span>
+    <div class="pg-auth-brand">
+      {% include "partials/brand.html" with alt="iTrend Solution" %}
+      <span class="app-brand-product">MCP Platform</span>
     </div>
 
     <div class="auth-card card">

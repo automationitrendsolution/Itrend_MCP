@@ -100,8 +100,6 @@ kbd {
 .app-brand-link { display: flex; align-items: center; gap: .625rem; color: var(--pg-text); text-decoration: none; font-size: .9375rem; min-width: 0; }
 .app-brand-link:hover { color: var(--pg-text); }
 .app-brand-link strong { font-weight: 650; }
-.app-brand-mark { display: inline-flex; flex-shrink: 0; }
-.app-brand-mark svg { width: 22px; height: 22px; display: block; }
 
 .app-nav { display: flex; flex-direction: column; padding: var(--pg-s2) var(--pg-s2) var(--pg-s4); gap: 1px; }
 .app-nav-section {
@@ -820,3 +818,25 @@ html[data-bs-theme="dark"] .badge.text-bg-dark { color: var(--pg-text) !importan
 .pg-facts > div { display: flex; gap: .35rem; }
 .pg-facts dt { font-weight: 400; color: var(--pg-text-2); }
 .pg-facts dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* ===========================================================================
+ * 15. Brand: the iTrend Solution logo (light / dark lettering) and its "i" mark
+ * ========================================================================= */
+.pg-logo { display: block; height: 40px; width: auto; }
+.pg-logo--dark, .pg-logo-mark { display: none; }
+html[data-bs-theme="dark"] .pg-logo--light { display: none; }
+html[data-bs-theme="dark"] .pg-logo--dark { display: block; }
+.pg-logo-mark { width: 28px; height: 28px; }
+.app-brand-product {
+  padding-left: .625rem; border-left: 1px solid var(--pg-border-strong);
+  font-size: .75rem; font-weight: 600; letter-spacing: .02em; line-height: 1.2; color: var(--pg-text-2); white-space: nowrap;
+}
+@media (min-width: 992px) {
+  html[data-sidebar="collapsed"] .app-brand .pg-logo { display: none; }
+  html[data-sidebar="collapsed"] .app-brand .pg-logo-mark { display: block; }
+}
+.pg-auth-brand { display: flex; flex-direction: column; align-items: center; gap: var(--pg-s2); margin-bottom: var(--pg-s6); }
+.pg-auth-brand .pg-logo { height: 64px; }
+.pg-auth-brand .app-brand-product { border-left: 0; padding-left: 0; font-size: .8125rem; letter-spacing: .08em; text-transform: uppercase; }
+.pg-auth-brand--left { align-items: flex-start; margin-bottom: 0; }
+.pg-auth-brand--left .pg-logo { height: 48px; }

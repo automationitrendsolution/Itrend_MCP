@@ -4,9 +4,9 @@
    holds the label shown when only icons are visible.{% endcomment %}
 <aside class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="appSidebar" aria-label="Main navigation">
   <div class="app-brand">
-    <a class="app-brand-link" href="{% url 'frontend:dashboard' %}" aria-label="iTrend MCP – Overview">
-      <span class="app-brand-mark">{% include "partials/brand_mark.html" %}</span>
-      <span class="app-nav-label">iTrend <strong>MCP</strong></span>
+    <a class="app-brand-link" href="{% url 'frontend:dashboard' %}" aria-label="iTrend Solution MCP Platform – Overview">
+      {% include "partials/brand.html" %}
+      <span class="app-brand-product app-nav-label">MCP Platform</span>
     </a>
     <button type="button" class="btn-close d-lg-none ms-auto" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Close navigation"></button>
   </div>

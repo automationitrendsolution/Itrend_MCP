@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · iTrend MCP</title>
   {% include "partials/theme_init.html" %}
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/brand/favicon-32.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'images/brand/apple-touch-icon.png' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
@@ -14,6 +16,10 @@
   <main class="auth-wrapper">
     <div class="auth-card card">
       <div class="card-body p-4 p-sm-5">
+        <div class="pg-auth-brand pg-auth-brand--left mb-4">
+          <img class="pg-logo pg-logo--light" src="{% static 'images/brand/itrend-logo.png' %}" alt="iTrend Solution" width="184" height="83">
+          <img class="pg-logo pg-logo--dark" src="{% static 'images/brand/itrend-logo-dark.png' %}" alt="iTrend Solution" width="184" height="83">
+        </div>
         <div class="pg-error-code mb-2">ERROR {% block code %}{% endblock %}</div>
         <h1 class="h4">{% block heading %}{% endblock %}</h1>
         <p class="text-body-secondary mb-4">{% block message %}{% endblock %}</p>
