@@ -124,6 +124,9 @@ def grant_permission(*, server: MCPServer, user, level: str, granted_by) -> MCPP
         raise ValidationError({"permission_level": "Choose a valid permission level."})
     if not user.is_active:
         raise ValidationError({"user": "Inactive users cannot be given permissions."})
+    if is_service_account(user) and Level.rank(level) > Level.rank(Level.CONNECT):
+        # A program only connects; Manage and Admin are about running the MCP and giving access to people.
+        raise ValidationError({"permission_level": "Service accounts can have View or Connect, not Manage or Admin."})
 
     permission, created = MCPPermission.objects.select_for_update().get_or_create(
         user=user, mcp_server=server, defaults={"permission_level": level, "granted_by": granted_by}

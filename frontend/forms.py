@@ -92,9 +92,17 @@ class AccessTokenForm(BootstrapForm):
         help_text="A lifetime token works until you revoke or delete it, so keep it somewhere safe.",
     )
 
-    def __init__(self, *args, servers=(), **kwargs) -> None:
+    def __init__(self, *args, servers=(), owner=None, **kwargs) -> None:
+        from backend.services.tokens import expiry_choices_for
+
         super().__init__(*args, **kwargs)
         self.fields["mcp_server"].queryset = MCPServer.objects.filter(pk__in=[s.pk for s in servers])
+        if owner is not None:
+            allowed = expiry_choices_for(owner)
+            field = self.fields["expires_in_days"]
+            field.choices = [choice for choice in field.choices if choice[0] in allowed]
+            if NEVER_EXPIRES not in allowed:
+                field.help_text = "Tokens always expire. Create a new one before it does."
 
 
 class UserCreateForm(BootstrapForm):

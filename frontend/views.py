@@ -355,7 +355,7 @@ def _mcp_page(request: HttpRequest, pk: int, tab: str) -> tuple[MCPServer, dict]
     allowed_tabs = {"overview", "manual"} | ({"logs", "access"} if can_admin_server else set())
     if can_see_output:
         allowed_tabs.add("logs")
-    if access.can_connect(request.user, server) and not access.is_service_account(request.user):
+    if access.can_connect(request.user, server) and not access.is_service_account(request.user) and not server.is_external:
         allowed_tabs.add("tokens")
     if is_admin:
         allowed_tabs.add("settings")
@@ -552,7 +552,7 @@ def token_create(request: HttpRequest, user_pk: int | None = None) -> HttpRespon
     initial = {}
     if request.GET.get("mcp", "").isdigit():
         initial["mcp_server"] = int(request.GET["mcp"])
-    form = AccessTokenForm(request.POST or None, servers=servers, initial=initial)
+    form = AccessTokenForm(request.POST or None, servers=servers, owner=owner, initial=initial)
 
     if request.method == "POST" and form.is_valid():
         try:
@@ -672,7 +672,9 @@ def user_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "is_service": access.is_service_account(account),
         "permissions": access.list_permissions(user=account),
         "tokens": tokens.list_tokens(user=account),
-        "grant_form": PermissionGrantForm(user=account) if account.is_active else None,
+        # Giving access needs "Manage MCP access"; without it the form could only end in a refusal.
+        "grant_form": PermissionGrantForm(user=account)
+        if account.is_active and has_capability(request.user, "manage_access") else None,
         "can_create_token": tokens.can_create_for(request.user, account),
         **_abilities_context(request.user, account),
         # Access history: what this account did, and what was done to it (granted, deactivated…).
@@ -990,6 +992,10 @@ def mcp_settings(request: HttpRequest, pk: int) -> HttpResponse:
     context["manifest_problem"] = catalog.manifest_problem(server) if server.is_local and not context["manifest"] else ""
     # A local MCP whose folder still exists would come straight back, so it cannot be removed here.
     context["can_delete"] = not (server.is_local and context["manifest"])
+    context["delete_counts"] = {
+        "tokens": AccessToken.objects.filter(mcp_server=server).active().count(),
+        "permissions": MCPPermission.objects.filter(mcp_server=server).count(),
+    }
     return render(request, "mcps/settings.html", context)
 
 

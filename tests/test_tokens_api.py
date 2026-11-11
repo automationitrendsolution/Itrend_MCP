@@ -75,7 +75,7 @@ class UserApiTests(APITestCase):
         self.client.force_authenticate(create_user())
         self.assertEqual(self.client.get("/api/v1/users/").status_code, 403)
 
-        self.client.force_authenticate(create_user("boss", is_staff=True))
+        self.client.force_authenticate(create_user("boss", abilities=["manage_users"]))
         body = self.client.get("/api/v1/users/").json()
         by_name = {u["username"]: u for u in body["results"]}
         self.assertTrue(by_name["svc-ppc-server"]["is_service_account"])
@@ -129,7 +129,7 @@ class IntrospectionApiTests(APITestCase):
         self.assertEqual(self.introspect(key="wrong" * 10).status_code, 403)
 
     def test_session_login_is_not_enough(self):
-        self.client.force_authenticate(create_user("boss", is_staff=True))
+        self.client.force_authenticate(create_user("boss", abilities=["manage_users"]))
         self.assertEqual(self.introspect(key=None).status_code, 403)
 
     @override_settings(MCP_INTROSPECTION_KEY="")

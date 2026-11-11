@@ -150,3 +150,52 @@ class TesterFindingsTests(TestCase):
         self.assertEqual(role_label(create_user("aud", abilities=["view_audit_log"])), "Administrator")
         self.assertEqual(role_label(create_user("old", is_staff=True, abilities=[])), "Member")
         self.assertEqual(role_label(self.root), "Superuser")
+
+
+class SecondRoundTests(TestCase):
+    def setUp(self):
+        self.root = create_user("root", is_staff=True, is_superuser=True)
+        self.server = create_server()
+
+    def test_grant_form_only_for_people_who_manage_access(self):
+        bob = create_user("bob")
+        self.client.force_login(create_user("helper", abilities=["manage_users"]))
+        self.assertIsNone(self.client.get(reverse("frontend:user-detail", args=[bob.pk])).context["grant_form"])
+        self.client.force_login(self.root)
+        self.assertIsNotNone(self.client.get(reverse("frontend:user-detail", args=[bob.pk])).context["grant_form"])
+
+    def test_service_accounts_stop_at_connect(self):
+        from django.core.exceptions import ValidationError
+
+        from backend.services import access
+
+        from .factories import create_service_account
+
+        service = create_service_account()
+        with self.assertRaises(ValidationError):
+            access.grant_permission(server=self.server, user=service, level="admin", granted_by=self.root)
+        access.grant_permission(server=self.server, user=service, level="connect", granted_by=self.root)
+
+    def test_no_tokens_tab_for_external_mcps(self):
+        from backend.models import MCPServer
+
+        external = create_server("Ext", "ext", deployment_type=MCPServer.DeploymentType.EXTERNAL, endpoint="https://example.com/mcp")
+        self.client.force_login(self.root)
+        self.assertEqual(self.client.get(reverse("frontend:mcp-tokens", args=[external.pk])).status_code, 403)
+
+    def test_api_user_list_needs_manage_users(self):
+        self.client.force_login(create_user("ops", abilities=["manage_mcps"]))
+        self.assertEqual(self.client.get("/api/v1/users/").status_code, 403)
+        self.client.force_login(create_user("hr", abilities=["manage_users"]))
+        self.assertEqual(self.client.get("/api/v1/users/").status_code, 200)
+
+    def test_lifetime_tokens_can_be_switched_off(self):
+        from django.core.exceptions import ValidationError
+        from django.test import override_settings
+
+        alice = create_user("alice")
+        with override_settings(TOKEN_LIFETIME_ALLOWED="service_accounts"):
+            with self.assertRaises(ValidationError):
+                tokens.create_token(owner=alice, server=self.server, name="x", expires_in_days=tokens.NEVER_EXPIRES, created_by=alice)
+            self.client.force_login(alice)
+            self.assertNotContains(self.client.get(reverse("frontend:token-create")), "Never (lifetime)")

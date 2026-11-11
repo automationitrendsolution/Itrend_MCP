@@ -167,6 +167,11 @@ MCP_INTROSPECTION_KEY = os.getenv("MCP_INTROSPECTION_KEY", "")
 if MCP_INTROSPECTION_KEY and len(MCP_INTROSPECTION_KEY) < 32:
     raise ImproperlyConfigured("MCP_INTROSPECTION_KEY must be at least 32 characters.")
 
+# Who may create tokens that never expire: "all", "service_accounts" (programs only) or "none".
+TOKEN_LIFETIME_ALLOWED = env_str("TOKEN_LIFETIME_ALLOWED", default="all").strip().lower()
+if TOKEN_LIFETIME_ALLOWED not in {"all", "service_accounts", "none"}:
+    raise ImproperlyConfigured("TOKEN_LIFETIME_ALLOWED must be 'all', 'service_accounts' or 'none'.")
+
 # Your own MCPs: one folder each, containing an mcp.json file (see mcp_servers/README.md).
 MCP_SERVERS_DIR = Path(env_str("MCP_SERVERS_DIR", default=str(BASE_DIR / "mcp_servers")))
 # Output (stdout/stderr) of the MCPs the platform starts, one file per MCP.

@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import MCPServer
-from .permissions import IsAdministrator, MCPServerPermission, can_manage_mcps
+from .permissions import CanManageUsers, IsAdministrator, MCPServerPermission, can_manage_mcps
 from .serializers import (
     AccessTokenCreateSerializer,
     AccessTokenSerializer,
@@ -110,10 +110,10 @@ class AccessTokenViewSet(
 
 
 class UserListView(ListAPIView):
-    """GET /api/v1/users/  Administrators only. ?search= filters by name or email."""
+    """GET /api/v1/users/  People with "Manage users". ?search= filters by name or email."""
 
     serializer_class = UserSerializer
-    permission_classes = [IsAdministrator]
+    permission_classes = [CanManageUsers]
 
     def get_queryset(self):
         from .services.accounts import list_users

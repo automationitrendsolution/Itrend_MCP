@@ -63,3 +63,10 @@ class MCPServerPermission(BasePermission):
 class IsAdministrator(BasePermission):
     def has_permission(self, request, view) -> bool:
         return can_manage_mcps(request.user)
+
+
+class CanManageUsers(BasePermission):
+    """The "Manage users" ability (e.g. the API's user list)."""
+
+    def has_permission(self, request, view) -> bool:
+        return has_capability(request.user, "manage_users")

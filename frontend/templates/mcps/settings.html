@@ -20,8 +20,13 @@
   {% if can_delete %}
     <aside class="sb-col-4" aria-labelledby="removeLabel">
       <div class="sb-section-label" id="removeLabel">02 — Remove</div>
-      <p class="sb-note">Removes this MCP, its permissions and access tokens from the platform. This cannot be undone.</p>
-      <form method="post" action="{% url 'frontend:mcp-delete' server.pk %}" data-confirm="Remove {{ server.name }} from the platform? Its permissions and tokens are deleted too." data-confirm-action="Remove">
+      <p class="sb-note">
+        Removes this MCP from the platform, together with
+        <strong>{{ delete_counts.tokens }} active token{{ delete_counts.tokens|pluralize }}</strong> and
+        <strong>{{ delete_counts.permissions }} permission{{ delete_counts.permissions|pluralize }}</strong>.
+        {% if delete_counts.tokens %}Anything using those tokens stops working at once.{% endif %} This cannot be undone.
+      </p>
+      <form method="post" action="{% url 'frontend:mcp-delete' server.pk %}" data-confirm="Remove {{ server.name }}? {{ delete_counts.tokens }} active token{{ delete_counts.tokens|pluralize }} and {{ delete_counts.permissions }} permission{{ delete_counts.permissions|pluralize }} are deleted with it. This cannot be undone." data-confirm-action="Remove">
         {% csrf_token %}
         <button type="submit" class="btn btn-outline-danger btn-sm">Remove from the platform</button>
       </form>

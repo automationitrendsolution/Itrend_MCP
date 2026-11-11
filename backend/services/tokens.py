@@ -55,6 +55,15 @@ def list_tokens(*, user=None, server: MCPServer | None = None):
     return tokens
 
 
+def expiry_choices_for(owner) -> tuple[int, ...]:
+    """The expiry periods offered for this owner's tokens. Lifetime depends on TOKEN_LIFETIME_ALLOWED."""
+    from django.conf import settings
+
+    allowed = getattr(settings, "TOKEN_LIFETIME_ALLOWED", "all")
+    lifetime = allowed == "all" or (allowed == "service_accounts" and access.is_service_account(owner))
+    return tuple(days for days in EXPIRY_CHOICES_DAYS if days != NEVER_EXPIRES or lifetime)
+
+
 def can_create_for(actor, owner) -> bool:
     """People create their own tokens; administrators create tokens for service accounts."""
     if not actor.is_authenticated or not actor.is_active:
@@ -86,7 +95,9 @@ def create_token(*, owner, server: MCPServer, name: str, expires_in_days: int, c
     """
     if not can_create_for(created_by, owner):
         raise PermissionDenied("You cannot create tokens for this account.")
-    if expires_in_days not in EXPIRY_CHOICES_DAYS:
+    if expires_in_days not in expiry_choices_for(owner):
+        if expires_in_days == NEVER_EXPIRES:
+            raise ValidationError({"expires_in_days": "Tokens that never expire are switched off for this account."})
         raise ValidationError({"expires_in_days": "Choose one of the offered expiry periods."})
     if server.is_external:
         raise ValidationError(
