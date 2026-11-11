@@ -105,7 +105,7 @@
       <span class="app-avatar" aria-hidden="true">{{ user.get_username|first|upper }}</span>
       <span class="app-user-text">
         <strong>{{ user.get_full_name|default:user.get_username }}</strong>
-        <small>{% if user.is_superuser %}Superuser{% elif user.is_staff %}Platform administrator{% else %}Member{% endif %}</small>
+        <small>{{ user|role_label }}</small>
       </span>
       <i class="bi bi-gear" aria-hidden="true"></i>
     </a>

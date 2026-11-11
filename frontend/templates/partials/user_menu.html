@@ -1,4 +1,4 @@
-{# The signed-in person: profile, Django admin (administrators), sign out. #}
+{% load mcp_tags %}{# The signed-in person: profile, Django admin (administrators), sign out. #}
 <div class="dropdown">
   <button class="pg-user-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu for {{ user.get_username }}">
     <span class="app-avatar" aria-hidden="true">{{ user.get_username|first|upper }}</span>
@@ -9,7 +9,7 @@
     <li>
       <div class="px-2 py-1">
         <div class="fw-semibold small">{{ user.get_full_name|default:user.get_username }}</div>
-        <div class="small text-body-secondary">{% if user.is_superuser %}Superuser{% elif user.is_staff %}Platform administrator{% else %}Member{% endif %}</div>
+        <div class="small text-body-secondary">{{ user|role_label }}</div>
       </div>
     </li>
     <li><hr class="dropdown-divider"></li>

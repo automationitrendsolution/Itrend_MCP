@@ -71,7 +71,10 @@ def can_revoke(actor, token: AccessToken) -> bool:
 
     if not (actor.is_authenticated and actor.is_active):
         return False
-    return actor.pk == token.user_id or has_capability(actor, "manage_users")
+    if actor.pk == token.user_id or actor.is_superuser:
+        return True
+    # "Manage users" may stop other people's tokens, but not a superuser's.
+    return has_capability(actor, "manage_users") and not token.user.is_superuser
 
 
 @transaction.atomic
@@ -91,6 +94,9 @@ def create_token(*, owner, server: MCPServer, name: str, expires_in_days: int, c
         )
     if not access.can_connect(owner, server):
         raise ValidationError({"mcp_server": "This account does not have CONNECT permission on this MCP."})
+    if created_by.pk != owner.pk and not access.can_connect(created_by, server):
+        # Otherwise "Manage users" could borrow a service account's access to an MCP they cannot use.
+        raise ValidationError({"mcp_server": "You can only create service-account tokens for MCPs you can connect to yourself."})
     name = name.strip()
     if not name:
         raise ValidationError({"name": "Give the token a name so you can recognise it later."})
@@ -210,7 +216,7 @@ def introspect(raw_token: str, mcp_slug: str) -> Introspection:
         token_id=token.pk,
         token_prefix=token.token_prefix,
     )
-    return Introspection(True, token=token, level=access.effective_level(token.user, token.mcp_server))
+    return Introspection(True, token=token, level=access.connect_level(token.user, token.mcp_server))
 
 
 def _deny_reason(token: AccessToken, mcp_slug: str) -> str:

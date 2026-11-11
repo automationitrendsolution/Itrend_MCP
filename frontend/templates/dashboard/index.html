@@ -106,7 +106,7 @@
         <h2 class="mg-panel-title" id="serversTitle">MCP servers</h2>
         <p class="mg-panel-meta">The servers you can use, with their last 24 hours</p>
       </div>
-      <a href="{% url 'frontend:mcp-list' %}" class="mg-link">Open registry <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+      <a href="{% url 'frontend:mcp-list' %}" class="mg-link">{% if more_servers %}All {{ kpi.total }} in the registry{% else %}Open registry{% endif %} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
     </header>
     {% if lines %}
       <div class="table-responsive">

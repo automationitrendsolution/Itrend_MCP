@@ -38,9 +38,14 @@ def capabilities_of(user) -> dict:
     return {code: has_capability(user, code) for code in CAPABILITY_CODES}
 
 
-def sees_all_mcps(user) -> bool:
-    """People who run MCPs or manage access see every MCP and have Admin on it."""
+def administers_all_mcps(user) -> bool:
+    """People who run MCPs or manage access have Admin on every MCP (but connecting still needs a grant)."""
     return has_capability(user, "manage_mcps") or has_capability(user, "manage_access")
+
+
+def sees_all_mcps(user) -> bool:
+    """Every MCP is listed for administrators and for people who see monitoring."""
+    return administers_all_mcps(user) or has_capability(user, "view_monitoring")
 
 
 def can_manage_mcps(user) -> bool:

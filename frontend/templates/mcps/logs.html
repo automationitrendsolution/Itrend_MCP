@@ -1,7 +1,7 @@
 {% extends "mcps/base_mcp.html" %}
 
 {% block tab %}
-{% if is_admin %}
+{% if can_see_output %}
   <section class="card app-card mb-4" aria-labelledby="serverLogTitle">
     <div class="card-header">
       <h2 class="pg-card-title" id="serverLogTitle">Server log</h2>
@@ -36,6 +36,7 @@
   </section>
 {% endif %}
 
+{% if can_see_events %}
 <section class="card app-card" aria-labelledby="mcpActivityTitle">
   <div class="card-header"><h2 class="pg-card-title" id="mcpActivityTitle">Who did what on this MCP</h2></div>
   {% if events %}
@@ -48,4 +49,5 @@
     <div class="app-empty"><i class="bi bi-clock-history" aria-hidden="true"></i><p class="mb-0">Nothing has happened on this MCP yet.</p></div>
   {% endif %}
 </section>
+{% endif %}
 {% endblock %}

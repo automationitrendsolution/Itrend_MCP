@@ -106,6 +106,8 @@ def set_active(user, active: bool, *, changed_by) -> None:
     """
     if user.pk == changed_by.pk and not active:
         raise ValidationError("You cannot deactivate your own account.")
+    if user.is_superuser and not changed_by.is_superuser:
+        raise ValidationError("Only a superuser can turn a superuser's account on or off.")
     if user.is_active == active:
         return
     user.is_active = active

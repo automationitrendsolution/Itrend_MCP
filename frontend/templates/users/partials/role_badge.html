@@ -1,5 +1,6 @@
-{% comment %} An account's role. Parameter: account. {% endcomment %}
-{% if account.service_account %}<span class="badge text-bg-light"><i class="bi bi-robot" aria-hidden="true"></i>Service account</span>
-{% elif account.is_superuser %}<span class="badge text-bg-dark">Superuser</span>
-{% elif account.is_staff %}<span class="badge text-bg-primary">Administrator</span>
-{% else %}<span class="badge text-bg-light">Member</span>{% endif %}
+{% comment %} An account's role. Parameter: account. "Administrator" means at least one ability is on. {% endcomment %}
+{% load mcp_tags %}{% with role=account|role_label %}
+{% if role == "Service account" %}<span class="badge text-bg-light"><i class="bi bi-robot" aria-hidden="true"></i>Service account</span>
+{% elif role == "Superuser" %}<span class="badge text-bg-dark">Superuser</span>
+{% elif role == "Administrator" %}<span class="badge text-bg-primary">Administrator</span>
+{% else %}<span class="badge text-bg-light">Member</span>{% endif %}{% endwith %}

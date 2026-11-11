@@ -141,7 +141,9 @@ class GatewayTests(TestCase):
     def test_service_account_tokens_work(self):
         service = create_service_account()
         grant(service, self.server, PermissionLevel.CONNECT)
-        _, plaintext = create_token(service, self.server, created_by=create_user("boss", is_staff=True))
+        boss = create_user("boss", is_staff=True)
+        grant(boss, self.server, PermissionLevel.CONNECT)  # service-account tokens only for MCPs the creator can use
+        _, plaintext = create_token(service, self.server, created_by=boss)
         self.assertEqual(self.call(token=plaintext).status_code, 200)
         self.assertEqual(self.fake.requests[0].headers["x-itrend-user"], "svc-ppc-server")
 

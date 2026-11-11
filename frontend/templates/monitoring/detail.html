@@ -55,7 +55,11 @@
         Enforced now: request timeout and requests at the same time (by the gateway); automatic restarts and the memory limit (by the monitor).
         The CPU level only raises a warning. Hard operating-system limits come with containers.
       </div>
-      <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>Save settings</button>
+      {% if can_edit_settings %}
+        <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>Save settings</button>
+      {% else %}
+        <p class="small text-body-secondary mt-3 mb-0"><i class="bi bi-lock me-1" aria-hidden="true"></i>Only people who can run MCP servers can change these settings.</p>
+      {% endif %}
     </form>
   </div>
 </section>

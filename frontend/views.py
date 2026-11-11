@@ -28,7 +28,7 @@ from backend.models import (
     MCPServer,
     PermissionLevel,
 )
-from backend.permissions import CAPABILITIES, can_manage_mcps, capabilities_of, has_capability
+from backend.permissions import CAPABILITIES, CAPABILITY_CODES, can_manage_mcps, has_capability
 from backend.services import access, accounts, audit, catalog, mcplogs, monitoring, registry, runner, tokens, traffic
 from backend.services.health import check_platform
 
@@ -127,7 +127,9 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     """Overview. Every figure comes from the database or a real check; nothing is estimated."""
     user = request.user
     is_admin = can_manage_mcps(user)
-    servers = list(with_last_check(registry.list_servers(user)).order_by("name")[:OVERVIEW_SERVERS_SHOWN])
+    sees_health = is_admin or has_capability(user, "view_monitoring")
+    all_servers = list(with_last_check(registry.list_servers(user)).order_by("name"))
+    servers = all_servers[:OVERVIEW_SERVERS_SHOWN]
     context = {
         "counts": registry.get_counts(user),
         "active_user_count": get_user_model().objects.filter(is_active=True).count(),
@@ -136,7 +138,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "my_active_tokens": tokens.list_tokens(user=user).active().count(),
         "can_create_token": not access.is_service_account(user),
     }
-    if is_admin:
+    if sees_health:
         traffic_24h = traffic.totals()
         if traffic_24h["requests"]:
             traffic_24h["error_rate"] = round(100 * traffic_24h["errors"] / traffic_24h["requests"], 1)
@@ -147,8 +149,11 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 "activity": MCPActivityLog.objects.select_related("mcp_server")[:OVERVIEW_ACTIVITY_SHOWN],
             }
         )
-    context.update(_switchboard_overview(user, servers, is_admin, context.get("warnings", [])))
-    context.update(_graphite_overview(request, user, is_admin, context["lines"]))
+    # Counts, the health chart and the KPIs cover every MCP; the table lists the first few.
+    context.update(_switchboard_overview(user, all_servers, sees_health, context.get("warnings", [])))
+    context.update(_graphite_overview(request, user, sees_health, context["lines"]))
+    context["more_servers"] = max(len(context["lines"]) - OVERVIEW_SERVERS_SHOWN, 0)
+    context["lines"] = context["lines"][:OVERVIEW_SERVERS_SHOWN]
     return render(request, "dashboard/index.html", context)
 
 
@@ -346,7 +351,10 @@ def _mcp_page(request: HttpRequest, pk: int, tab: str) -> tuple[MCPServer, dict]
     level = access.effective_level(request.user, server)
     is_admin = can_manage_mcps(request.user)
     can_admin_server = access.can_admin(request.user, server)
+    can_see_output = has_capability(request.user, "view_monitoring")
     allowed_tabs = {"overview", "manual"} | ({"logs", "access"} if can_admin_server else set())
+    if can_see_output:
+        allowed_tabs.add("logs")
     if access.can_connect(request.user, server) and not access.is_service_account(request.user):
         allowed_tabs.add("tokens")
     if is_admin:
@@ -361,6 +369,8 @@ def _mcp_page(request: HttpRequest, pk: int, tab: str) -> tuple[MCPServer, dict]
         "level_help": PERMISSION_LEVEL_HELP[level],
         "is_admin": is_admin,
         "can_admin_server": can_admin_server,
+        "can_see_output": can_see_output,  # the MCP's own output (Logs tab): "See monitoring"
+        "can_see_events": can_admin_server or has_capability(request.user, "view_audit_log"),
         "manifest": catalog.manifest_for(server),
         "runtime": runner.get_state(server),
     }
@@ -389,9 +399,10 @@ def mcp_detail(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 def mcp_logs(request: HttpRequest, pk: int) -> HttpResponse:
     server, context = _mcp_page(request, pk, "logs")
-    if context["is_admin"]:
+    if context["can_see_output"]:
         context.update(_server_log_context(request, server, context["runtime"]))
-    context["events"] = MCPActivityLog.objects.filter(mcp_server=server).select_related("mcp_server")[:MCP_EVENTS_SHOWN]
+    if context["can_see_events"]:
+        context["events"] = MCPActivityLog.objects.filter(mcp_server=server).select_related("mcp_server")[:MCP_EVENTS_SHOWN]
     return render(request, "mcps/logs.html", context)
 
 
@@ -417,14 +428,14 @@ def _server_log_context(request: HttpRequest, server: MCPServer, runtime) -> dic
 @capability_required("view_monitoring")
 def mcp_log_output(request: HttpRequest, pk: int) -> HttpResponse:
     """HTMX partial: the MCP's output, refreshed every few seconds and when the filter changes."""
-    server = get_object_or_404(MCPServer, pk=pk)
+    server = visible_server_or_404(request, pk)
     return render(request, "mcps/partials/log_runs.html", _server_log_context(request, server, runner.get_state(server)))
 
 
 @capability_required("view_monitoring")
 def mcp_log_download(request: HttpRequest, pk: int) -> HttpResponse:
     """The complete raw output file, for troubleshooting."""
-    server = get_object_or_404(MCPServer, pk=pk)
+    server = visible_server_or_404(request, pk)
     path = runner.log_path(server)
     if not path.exists():
         raise Http404("No output yet.")
@@ -535,6 +546,9 @@ def token_create(request: HttpRequest, user_pk: int | None = None) -> HttpRespon
         raise PermissionDenied
 
     servers = access.connectable_servers(owner)
+    if owner.pk != request.user.pk:
+        # Service-account tokens only for MCPs the creator can use too (see tokens.create_token).
+        servers = [server for server in servers if access.can_connect(request.user, server)]
     initial = {}
     if request.GET.get("mcp", "").isdigit():
         initial["mcp_server"] = int(request.GET["mcp"])
@@ -703,6 +717,8 @@ def user_capability(request: HttpRequest, pk: int, code: str) -> HttpResponse:
     """Switch one ability on or off (superusers). HTMX swaps just that switch."""
     if not request.user.is_superuser:
         raise PermissionDenied
+    if code not in CAPABILITY_CODES:
+        raise Http404("Unknown ability.")
     account = get_object_or_404(get_user_model(), pk=pk)
     try:
         accounts.set_capability(account, code, request.POST.get("on") == "1", changed_by=request.user)
@@ -760,9 +776,9 @@ def service_account_create(request: HttpRequest) -> HttpResponse:
 ACTIVITY_KINDS = {
     "signins": ("Sign-ins", "bi-box-arrow-in-right", ["login", "login_failed", "logout"]),
     "connections": ("Connections", "bi-plug", ["mcp_connection"]),
-    "access": ("Access & tokens", "bi-key", ["permission_granted", "permission_revoked", "token_created", "token_revoked"]),
+    "access": ("Access & tokens", "bi-key", ["permission_granted", "permission_revoked", "token_created", "token_revoked", "token_deleted"]),
     "mcps": ("MCP servers", "bi-hdd-stack", ["mcp_created", "mcp_updated", "mcp_deleted", "mcp_started", "mcp_stopped"]),
-    "users": ("Users", "bi-people", ["user_activated", "user_deactivated", "service_account_created"]),
+    "users": ("Users", "bi-people", ["user_created", "user_activated", "user_deactivated", "capability_changed", "service_account_created"]),
 }
 
 
@@ -873,7 +889,13 @@ def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
     server = get_object_or_404(MCPServer, pk=pk)
     period = _monitor_range(request)
     limits = traffic.limits_for(server)
+    can_edit = can_manage_mcps(request.user)  # "See monitoring" alone is read-only
+    if request.method == "POST" and not can_edit:
+        raise PermissionDenied
     form = MonitorSettingsForm(request.POST or None, instance=limits)
+    if not can_edit:
+        for field in form.fields.values():
+            field.disabled = True
 
     if request.method == "POST" and form.is_valid():
         changed = form.changed_data
@@ -895,6 +917,7 @@ def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "hours": _traffic_rows(server, period["hours"]),
         "in_progress": traffic.in_progress(server),
         "form": form,
+        "can_edit_settings": can_edit,
         "worker_running": monitoring.worker_is_running(),
     }
     template = "monitoring/partials/detail_live.html" if request.htmx else "monitoring/detail.html"
@@ -1005,7 +1028,8 @@ TIMELINE_ICONS = {
     "mcp_created": "bi-plus-square", "mcp_updated": "bi-pencil-square", "mcp_deleted": "bi-trash3",
     "mcp_started": "bi-play-circle", "mcp_stopped": "bi-stop-circle",
     "permission_granted": "bi-shield-plus", "permission_revoked": "bi-shield-minus",
-    "token_created": "bi-key", "token_revoked": "bi-key", "mcp_connection": "bi-plug",
+    "token_created": "bi-key", "token_revoked": "bi-key", "token_deleted": "bi-trash3", "mcp_connection": "bi-plug",
+    "user_created": "bi-person-plus", "capability_changed": "bi-toggles",
     "user_activated": "bi-person-check", "user_deactivated": "bi-person-dash", "service_account_created": "bi-robot",
     "went_down": "bi-x-octagon", "unhealthy": "bi-heart-pulse", "recovered": "bi-heart-pulse",
     "auto_restarted": "bi-arrow-repeat", "restart_failed": "bi-arrow-repeat", "gave_up": "bi-pause-circle",

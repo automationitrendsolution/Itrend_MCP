@@ -61,7 +61,7 @@
         <a href="{% url 'frontend:token-list' %}" class="ms-auto small">{{ my_active_tokens }} active token{{ my_active_tokens|pluralize }}</a>
       </div>
       {% if caps.manage_mcps or caps.manage_access %}
-        <div class="pg-allgood"><i class="bi bi-shield-check text-success" aria-hidden="true"></i>You run MCPs or manage access, so you have Admin on every MCP.</div>
+        <div class="pg-allgood"><i class="bi bi-shield-check text-success" aria-hidden="true"></i>You run MCPs or manage access, so you can manage every MCP. To connect to one you still need Connect on it, or it must be open to all employees.</div>
       {% endif %}
       {% if my_permissions %}
         <div class="table-responsive">

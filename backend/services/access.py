@@ -3,10 +3,15 @@ Who may do what with an MCP server.
 
 Permission levels, lowest to highest: VIEW < CONNECT < MANAGE < ADMIN.
 A user's level on a server is the highest of:
-- ADMIN, for administrators (staff);
+- ADMIN, for people with the "Run MCP servers" or "Manage MCP access" ability;
+- VIEW, for people with the "See monitoring" ability;
 - CONNECT, for people (not service accounts) when the server is open to all employees;
 - the level explicitly granted to them (MCPPermission).
 Inactive users have no access at all.
+
+Connecting (tokens, the gateway) is stricter: abilities do not count, only the
+level granted on that MCP or the all-employees policy (see connect_level).
+Superusers can connect everywhere.
 """
 
 import logging
@@ -28,14 +33,8 @@ def is_service_account(user) -> bool:
     return hasattr(user, "service_account")
 
 
-def effective_level(user, server: MCPServer) -> str | None:
-    """The user's permission level on the server, or None for no access."""
-    if user is None or not user.is_authenticated or not user.is_active:
-        return None
-    from backend.permissions import sees_all_mcps
-
-    if sees_all_mcps(user):
-        return Level.ADMIN
+def _granted_level(user, server: MCPServer) -> str | None:
+    """The level from an explicit permission or the all-employees policy. Abilities are not counted."""
     candidates = [
         MCPPermission.objects.filter(user=user, mcp_server=server).values_list("permission_level", flat=True).first()
     ]
@@ -43,6 +42,36 @@ def effective_level(user, server: MCPServer) -> str | None:
         candidates.append(Level.CONNECT)
     best = max(candidates, key=Level.rank)
     return best if Level.rank(best) else None
+
+
+def _active(user) -> bool:
+    return user is not None and user.is_authenticated and user.is_active
+
+
+def effective_level(user, server: MCPServer) -> str | None:
+    """The user's permission level on the server (for pages and management), or None for no access."""
+    if not _active(user):
+        return None
+    from backend.permissions import administers_all_mcps, has_capability
+
+    if administers_all_mcps(user):
+        return Level.ADMIN
+    level = _granted_level(user, server)
+    if has_capability(user, "view_monitoring") and Level.rank(level) < Level.rank(Level.VIEW):
+        return Level.VIEW
+    return level
+
+
+def connect_level(user, server: MCPServer) -> str | None:
+    """
+    The level that counts when connecting (tokens and the gateway). Platform abilities do not give
+    data access: someone who manages access must grant themselves Connect like anyone else.
+    """
+    if not _active(user):
+        return None
+    if user.is_superuser:
+        return Level.ADMIN
+    return _granted_level(user, server)
 
 
 def has_level(user, server: MCPServer, level: str) -> bool:
@@ -54,7 +83,8 @@ def can_view(user, server: MCPServer) -> bool:
 
 
 def can_connect(user, server: MCPServer) -> bool:
-    return has_level(user, server, Level.CONNECT)
+    """Generate tokens for the MCP and use it through the gateway."""
+    return Level.rank(connect_level(user, server)) >= Level.rank(Level.CONNECT)
 
 
 def can_manage(user, server: MCPServer) -> bool:

@@ -2,6 +2,20 @@ from django import template
 
 register = template.Library()
 
+
+@register.filter
+def role_label(account) -> str:
+    """Service account, Superuser, Administrator (any platform ability switched on) or Member."""
+    from backend.permissions import CAPABILITY_CODES, has_capability
+
+    if hasattr(account, "service_account"):
+        return "Service account"
+    if account.is_superuser:
+        return "Superuser"
+    if any(has_capability(account, code) for code in CAPABILITY_CODES):
+        return "Administrator"
+    return "Member"
+
 BADGE_CLASSES = {
     # MCP server status
     "running": "text-bg-success",
