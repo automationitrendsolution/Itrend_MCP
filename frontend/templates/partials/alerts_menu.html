@@ -1,0 +1,21 @@
+{% comment %} Notifications for administrators: monitoring warnings and errors of the last 24 hours (real events only). {% endcomment %}
+{% if caps.view_monitoring %}
+<div class="dropdown">
+  <button class="pg-icon-btn pg-bell" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+          aria-label="Alerts{% if alert_count %}: {{ alert_count }} in the last 24 hours{% endif %}" title="Alerts">
+    <i class="bi bi-bell" aria-hidden="true"></i>
+    {% if alert_count %}<span class="pg-bell-count" aria-hidden="true">{% if alert_count > 9 %}9+{% else %}{{ alert_count }}{% endif %}</span>{% endif %}
+  </button>
+  <div class="dropdown-menu dropdown-menu-end pg-alerts">
+    <div class="pg-alerts-head">Alerts · last 24 hours<a href="{% url 'frontend:monitoring' %}">Monitoring</a></div>
+    {% for event in alerts %}
+      <a class="pg-alert" href="{% url 'frontend:monitoring-detail' event.mcp_server_id %}">
+        <i class="bi {% if event.level == 'error' %}bi-x-octagon text-danger{% else %}bi-exclamation-triangle text-warning{% endif %}" aria-hidden="true"></i>
+        <span><strong>{{ event.mcp_server.name }}</strong> · {{ event.get_kind_display }}<small>{{ event.created_at|timesince }} ago</small></span>
+      </a>
+    {% empty %}
+      <div class="pg-alerts-empty"><i class="bi bi-check-circle text-success me-1" aria-hidden="true"></i>No alerts in the last 24 hours.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

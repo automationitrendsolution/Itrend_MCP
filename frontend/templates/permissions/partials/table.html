@@ -18,7 +18,7 @@
           <tr>
             {% if show_user %}
               <td>
-                {% if user.is_staff %}<a href="{% url 'frontend:user-detail' permission.user.pk %}" class="text-decoration-none">{{ permission.user.get_username }}</a>
+                {% if caps.manage_users %}<a href="{% url 'frontend:user-detail' permission.user.pk %}" class="text-decoration-none">{{ permission.user.get_username }}</a>
                 {% else %}{{ permission.user.get_username }}{% endif %}
                 {% if permission.user.service_account %}<span class="badge text-bg-light border ms-1">Service</span>{% endif %}
                 {% if not permission.user.is_active %}<span class="badge text-bg-secondary ms-1">Inactive</span>{% endif %}

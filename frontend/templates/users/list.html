@@ -5,8 +5,8 @@
 {% block page_description %}People and service accounts, whether they can sign in, and how many MCP permissions they hold.{% endblock %}
 
 {% block page_actions %}
-  <a href="{% url 'admin:auth_user_add' %}" class="btn btn-outline-secondary" title="New people are added in the Django admin for now"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Add person</a>
-  <a href="{% url 'frontend:service-account-create' %}" class="btn btn-primary"><i class="bi bi-robot me-1" aria-hidden="true"></i>Add service account</a>
+  <a href="{% url 'frontend:service-account-create' %}" class="btn btn-outline-secondary"><i class="bi bi-robot me-1" aria-hidden="true"></i>Add service account</a>
+  <a href="{% url 'frontend:user-create' %}" class="btn btn-primary"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Add user</a>
 {% endblock %}
 
 {% block content %}

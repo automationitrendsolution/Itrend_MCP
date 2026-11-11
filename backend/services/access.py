@@ -32,7 +32,9 @@ def effective_level(user, server: MCPServer) -> str | None:
     """The user's permission level on the server, or None for no access."""
     if user is None or not user.is_authenticated or not user.is_active:
         return None
-    if user.is_staff:
+    from backend.permissions import sees_all_mcps
+
+    if sees_all_mcps(user):
         return Level.ADMIN
     candidates = [
         MCPPermission.objects.filter(user=user, mcp_server=server).values_list("permission_level", flat=True).first()

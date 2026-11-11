@@ -27,10 +27,13 @@ class MCPActivityLog(models.Model):
         PERMISSION_REVOKED = "permission_revoked", "Permission removed"
         TOKEN_CREATED = "token_created", "Token created"
         TOKEN_REVOKED = "token_revoked", "Token revoked"
+        TOKEN_DELETED = "token_deleted", "Token deleted"
         MCP_CONNECTION = "mcp_connection", "MCP connection"
         USER_ACTIVATED = "user_activated", "User activated"
         USER_DEACTIVATED = "user_deactivated", "User deactivated"
         SERVICE_ACCOUNT_CREATED = "service_account_created", "Service account created"
+        USER_CREATED = "user_created", "User created"
+        CAPABILITY_CHANGED = "capability_changed", "Ability changed"
 
     class Result(models.TextChoices):
         SUCCESS = "success", "Success"

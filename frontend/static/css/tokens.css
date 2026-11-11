@@ -1,166 +1,195 @@
 /*
- * PRECISION GRAPHITE — design tokens.
+ * iTrend MCP Platform design tokens: MODERN GRAPHITE.
+ * Gray is the identity. Accents are used with intent:
+ *   lavender   selection, primary actions, links
+ *   teal       healthy systems, positive states, the main chart series
+ *   champagne  rare premium details (avatar ring, highlights)
+ *   red        errors only; green for genuine success only
  *
- * Every colour, size, radius and font in the interface comes from here.
- * Components (app.css) only use these variables, never raw values, so both
- * themes stay consistent.
- *
- * The theme is chosen by the data-bs-theme attribute on <html>, set before the
- * page is drawn by the small script in base.html ("light", "dark", or the
- * computer's setting when the user picked "system").
- *
- * Contrast (WCAG 2.2 AA, 4.5:1 for normal text) was checked for every text
- * colour on the backgrounds it is used on. Where a palette colour falls just
- * short as *text*, a deeper "-text" variant is used for text and the original
- * stays for fills, borders and icons:
- *   light  secondary text #737A80 → #6A7177   accent text #697A59 → #5A6A4B
- *          success/warning/danger/info text on tinted backgrounds deepened
- *   dark   muted text #7F8993 → #8A939C
- * --pg-text-3 (muted) is for decoration, placeholders and disabled states only.
+ * Contrast (WCAG 2.2 AA, 4.5:1 for normal text) checked for every text colour on the
+ * surfaces it sits on; values from the brief were nudged where they fell short
+ * (e.g. light-mode muted text is #828B92, not #969FA5, wherever it carries words).
  */
 
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("../vendor/fonts/inter-latin-wght-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  font-style: normal;
-  font-weight: 100 800;
-  font-display: swap;
-  src: url("../vendor/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
-}
+@font-face { font-family: "Manrope"; font-style: normal; font-weight: 200 800; font-display: swap; src: url("../vendor/fonts/manrope-latin-wght-normal.woff2") format("woff2-variations"), url("../vendor/fonts/manrope-latin-wght-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../vendor/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("../vendor/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); }
 
 /* ---------------------------------------------------------------------------
  * Theme-independent tokens
  * ------------------------------------------------------------------------- */
 :root {
-  --pg-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --pg-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --pg-font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pg-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --pg-font-display: var(--pg-font-sans);
 
-  /* Type scale (px values from the brief, in rem at 16px) */
-  --pg-fs-page: 1.75rem;     /* 28px  page heading */
-  --pg-fs-section: 1rem;     /* 16px  section heading */
-  --pg-fs-body: .875rem;     /* 14px  body */
-  --pg-fs-small: .75rem;     /* 12px  supporting text */
-  --pg-fs-meta: .6875rem;    /* 11px  metadata, table headings */
+  /* Type */
+  --pg-fs-page: 1.6875rem;   /* 27px page title, 700 */
+  --pg-fs-section: 1rem;     /* 16px section title, 600 */
+  --pg-fs-panel: .875rem;    /* 14px panel title, 600 */
+  --pg-fs-body: .8125rem;    /* 13px */
+  --pg-fs-small: .75rem;     /* 12px */
+  --pg-fs-meta: .6875rem;    /* 11px */
   --pg-lh: 1.5;
 
-  /* Spacing scale: 4 8 12 16 20 24 32 40 */
+  /* 4px grid */
   --pg-s1: .25rem; --pg-s2: .5rem; --pg-s3: .75rem; --pg-s4: 1rem;
   --pg-s5: 1.25rem; --pg-s6: 1.5rem; --pg-s7: 2rem; --pg-s8: 2.5rem;
 
-  /* Shapes */
-  --pg-r-xs: 4px;            /* badges, inline code */
-  --pg-r-sm: 6px;            /* inputs, buttons */
-  --pg-r: 8px;               /* small panels, menus */
-  --pg-r-lg: 10px;           /* large panels */
+  /* Shape */
+  --pg-r-xs: 4px;
+  --pg-r-sm: 7px;
+  --pg-r: 10px;
+  --pg-r-lg: 12px;
 
   /* Layout */
-  --pg-sidebar-w: 248px;
-  --pg-sidebar-w-collapsed: 60px;
-  --pg-header-h: 52px;
+  --pg-sidebar-w: 240px;
+  --pg-sidebar-w-collapsed: 66px;
+  --pg-header-h: 56px;
   --pg-content-max: 1440px;
 
-  --pg-transition: 120ms ease;
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 140ms;
+  --dur-base: 200ms;
+  --dur-slow: 420ms;
+  --pg-transition: var(--dur-fast) var(--ease-out);
+
+  /* The sidebar is graphite in both themes */
+  --pg-nav-bg: #2C353B;
+  --pg-nav-raised: #35434A;
+  --pg-nav-border: rgba(255, 255, 255, .07);
+  --pg-nav-text: #C9D0D5;
+  --pg-nav-text-2: #8E9AA2;
+  --pg-nav-strong: #F4F5F6;
+  --pg-nav-accent: #B9A8E0;
 }
 
 /* ---------------------------------------------------------------------------
- * Light theme (also the fallback without JavaScript)
+ * Light. Also the fallback without JavaScript.
  * ------------------------------------------------------------------------- */
 :root,
 html[data-bs-theme="light"] {
   color-scheme: light;
 
-  --pg-bg: #F6F6F3;
-  --pg-sidebar: #EEEEEA;
+  --pg-bg: #F3F4F5;
+  --pg-sidebar: var(--pg-nav-bg);
+  --pg-panel: #FFFFFF;
   --pg-surface: #FFFFFF;
-  --pg-surface-2: #F1F2EF;
-  --pg-surface-hover: #F4F5F2;
-  --pg-text: #20242A;
-  --pg-text-2: #6A7177;
-  --pg-text-3: #969DA2;
-  --pg-border: #E1E3DF;
-  --pg-border-strong: #CDD1CB;
+  --pg-surface-2: #F7F7F8;
+  --pg-surface-hover: #F4F4F6;
+  --pg-raised: #FFFFFF;
+  --pg-text: #252B30;
+  --pg-text-2: #5F6A73;
+  --pg-text-3: #828B92;
+  --pg-border: #E2E5E8;
+  --pg-border-strong: #D3D8DC;
 
-  --pg-accent: #697A59;
-  --pg-accent-hover: #5B6B4C;
-  --pg-accent-text: #5A6A4B;
-  --pg-accent-soft: #ECEFE7;
-  --pg-accent-border: #C9D2BE;
+  --pg-signal: #7865A8;          /* lavender: selection and key interactive elements */
+  --pg-accent: #6E5BA0;          /* button fill (white text 6.0:1) */
+  --pg-accent-hover: #604E8F;
+  --pg-accent-text: #65529A;
+  --pg-accent-soft: #EEEAF6;
+  --pg-accent-border: #D8CFEA;
+  --pg-accent-2: #398F88;
   --pg-on-accent: #FFFFFF;
 
-  --pg-success: #347A57;  --pg-success-text: #2C6A4B;  --pg-success-soft: #E7F1EA;  --pg-success-border: #C3DCCB;
-  --pg-warning: #A77532;  --pg-warning-text: #8A6127;  --pg-warning-soft: #F7EFE1;  --pg-warning-border: #E6D2AE;
-  --pg-danger:  #B34F4F;  --pg-danger-text:  #9E4343;  --pg-danger-soft:  #F7E9E8;  --pg-danger-border:  #E7C4C3;
-  --pg-info:    #587C9C;  --pg-info-text:    #46667F;  --pg-info-soft:    #E8EFF5;  --pg-info-border:    #C4D4E2;
-  --pg-neutral-text: #4F565C; --pg-neutral-soft: #EEEFEC; --pg-neutral-border: #DADDD8;
+  --pg-teal: #398F88;  --pg-teal-text: #2D7670;  --pg-teal-soft: #DDEEEB;
+  --pg-champagne: #C5A879;  --pg-champagne-text: #8A6F43;  --pg-champagne-soft: #F4EBDD;
 
-  --pg-code-bg: #F1F2EF;
-  --pg-log-bg: #FAFAF8;
-  --pg-focus: rgba(105, 122, 89, .35);
-  --pg-shadow-sm: 0 1px 2px rgba(32, 36, 42, .05);
-  --pg-shadow-md: 0 4px 16px rgba(32, 36, 42, .08), 0 1px 3px rgba(32, 36, 42, .06);
-  --pg-overlay: rgba(32, 36, 42, .35);
+  --pg-success: #39845E;  --pg-success-text: #2F6F4F;  --pg-success-soft: #E1F0E7;  --pg-success-border: #BCDCC9;
+  --pg-warning: #B98135;  --pg-warning-text: #8C5F22;  --pg-warning-soft: #F7ECDC;  --pg-warning-border: #E7CFA9;
+  --pg-danger:  #C45151;  --pg-danger-text:  #A93F3F;  --pg-danger-soft:  #F8E3E3;  --pg-danger-border:  #EBC0C0;
+  --pg-info:    #587C9C;  --pg-info-text:    #4A6A86;  --pg-info-soft:    #E4ECF3;  --pg-info-border:    #C7D6E3;
+  --pg-neutral-text: #4E5860; --pg-neutral-soft: #EEF0F2; --pg-neutral-border: #DADEE2;
 
-  /* RGB triplets for Bootstrap utilities such as .text-success */
-  --pg-accent-text-rgb: 90, 106, 75;
-  --pg-success-text-rgb: 44, 106, 75;
-  --pg-warning-text-rgb: 138, 97, 39;
-  --pg-danger-text-rgb: 158, 67, 67;
-  --pg-info-text-rgb: 70, 102, 127;
-  --pg-text-rgb: 32, 36, 42;
-  --pg-text-2-rgb: 106, 113, 119;
+  --pg-code-bg: #F7F7F8;
+  --pg-log-bg: #F7F7F8;
+  --pg-focus: #7865A8;
+  --pg-highlight: rgba(255, 255, 255, 0);
+  --pg-shadow-sm: 0 1px 2px rgba(37, 43, 48, .04), 0 1px 3px rgba(37, 43, 48, .04);
+  --pg-shadow-md: 0 12px 32px -10px rgba(37, 43, 48, .18), 0 2px 6px rgba(37, 43, 48, .05);
+  --pg-overlay: rgba(37, 43, 48, .28);
+  --pg-glass: #F3F4F5;
+  --pg-ambient-1: rgba(120, 101, 168, .07);
+  --pg-ambient-2: rgba(57, 143, 136, .05);
+  --pg-chart-1: #398F88;
+  --pg-chart-2: #7865A8;
+  --pg-chart-fail: #C45151;
+  --pg-chart-grid: #ECEEF0;
+
+  --pg-accent-text-rgb: 101, 82, 154;
+  --pg-success-text-rgb: 47, 111, 79;
+  --pg-warning-text-rgb: 140, 95, 34;
+  --pg-danger-text-rgb: 169, 63, 63;
+  --pg-info-text-rgb: 74, 106, 134;
+  --pg-text-rgb: 37, 43, 48;
+  --pg-text-2-rgb: 95, 106, 115;
 }
 
 /* ---------------------------------------------------------------------------
- * Dark theme — designed separately, not inverted: warmer graphite surfaces
- * that step *up* in lightness, a lighter sage, softened semantic colours.
+ * Dark
  * ------------------------------------------------------------------------- */
 html[data-bs-theme="dark"] {
   color-scheme: dark;
 
-  --pg-bg: #171A1E;
-  --pg-sidebar: #1D2126;
-  --pg-surface: #22272D;
-  --pg-surface-2: #292F36;
-  --pg-surface-hover: #272C33;
-  --pg-text: #F1F2EF;
-  --pg-text-2: #A5ADB5;
-  --pg-text-3: #8A939C;
-  --pg-border: #353B42;
-  --pg-border-strong: #444B53;
+  --pg-nav-bg: #11161B;
+  --pg-nav-raised: #1C232A;
 
-  --pg-accent: #B6C4A2;
-  --pg-accent-hover: #C5D1B4;
-  --pg-accent-text: #B6C4A2;
-  --pg-accent-soft: rgba(182, 196, 162, .13);
-  --pg-accent-border: rgba(182, 196, 162, .32);
-  --pg-on-accent: #171A1E;
+  --pg-bg: #171B20;
+  --pg-sidebar: var(--pg-nav-bg);
+  --pg-panel: #20262D;
+  --pg-surface: #20262D;
+  --pg-surface-2: #252D35;
+  --pg-surface-hover: #262E36;
+  --pg-raised: #2C353E;
+  --pg-text: #F0F2F3;
+  --pg-text-2: #B0BAC1;
+  --pg-text-3: #85919A;
+  --pg-border: #323C45;
+  --pg-border-strong: #3E4A54;
 
-  --pg-success: #80B894;  --pg-success-text: #80B894;  --pg-success-soft: rgba(128, 184, 148, .13);  --pg-success-border: rgba(128, 184, 148, .32);
-  --pg-warning: #D7B77D;  --pg-warning-text: #D7B77D;  --pg-warning-soft: rgba(215, 183, 125, .13);  --pg-warning-border: rgba(215, 183, 125, .32);
-  --pg-danger:  #E28C8C;  --pg-danger-text:  #E28C8C;  --pg-danger-soft:  rgba(226, 140, 140, .13);  --pg-danger-border:  rgba(226, 140, 140, .32);
-  --pg-info:    #91B4D1;  --pg-info-text:    #91B4D1;  --pg-info-soft:    rgba(145, 180, 209, .13);  --pg-info-border:    rgba(145, 180, 209, .32);
-  --pg-neutral-text: #C3C9CE; --pg-neutral-soft: rgba(165, 173, 181, .12); --pg-neutral-border: rgba(165, 173, 181, .26);
+  --pg-signal: #A18BCB;
+  --pg-accent: #A18BCB;
+  --pg-accent-hover: #B19EDA;
+  --pg-accent-text: #B7A5DC;
+  --pg-accent-soft: rgba(161, 139, 203, .16);
+  --pg-accent-border: rgba(161, 139, 203, .36);
+  --pg-accent-2: #68BDB1;
+  --pg-on-accent: #171B20;       /* ink on lavender: 6.9:1 */
 
-  --pg-code-bg: #1C2025;
-  --pg-log-bg: #1E2228;
-  --pg-focus: rgba(182, 196, 162, .4);
+  --pg-teal: #68BDB1;  --pg-teal-text: #7CCABF;  --pg-teal-soft: rgba(104, 189, 177, .14);
+  --pg-champagne: #D1B78F;  --pg-champagne-text: #D9C29E;  --pg-champagne-soft: rgba(209, 183, 143, .14);
+
+  --pg-success: #70B58B;  --pg-success-text: #82C29B;  --pg-success-soft: rgba(112, 181, 139, .14);  --pg-success-border: rgba(112, 181, 139, .34);
+  --pg-warning: #D7B477;  --pg-warning-text: #DDBE88;  --pg-warning-soft: rgba(215, 180, 119, .14);  --pg-warning-border: rgba(215, 180, 119, .34);
+  --pg-danger:  #DC8580;  --pg-danger-text:  #E39893;  --pg-danger-soft:  rgba(220, 133, 128, .14);  --pg-danger-border:  rgba(220, 133, 128, .36);
+  --pg-info:    #91B4C8;  --pg-info-text:    #A3C0D1;  --pg-info-soft:    rgba(145, 180, 200, .14);  --pg-info-border:    rgba(145, 180, 200, .32);
+  --pg-neutral-text: #C3CBD1; --pg-neutral-soft: rgba(240, 242, 243, .06); --pg-neutral-border: rgba(240, 242, 243, .12);
+
+  --pg-code-bg: #1B2127;
+  --pg-log-bg: #13181D;
+  --pg-focus: #A18BCB;
+  --pg-highlight: rgba(255, 255, 255, .03);
   --pg-shadow-sm: 0 1px 2px rgba(0, 0, 0, .25);
-  --pg-shadow-md: 0 8px 24px rgba(0, 0, 0, .35), 0 1px 3px rgba(0, 0, 0, .3);
-  --pg-overlay: rgba(8, 10, 12, .6);
+  --pg-shadow-md: 0 16px 40px -12px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .25);
+  --pg-overlay: rgba(0, 0, 0, .45);
+  --pg-glass: #171B20;
+  --pg-ambient-1: rgba(161, 139, 203, .07);
+  --pg-ambient-2: rgba(104, 189, 177, .045);
+  --pg-chart-1: #68BDB1;
+  --pg-chart-2: #A18BCB;
+  --pg-chart-fail: #DC8580;
+  --pg-chart-grid: #2A333B;
 
-  --pg-accent-text-rgb: 182, 196, 162;
-  --pg-success-text-rgb: 128, 184, 148;
-  --pg-warning-text-rgb: 215, 183, 125;
-  --pg-danger-text-rgb: 226, 140, 140;
-  --pg-info-text-rgb: 145, 180, 209;
-  --pg-text-rgb: 241, 242, 239;
-  --pg-text-2-rgb: 165, 173, 181;
+  --pg-accent-text-rgb: 183, 165, 220;
+  --pg-success-text-rgb: 130, 194, 155;
+  --pg-warning-text-rgb: 221, 190, 136;
+  --pg-danger-text-rgb: 227, 152, 147;
+  --pg-info-text-rgb: 163, 192, 209;
+  --pg-text-rgb: 240, 242, 243;
+  --pg-text-2-rgb: 176, 186, 193;
 }
 
 /* ---------------------------------------------------------------------------
@@ -201,7 +230,7 @@ html[data-bs-theme="dark"] {
   --bs-border-radius-sm: var(--pg-r-xs);
   --bs-border-radius-lg: var(--pg-r);
   --bs-border-radius-xl: var(--pg-r-lg);
-  --bs-focus-ring-color: var(--pg-focus);
+  --bs-focus-ring-color: color-mix(in srgb, var(--pg-focus) 25%, transparent);
   --bs-focus-ring-width: 3px;
 
   --bs-primary-rgb: var(--pg-accent-text-rgb);

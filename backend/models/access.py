@@ -52,6 +52,24 @@ class MCPPermission(models.Model):
         return f"{self.user} – {self.get_permission_level_display()} on {self.mcp_server}"
 
 
+class PlatformCapability(models.Model):
+    """
+    Not a table. Holds the platform abilities a superuser switches on or off per user
+    (see backend/permissions.py CAPABILITIES). Stored as Django permissions.
+    """
+
+    class Meta:
+        managed = False
+        default_permissions = ()
+        permissions = [
+            ("manage_mcps", "Run MCP servers"),
+            ("manage_access", "Manage MCP access"),
+            ("view_monitoring", "See monitoring"),
+            ("manage_users", "Manage users"),
+            ("view_audit_log", "See the audit log"),
+        ]
+
+
 class ServiceAccount(models.Model):
     """
     A non-human identity, such as the PPC server.
@@ -77,7 +95,9 @@ class ServiceAccount(models.Model):
 
 class AccessTokenQuerySet(models.QuerySet):
     def active(self):
-        return self.filter(revoked_at__isnull=True, expires_at__gt=timezone.now())
+        return self.filter(revoked_at__isnull=True).filter(
+            models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
+        )
 
 
 class AccessToken(models.Model):
@@ -102,7 +122,7 @@ class AccessToken(models.Model):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(null=True, blank=True, help_text="Empty: the token never expires.")
     revoked_at = models.DateTimeField(null=True, blank=True)
     revoked_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
@@ -126,7 +146,7 @@ class AccessToken(models.Model):
     def state(self) -> str:
         if self.revoked_at:
             return self.State.REVOKED
-        if self.expires_at <= timezone.now():
+        if self.expires_at is not None and self.expires_at <= timezone.now():
             return self.State.EXPIRED
         return self.State.ACTIVE
 

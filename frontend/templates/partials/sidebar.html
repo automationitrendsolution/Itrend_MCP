@@ -1,4 +1,4 @@
-{% with current=request.resolver_match.view_name section=nav_section.key %}
+{% load mcp_tags %}{% with current=request.resolver_match.view_name section=nav_section.key %}
 {% comment %} Main navigation. Only real pages are listed; groups an account may not use are not shown
    (the server checks permissions on every page as well). Collapsible on desktop: data-tooltip
    holds the label shown when only icons are visible.{% endcomment %}
@@ -6,7 +6,7 @@
   <div class="app-brand">
     <a class="app-brand-link" href="{% url 'frontend:dashboard' %}" aria-label="iTrend Solution MCP Platform – Overview">
       {% include "partials/brand.html" %}
-      <span class="app-brand-product app-nav-label">MCP Platform</span>
+      <span class="app-brand-product app-nav-label"><strong>MCP Control Center</strong><small>Manage · Connect · Monitor</small></span>
     </a>
     <button type="button" class="btn-close d-lg-none ms-auto" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Close navigation"></button>
   </div>
@@ -35,9 +35,10 @@
         {% for mcp in sidebar_mcps %}
           <a class="app-subnav-link {% if mcp.pk == sidebar_mcp_pk %}active{% endif %}" href="{% url 'frontend:mcp-detail' mcp.pk %}"
              {% if mcp.pk == sidebar_mcp_pk %}aria-current="page"{% endif %}>
-            <span class="app-dot app-dot--{{ mcp.status }}" aria-hidden="true"></span>
+            {% mcp_status mcp as st %}
+            <span class="pg-status-dot pg-status--{{ st.key }}" title="{{ st.word }} — {{ st.reason }}" aria-hidden="true"></span>
             <span class="text-truncate">{{ mcp.name }}</span>
-            <span class="visually-hidden">({{ mcp.get_status_display }})</span>
+            <span class="visually-hidden">({{ st.word }})</span>
           </a>
         {% empty %}
           <div class="app-subnav-empty">No MCPs yet</div>
@@ -50,32 +51,64 @@
       <i class="bi bi-key" aria-hidden="true"></i><span class="app-nav-label">Access Tokens</span>
     </a>
 
-    {% if user.is_staff %}
+    {% if caps.view_monitoring %}
       <div class="app-nav-section">Infrastructure</div>
       <a class="app-nav-link {% if section == 'monitoring' %}active{% endif %}" href="{% url 'frontend:monitoring' %}" data-tooltip="Monitoring"
          {% if current == 'frontend:monitoring' %}aria-current="page"{% endif %}>
         <i class="bi bi-activity" aria-hidden="true"></i><span class="app-nav-label">Monitoring</span>
       </a>
 
+    {% endif %}
+
+    {% if caps.manage_users or caps.manage_access or caps.view_audit_log %}
       <div class="app-nav-section">Governance</div>
+      {% if caps.manage_users %}
       <a class="app-nav-link {% if section == 'users' %}active{% endif %}" href="{% url 'frontend:user-list' %}" data-tooltip="Users"
          {% if current == 'frontend:user-list' %}aria-current="page"{% endif %}>
         <i class="bi bi-people" aria-hidden="true"></i><span class="app-nav-label">Users</span>
       </a>
+      {% endif %}
+      {% if caps.manage_access %}
       <a class="app-nav-link {% if section == 'permissions' %}active{% endif %}" href="{% url 'frontend:permission-list' %}" data-tooltip="Permissions"
          {% if current == 'frontend:permission-list' %}aria-current="page"{% endif %}>
         <i class="bi bi-shield-check" aria-hidden="true"></i><span class="app-nav-label">Permissions</span>
       </a>
+      {% endif %}
+      {% if caps.view_audit_log %}
       <a class="app-nav-link {% if section == 'audit' %}active{% endif %}" href="{% url 'frontend:activity-list' %}" data-tooltip="Audit Logs"
          {% if current == 'frontend:activity-list' %}aria-current="page"{% endif %}>
         <i class="bi bi-journal-text" aria-hidden="true"></i><span class="app-nav-label">Audit Logs</span>
       </a>
+      {% endif %}
 
+    {% endif %}
+
+    {% if user.is_staff %}
+      {% comment %} Django's own admin site needs the "staff" flag, not a platform ability. {% endcomment %}
       <div class="app-nav-section">Administration</div>
-      <a class="app-nav-link" href="{% url 'admin:index' %}" data-tooltip="Django admin">
+      {% comment %} The Django admin has its own (blue) design, so it opens in a new tab and says so. {% endcomment %}
+      <a class="app-nav-link" href="{% url 'admin:index' %}" target="_blank" rel="noopener" data-tooltip="Django admin (opens a new tab)">
         <i class="bi bi-sliders" aria-hidden="true"></i><span class="app-nav-label">Django admin</span>
+        <i class="bi bi-box-arrow-up-right app-nav-ext" aria-hidden="true"></i><span class="visually-hidden">(opens in a new tab)</span>
       </a>
     {% endif %}
   </nav>
+
+  <div class="app-sidebar-foot">
+    {% if sidebar_platform %}
+      <a class="app-platform {% if sidebar_platform.ok %}is-ok{% else %}is-warn{% endif %}" href="{% url 'frontend:monitoring' %}" data-tooltip="Platform status">
+        <span class="app-platform-dot" aria-hidden="true"></span>
+        <span class="app-nav-label">{% if sidebar_platform.ok %}All systems monitored{% else %}Monitor is off{% endif %}</span>
+      </a>
+    {% endif %}
+    <a class="app-user" href="{% url 'frontend:profile' %}" data-tooltip="Profile and appearance" aria-label="Your profile and appearance settings">
+      <span class="app-avatar" aria-hidden="true">{{ user.get_username|first|upper }}</span>
+      <span class="app-user-text">
+        <strong>{{ user.get_full_name|default:user.get_username }}</strong>
+        <small>{% if user.is_superuser %}Superuser{% elif user.is_staff %}Platform administrator{% else %}Member{% endif %}</small>
+      </span>
+      <i class="bi bi-gear" aria-hidden="true"></i>
+    </a>
+  </div>
 </aside>
 {% endwith %}

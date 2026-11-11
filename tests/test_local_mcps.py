@@ -253,12 +253,12 @@ class LocalMcpPageTests(FolderTestCase):
         self.admin = create_user("admin", is_staff=True)
         self.client.force_login(self.admin)
 
-    def test_all_four_tabs(self):
+    def test_all_tabs(self):
         server = self.fake_mcp()
-        for name in ("mcp-detail", "mcp-logs", "mcp-access", "mcp-manual"):
+        for name in ("mcp-detail", "mcp-logs", "mcp-access", "mcp-manual", "mcp-settings"):
             response = self.client.get(reverse(f"frontend:{name}", args=[server.pk]))
             self.assertEqual(response.status_code, 200, name)
-            self.assertContains(response, "User manual")
+            self.assertContains(response, ">Manual</a>")
         self.assertContains(self.client.get(reverse("frontend:mcp-detail", args=[server.pk])), "127.0.0.1")
 
     def test_manual_is_rendered_and_html_is_escaped(self):

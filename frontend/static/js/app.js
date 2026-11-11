@@ -158,6 +158,16 @@
       button.addEventListener("click", () => setSidebar(!sidebarCollapsed()));
     });
 
+    // Collapsed sidebar: a click on its empty space (not a link or button) opens it.
+    const sidebar = document.getElementById("appSidebar");
+    if (sidebar) {
+      sidebar.addEventListener("click", (event) => {
+        if (!sidebarCollapsed() || !window.matchMedia("(min-width: 992px)").matches) return;
+        if (event.target.closest("a, button, input, select, textarea, label")) return;
+        setSidebar(false);
+      });
+    }
+
     // Django messages as toasts.
     document.querySelectorAll("#toastContainer .toast").forEach((el) => {
       bootstrap.Toast.getOrCreateInstance(el, { delay: 5000 }).show();
@@ -169,10 +179,10 @@
         const source = document.querySelector(button.dataset.copyTarget);
         const original = button.innerHTML;
         try {
-          await navigator.clipboard.writeText(source.value);
+          await navigator.clipboard.writeText("value" in source ? source.value : source.textContent);
           button.innerHTML = '<i class="bi bi-check2 me-1" aria-hidden="true"></i>Copied';
         } catch {
-          source.select();
+          if (source.select) source.select();
           button.textContent = "Press Ctrl+C";
         }
         setTimeout(() => { button.innerHTML = original; }, 2000);
@@ -180,3 +190,70 @@
     });
   });
 })();
+
+
+// ---------------------------------------------------------------------------
+// Switchboard: the Pulse Line and clickable table rows.
+// ---------------------------------------------------------------------------
+(function () {
+  "use strict";
+
+  // Clickable rows: <tr data-href="...">. The row's own link stays the keyboard target.
+  document.addEventListener("click", (event) => {
+    const row = event.target.closest("tr[data-href]");
+    if (!row || event.target.closest("a, button, input, select, textarea, label")) return;
+    if (window.getSelection && String(window.getSelection())) return; // selecting text
+    if (event.ctrlKey || event.metaKey) window.open(row.dataset.href, "_blank", "noopener");
+    else window.location.href = row.dataset.href;
+  });
+
+  // The Pulse Line: one dot per real request through the gateway (amber for refusals).
+  // Reads two numbers every few seconds; sends at most three dots of each kind per reading.
+  const line = document.querySelector(".pg-pulse-line[data-pulse-url]");
+  if (!line) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let last = null;
+
+  function send(kind, delay) {
+    if (reduce) return;
+    const dot = document.createElement("span");
+    dot.className = "pg-pulse-dot" + (kind === "amber" ? " pg-pulse-dot--amber" : "");
+    dot.style.animationDelay = delay + "ms";
+    dot.addEventListener("animationend", () => dot.remove());
+    line.appendChild(dot);
+  }
+
+  async function poll() {
+    if (document.hidden) return;
+    try {
+      const response = await fetch(line.dataset.pulseUrl, { credentials: "same-origin", headers: { Accept: "application/json" } });
+      if (!response.ok) return;
+      const now = await response.json();
+      if (last) {
+        const answered = Math.min(Math.max(now.answered - last.answered, 0), 3);
+        const refused = Math.min(Math.max(now.refused - last.refused, 0), 3);
+        for (let i = 0; i < answered; i++) send("signal", i * 220);
+        for (let i = 0; i < refused; i++) send("amber", (answered + i) * 220);
+      }
+      last = now;
+    } catch (e) { /* offline for a moment: try again next time */ }
+  }
+  poll();
+  window.setInterval(poll, 5000);
+})();
+
+
+// ---------------------------------------------------------------------------
+// Segmented control: <button data-sb-seg="panelId"> shows that panel, hides its siblings.
+// ---------------------------------------------------------------------------
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sb-seg]");
+  if (!button) return;
+  button.parentElement.querySelectorAll("[data-sb-seg]").forEach((other) => {
+    const on = other === button;
+    other.classList.toggle("is-active", on);
+    other.setAttribute("aria-selected", on ? "true" : "false");
+    const panel = document.getElementById(other.dataset.sbSeg);
+    if (panel) panel.hidden = !on;
+  });
+});

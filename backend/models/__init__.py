@@ -9,6 +9,7 @@ from .access import (
     AccessToken,
     MCPPermission,
     PermissionLevel,
+    PlatformCapability,
     ServiceAccount,
 )
 from .activity import MCPActivityLog
@@ -28,5 +29,6 @@ __all__ = [
     "MCPServer",
     "MCPServerQuerySet",
     "PermissionLevel",
+    "PlatformCapability",
     "ServiceAccount",
 ]

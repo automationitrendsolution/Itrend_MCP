@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Add user{% endblock %}
+{% block page_title %}Add user{% endblock %}
+
+{% block breadcrumb %}
+  <li><a href="{{ nav_section.url }}">{{ nav_section.label }}</a></li>
+  <li><span aria-current="page">Add user</span></li>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px">
+  <p class="text-body-secondary">
+    The new user starts with no abilities and no MCP permissions. After saving, you are taken to their page,
+    where you give them MCP access{% if user.is_superuser %} and switch on the abilities they need{% endif %}.
+  </p>
+  <div class="card app-card">
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
+        <div class="row g-3">
+          {% for field in form %}
+            <div class="{% if field.name == 'username' or field.name == 'email' %}col-12{% else %}col-md-6{% endif %}">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-primary">Add user</button>
+          <a href="{% url 'frontend:user-list' %}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

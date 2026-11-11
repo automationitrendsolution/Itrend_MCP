@@ -62,7 +62,7 @@
         </dl>
       </div>
       <div class="card-footer">
-        {% if account.is_staff %}<i class="bi bi-info-circle me-1" aria-hidden="true"></i>Platform administrators have Admin on every MCP automatically.
+        {% if account.is_superuser %}<i class="bi bi-info-circle me-1" aria-hidden="true"></i>Superusers have every ability and Admin on every MCP.
         {% elif is_service %}<i class="bi bi-info-circle me-1" aria-hidden="true"></i>Service accounts only reach the MCPs granted below.
         {% else %}<i class="bi bi-info-circle me-1" aria-hidden="true"></i>Also has Connect on every MCP open to <em>All employees</em>.{% endif %}
       </div>
@@ -82,6 +82,18 @@
   </div>
 
   <div class="col-lg-8 d-flex flex-column gap-4">
+    {% if abilities_shown %}
+      <section class="card app-card" aria-labelledby="abilitiesTitle">
+        <div class="card-header">
+          <h2 class="pg-card-title" id="abilitiesTitle">Abilities</h2>
+          <span class="ms-auto small text-body-secondary">{% if account.is_superuser %}Superuser: everything is on{% elif can_edit_abilities %}Switch each one on or off{% else %}Only a superuser can change these{% endif %}</span>
+        </div>
+        <ul class="mg-abilities">
+          {% for ability in abilities %}{% include "users/partials/ability.html" %}{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
     <section class="card app-card" aria-labelledby="permsTitle">
       <div class="card-header"><h2 class="pg-card-title" id="permsTitle">MCP permissions</h2></div>
       {% include "permissions/partials/table.html" with show_mcp=True next=request.path empty="No explicit permissions." %}

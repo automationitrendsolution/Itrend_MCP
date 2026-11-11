@@ -28,12 +28,13 @@ from backend.models import (
     MCPServer,
     PermissionLevel,
 )
-from backend.permissions import can_manage_mcps
+from backend.permissions import CAPABILITIES, can_manage_mcps, capabilities_of, has_capability
 from backend.services import access, accounts, audit, catalog, mcplogs, monitoring, registry, runner, tokens, traffic
 from backend.services.health import check_platform
 
 from .markdown import render_markdown_file
 from .forms import (
+    UserCreateForm,
     AccessTokenForm,
     LoginForm,
     MonitorSettingsForm,
@@ -52,17 +53,20 @@ MCP_EVENTS_SHOWN = 50
 MCP_RUNS_SHOWN = 10
 
 
-def staff_required(view):
-    """Logged-in administrators only. Others get a 403 page."""
+def capability_required(code: str):
+    """Logged-in users with this platform ability switched on. Others get a 403 page."""
 
-    @login_required
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if not can_manage_mcps(request.user):
-            raise PermissionDenied
-        return view(request, *args, **kwargs)
+    def decorator(view):
+        @login_required
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if not has_capability(request.user, code):
+                raise PermissionDenied
+            return view(request, *args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    return decorator
 
 
 def redirect_back(request: HttpRequest, default: str) -> HttpResponse:
@@ -104,7 +108,7 @@ def profile(request: HttpRequest) -> HttpResponse:
     """Your account, your access at a glance, and display preferences (theme)."""
     context = {
         "my_permissions": access.list_permissions(user=request.user),
-        "my_active_tokens": tokens.list_tokens(user=request.user).filter(revoked_at__isnull=True, expires_at__gt=timezone.now()).count(),
+        "my_active_tokens": tokens.list_tokens(user=request.user).active().count(),
     }
     return render(request, "accounts/profile.html", context)
 
@@ -129,7 +133,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "active_user_count": get_user_model().objects.filter(is_active=True).count(),
         "servers": servers,
         "is_admin": is_admin,
-        "my_active_tokens": tokens.list_tokens(user=user).filter(revoked_at__isnull=True, expires_at__gt=timezone.now()).count(),
+        "my_active_tokens": tokens.list_tokens(user=user).active().count(),
         "can_create_token": not access.is_service_account(user),
     }
     if is_admin:
@@ -143,7 +147,81 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 "activity": MCPActivityLog.objects.select_related("mcp_server")[:OVERVIEW_ACTIVITY_SHOWN],
             }
         )
+    context.update(_switchboard_overview(user, servers, is_admin, context.get("warnings", [])))
+    context.update(_graphite_overview(request, user, is_admin, context["lines"]))
     return render(request, "dashboard/index.html", context)
+
+
+def _switchboard_overview(user, servers, is_admin: bool, warnings: list[dict]) -> dict:
+    """
+    Figures for the Overview, all from the database:
+    a greeting, one summary line, "Your lines" (one row per MCP), one big number
+    (requests in the last 24 hours vs the 24 hours before), things that need attention,
+    and the state of the platform's parts.
+    """
+    from django.db.models import Sum
+
+    from backend.services.health import check_database
+    from backend.services.monitoring import status_of, worker_is_running
+
+    now = timezone.localtime()
+    greeting = "Good morning" if now.hour < 12 else "Good afternoon" if now.hour < 17 else "Good evening"
+    visible = MCPServer.objects.visible_to(user)
+
+    def window(hours_from: int, hours_to: int) -> dict:
+        rows = MCPRequestStat.objects.filter(
+            mcp_server__in=visible,
+            bucket_start__gte=timezone.now() - timedelta(hours=hours_from),
+            bucket_start__lt=timezone.now() - timedelta(hours=hours_to),
+        ).aggregate(requests=Sum("request_count"), errors=Sum("error_count"))
+        return {"requests": rows["requests"] or 0, "errors": rows["errors"] or 0}
+
+    today, yesterday = window(24, 0), window(48, 24)
+    monitor_on = worker_is_running()
+    lines = []
+    for server in servers:
+        status = status_of(server, server.last_check_status, server.last_check_at, monitor_running=monitor_on)
+        traffic_24h = traffic.totals(server)
+        lines.append({
+            "server": server,
+            "status": status,
+            "requests": traffic_24h["requests"],
+            "avg_ms": traffic_24h["avg_response_ms"],
+            "level": PermissionLevel(access.effective_level(user, server)).label,
+        })
+    healthy = sum(1 for line in lines if line["status"]["key"] == "healthy")
+
+    attention = [w for w in warnings]
+    soon = timezone.now() + timedelta(days=7)
+    for token in tokens.list_tokens(user=user).filter(revoked_at__isnull=True, expires_at__gt=timezone.now(), expires_at__lte=soon):
+        days = max((token.expires_at - timezone.now()).days, 0)
+        attention.append({
+            "level": "warning",
+            "text": f"Your token “{token.name}” for {token.mcp_server.name} expires in {days} day{'s' if days != 1 else ''}.",
+            "url": reverse("frontend:token-create") + f"?mcp={token.mcp_server_id}", "action": "Generate a new one",
+        })
+
+    database_ok = check_database().status == "ok"
+    parts = [
+        {"name": "Web application", "ok": True, "state": "Running"},
+        {"name": "Gateway", "ok": True, "state": "Accepting requests"},
+        {"name": "Monitor", "ok": monitor_on, "state": "Running" if monitor_on else "Off"},
+        {"name": "Database", "ok": database_ok, "state": "Healthy" if database_ok else "Unavailable"},
+    ]
+    error_rate = round(100 * today["errors"] / today["requests"], 1) if today["requests"] else 0.0
+    return {
+        "greeting": greeting,
+        "lines": lines,
+        "healthy_count": healthy,
+        "requests_today": today["requests"],
+        "requests_yesterday": yesterday["requests"],
+        "requests_delta": today["requests"] - yesterday["requests"],
+        "error_rate": error_rate,
+        "attention": attention,
+        "parts": parts if is_admin else [],
+        "monitor_ok": monitor_on,
+        "database_ok": database_ok,
+    }
 
 
 def with_last_check(servers):
@@ -167,8 +245,6 @@ def _overview_warnings() -> list[dict]:
     for server in running:
         if server.last_check_status in {MCPHealthCheck.Status.UNHEALTHY, MCPHealthCheck.Status.DOWN}:
             warnings.append({"level": "warning", "text": f"{server.name} is running but not answering properly.", "url": reverse("frontend:monitoring-detail", args=[server.pk]), "action": "Monitoring"})
-    if running and not monitoring.worker_is_running():
-        warnings.append({"level": "warning", "text": "The monitor is not running: no health checks or automatic restarts.", "url": reverse("frontend:monitoring"), "action": "Details"})
     _, folder_problems = catalog.discover()
     for problem in folder_problems[:3]:
         warnings.append({"level": "warning", "text": problem, "url": reverse("frontend:mcp-list"), "action": "Registry"})
@@ -237,7 +313,7 @@ def _used_choices(choices, queryset, field: str) -> list[tuple[str, str]]:
 
 
 @require_POST
-@staff_required
+@capability_required("manage_mcps")
 def mcp_rescan(request: HttpRequest) -> HttpResponse:
     """Look for new or changed mcp_servers/<slug>/mcp.json files now."""
     report = catalog.sync(by=request.user)
@@ -252,11 +328,15 @@ def mcp_rescan(request: HttpRequest) -> HttpResponse:
     return redirect_back(request, reverse("frontend:mcp-list"))
 
 
+# The MCP page's tabs, in order. Each has its own address, so links and the Back button work.
+# ("overview" is the Connect tab; the key is kept so existing links stay valid.)
 MCP_TABS = [
-    ("overview", "Overview", "bi-info-circle", "frontend:mcp-detail"),
+    ("overview", "Connect", "bi-plug", "frontend:mcp-detail"),
+    ("tokens", "Tokens", "bi-key", "frontend:mcp-tokens"),
     ("logs", "Logs", "bi-terminal", "frontend:mcp-logs"),
-    ("access", "Who has access", "bi-people", "frontend:mcp-access"),
-    ("manual", "User manual", "bi-book", "frontend:mcp-manual"),
+    ("access", "Access", "bi-people", "frontend:mcp-access"),
+    ("manual", "Manual", "bi-book", "frontend:mcp-manual"),
+    ("settings", "Settings", "bi-sliders", "frontend:mcp-settings"),
 ]
 
 
@@ -267,6 +347,10 @@ def _mcp_page(request: HttpRequest, pk: int, tab: str) -> tuple[MCPServer, dict]
     is_admin = can_manage_mcps(request.user)
     can_admin_server = access.can_admin(request.user, server)
     allowed_tabs = {"overview", "manual"} | ({"logs", "access"} if can_admin_server else set())
+    if access.can_connect(request.user, server) and not access.is_service_account(request.user):
+        allowed_tabs.add("tokens")
+    if is_admin:
+        allowed_tabs.add("settings")
     if tab not in allowed_tabs:
         raise PermissionDenied
     context = {
@@ -330,14 +414,14 @@ def _server_log_context(request: HttpRequest, server: MCPServer, runtime) -> dic
     }
 
 
-@staff_required
+@capability_required("view_monitoring")
 def mcp_log_output(request: HttpRequest, pk: int) -> HttpResponse:
     """HTMX partial: the MCP's output, refreshed every few seconds and when the filter changes."""
     server = get_object_or_404(MCPServer, pk=pk)
     return render(request, "mcps/partials/log_runs.html", _server_log_context(request, server, runner.get_state(server)))
 
 
-@staff_required
+@capability_required("view_monitoring")
 def mcp_log_download(request: HttpRequest, pk: int) -> HttpResponse:
     """The complete raw output file, for troubleshooting."""
     server = get_object_or_404(MCPServer, pk=pk)
@@ -379,7 +463,7 @@ def mcp_state(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @require_POST
-@staff_required
+@capability_required("manage_mcps")
 def mcp_control(request: HttpRequest, pk: int, action: str) -> HttpResponse:
     """Start, stop or restart a local MCP. Administrators only."""
     server = get_object_or_404(MCPServer, pk=pk)
@@ -397,7 +481,7 @@ def mcp_control(request: HttpRequest, pk: int, action: str) -> HttpResponse:
 
 
 @require_POST
-@staff_required
+@capability_required("manage_access")
 def mcp_access_policy(request: HttpRequest, pk: int) -> HttpResponse:
     server = get_object_or_404(MCPServer, pk=pk)
     policy = request.POST.get("access_policy", "")
@@ -410,7 +494,7 @@ def mcp_access_policy(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @require_POST
-@staff_required
+@capability_required("manage_mcps")
 def mcp_delete(request: HttpRequest, pk: int) -> HttpResponse:
     server = get_object_or_404(MCPServer, pk=pk)
     if server.is_local and catalog.manifest_for(server):
@@ -484,12 +568,24 @@ def token_revoke(request: HttpRequest, pk: int) -> HttpResponse:
     return redirect_back(request, reverse("frontend:token-list"))
 
 
+@require_POST
+@login_required
+def token_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    token = get_object_or_404(AccessToken.objects.select_related("user", "mcp_server"), pk=pk)
+    if not tokens.can_revoke(request.user, token):
+        raise PermissionDenied
+    name = token.name
+    tokens.delete_token(token, deleted_by=request.user)
+    messages.success(request, f"Token “{name}” was deleted. Anything using it stops working immediately.")
+    return redirect_back(request, reverse("frontend:token-list"))
+
+
 # ---------------------------------------------------------------------------
 # Permissions
 # ---------------------------------------------------------------------------
 
 
-@staff_required
+@capability_required("manage_access")
 def permission_list(request: HttpRequest) -> HttpResponse:
     filters = {"mcp": request.GET.get("mcp", ""), "q": request.GET.get("q", "").strip()}
     permissions = access.list_permissions()
@@ -546,7 +642,7 @@ def permission_revoke(request: HttpRequest, pk: int) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
-@staff_required
+@capability_required("manage_users")
 def user_list(request: HttpRequest) -> HttpResponse:
     filters = {"q": request.GET.get("q", ""), "kind": request.GET.get("kind", "")}
     users = accounts.list_users(search=filters["q"], kind=filters["kind"])
@@ -554,7 +650,7 @@ def user_list(request: HttpRequest) -> HttpResponse:
     return render(request, "users/list.html", context)
 
 
-@staff_required
+@capability_required("manage_users")
 def user_detail(request: HttpRequest, pk: int) -> HttpResponse:
     account = get_object_or_404(get_user_model().objects.select_related("service_account"), pk=pk)
     context = {
@@ -564,6 +660,7 @@ def user_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "tokens": tokens.list_tokens(user=account),
         "grant_form": PermissionGrantForm(user=account) if account.is_active else None,
         "can_create_token": tokens.can_create_for(request.user, account),
+        **_abilities_context(request.user, account),
         # Access history: what this account did, and what was done to it (granted, deactivated…).
         "activity": MCPActivityLog.objects.filter(Q(user=account) | Q(metadata__target_user=account.get_username()))
         .select_related("mcp_server")[:USER_ACTIVITY_SHOWN],
@@ -572,7 +669,7 @@ def user_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @require_POST
-@staff_required
+@capability_required("manage_users")
 def user_set_active(request: HttpRequest, pk: int) -> HttpResponse:
     account = get_object_or_404(get_user_model(), pk=pk)
     active = request.POST.get("active") == "1"
@@ -585,7 +682,60 @@ def user_set_active(request: HttpRequest, pk: int) -> HttpResponse:
     return redirect("frontend:user-detail", pk=account.pk)
 
 
-@staff_required
+def _abilities_context(viewer, account) -> dict:
+    """The user page's Abilities switches. Only superusers may flip them."""
+    is_service = access.is_service_account(account)
+    abilities = [
+        {"code": code, "label": label, "help": help_text, "on": account.is_active and has_capability(account, code)
+         if not account.is_superuser else True}
+        for code, label, help_text in CAPABILITIES
+    ]
+    return {
+        "abilities": abilities,
+        "abilities_shown": not is_service,
+        "can_edit_abilities": viewer.is_superuser and not account.is_superuser and not is_service and account.pk != viewer.pk,
+    }
+
+
+@require_POST
+@login_required
+def user_capability(request: HttpRequest, pk: int, code: str) -> HttpResponse:
+    """Switch one ability on or off (superusers). HTMX swaps just that switch."""
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    account = get_object_or_404(get_user_model(), pk=pk)
+    try:
+        accounts.set_capability(account, code, request.POST.get("on") == "1", changed_by=request.user)
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+    account = get_user_model().objects.get(pk=pk)  # fresh permission cache
+    if request.headers.get("HX-Request"):
+        context = {"account": account, **_abilities_context(request.user, account)}
+        context["ability"] = next(a for a in context["abilities"] if a["code"] == code)
+        return render(request, "users/partials/ability.html", context)
+    return redirect("frontend:user-detail", pk=account.pk)
+
+
+@capability_required("manage_users")
+def user_create(request: HttpRequest) -> HttpResponse:
+    """Add a person's account. Abilities and MCP permissions are given on their page afterwards."""
+    form = UserCreateForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        try:
+            account = accounts.create_user(
+                username=data["username"], password=data["password1"], first_name=data["first_name"],
+                last_name=data["last_name"], email=data["email"], created_by=request.user,
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(request, f"{account.get_username()} was added. Give them MCP permissions and abilities below.")
+            return redirect("frontend:user-detail", pk=account.pk)
+    return render(request, "users/create.html", {"form": form})
+
+
+@capability_required("manage_users")
 def service_account_create(request: HttpRequest) -> HttpResponse:
     form = ServiceAccountForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -624,7 +774,7 @@ ACTIVITY_PERIODS = {
 }
 
 
-@staff_required
+@capability_required("view_audit_log")
 def activity_list(request: HttpRequest) -> HttpResponse:
     filters = {
         "kind": request.GET.get("kind", ""),
@@ -695,7 +845,7 @@ def _monitoring_row(server: MCPServer, hours: int = 24) -> dict:
     return {"server": server, "health": health, "live": health in monitoring.LIVE_HEALTH, **data}
 
 
-@staff_required
+@capability_required("view_monitoring")
 def monitoring_overview(request: HttpRequest) -> HttpResponse:
     period = _monitor_range(request)
     rows = [_monitoring_row(server, period["hours"]) for server in MCPServer.objects.order_by("name")]
@@ -718,7 +868,7 @@ def monitoring_overview(request: HttpRequest) -> HttpResponse:
     return render(request, template, context)
 
 
-@staff_required
+@capability_required("view_monitoring")
 def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
     server = get_object_or_404(MCPServer, pk=pk)
     period = _monitor_range(request)
@@ -773,3 +923,208 @@ def _traffic_rows(server: MCPServer, hours: int = 24) -> list[dict]:
     for row in rows:
         row["avg_ms"] = round(row["total_ms"] / row["requests"], 1) if row["requests"] else None
     return rows
+
+
+
+@login_required
+def pulse(request: HttpRequest) -> HttpResponse:
+    """
+    Real gateway traffic for the Pulse Line: requests answered and refused in the last hour,
+    for the MCPs this person can see. The page compares two readings and sends one dot per
+    new request (vermilion) or refusal (amber). Numbers only.
+    """
+    from django.db.models import Sum
+    from django.http import JsonResponse
+
+    since = timezone.now() - timedelta(hours=1)
+    totals = MCPRequestStat.objects.filter(
+        bucket_start__gte=since, mcp_server__in=MCPServer.objects.visible_to(request.user)
+    ).aggregate(requests=Sum("request_count"), denied=Sum("denied_count"))
+    requests, denied = totals["requests"] or 0, totals["denied"] or 0
+    response = JsonResponse({"answered": requests - denied, "refused": denied})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+
+# ---------------------------------------------------------------------------
+# MCP page: Tokens and Settings tabs, Test connection (Switchboard)
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def mcp_tokens(request: HttpRequest, pk: int) -> HttpResponse:
+    """Your tokens for this MCP, full width."""
+    server, context = _mcp_page(request, pk, "tokens")
+    context["my_tokens"] = tokens.list_tokens(user=request.user, server=server)
+    return render(request, "mcps/tokens.html", context)
+
+
+@login_required
+def mcp_settings(request: HttpRequest, pk: int) -> HttpResponse:
+    """How the platform runs this MCP, and removing it (platform administrators)."""
+    server, context = _mcp_page(request, pk, "settings")
+    context["manifest_problem"] = catalog.manifest_problem(server) if server.is_local and not context["manifest"] else ""
+    # A local MCP whose folder still exists would come straight back, so it cannot be removed here.
+    context["can_delete"] = not (server.is_local and context["manifest"])
+    return render(request, "mcps/settings.html", context)
+
+
+@require_POST
+@login_required
+def mcp_test(request: HttpRequest, pk: int) -> HttpResponse:
+    """
+    "Test connection": the platform's real MCP check (health address + an MCP initialize),
+    run now, shown inline. For people who may connect to this MCP.
+    """
+    server = visible_server_or_404(request, pk)
+    if not (access.can_connect(request.user, server) or can_manage_mcps(request.user)):
+        raise PermissionDenied
+    manifest = catalog.manifest_for(server)
+    if manifest is None:
+        result = {"ok": False, "text": "This MCP is not run by the platform, so it cannot be tested from here."}
+    else:
+        probe = monitoring.probe(manifest)
+        if probe.ok:
+            result = {"ok": True, "text": f"Answering — {probe.response_time_ms:.0f} ms."}
+        else:
+            result = {"ok": False, "text": f"Couldn't reach {server.name} on :{manifest.port} — {probe.error}"}
+    return render(request, "mcps/partials/test_result.html", {"result": result, "server": server})
+
+
+
+# ---------------------------------------------------------------------------
+# Overview (Modern Graphite): KPI strip, request chart, server health, platform
+# status and the activity timeline. Every figure is read from the database.
+# ---------------------------------------------------------------------------
+
+CHART_RANGES = {"24h": ("Last 24 hours", 24, "hour"), "7d": ("Last 7 days", 7, "day")}
+
+TIMELINE_ICONS = {
+    "login": "bi-box-arrow-in-right", "login_failed": "bi-shield-exclamation", "logout": "bi-box-arrow-right",
+    "mcp_created": "bi-plus-square", "mcp_updated": "bi-pencil-square", "mcp_deleted": "bi-trash3",
+    "mcp_started": "bi-play-circle", "mcp_stopped": "bi-stop-circle",
+    "permission_granted": "bi-shield-plus", "permission_revoked": "bi-shield-minus",
+    "token_created": "bi-key", "token_revoked": "bi-key", "mcp_connection": "bi-plug",
+    "user_activated": "bi-person-check", "user_deactivated": "bi-person-dash", "service_account_created": "bi-robot",
+    "went_down": "bi-x-octagon", "unhealthy": "bi-heart-pulse", "recovered": "bi-heart-pulse",
+    "auto_restarted": "bi-arrow-repeat", "restart_failed": "bi-arrow-repeat", "gave_up": "bi-pause-circle",
+    "memory_limit": "bi-memory", "cpu_limit": "bi-cpu",
+}
+
+
+def _request_chart(visible, range_key: str) -> dict:
+    """Requests per hour (24 h) or per day (7 days), with failed requests, in local time."""
+    label, count, unit = CHART_RANGES[range_key]
+    now = timezone.localtime()
+    if unit == "hour":
+        end = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        step = timedelta(hours=1)
+    else:
+        end = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        step = timedelta(days=1)
+    start = end - step * count
+    bars = [{"start": start + step * i, "requests": 0, "errors": 0} for i in range(count)]
+    rows = MCPRequestStat.objects.filter(mcp_server__in=visible, bucket_start__gte=start, bucket_start__lt=end)
+    for row in rows.values("bucket_start", "request_count", "error_count"):
+        index = int((timezone.localtime(row["bucket_start"]) - start) / step)
+        if 0 <= index < count:
+            bars[index]["requests"] += row["request_count"]
+            bars[index]["errors"] += row["error_count"]
+    peak = max((bar["requests"] for bar in bars), default=0)
+    scale = peak or 1
+    for i, bar in enumerate(bars):
+        bar["height"] = round(100 * bar["requests"] / scale, 1)
+        bar["error_height"] = round(100 * bar["errors"] / scale, 1)
+        bar["label"] = bar["start"].strftime("%H:%M") if unit == "hour" else bar["start"].strftime("%a %d")
+        bar["axis"] = (i % 4 == 0) if unit == "hour" else True
+        bar["tip"] = (
+            f"{bar['start']:%H:%M}–{bar['start'] + step:%H:%M}" if unit == "hour" else f"{bar['start']:%a %d %b}"
+        ) + f": {bar['requests']} request{'s' if bar['requests'] != 1 else ''}" + (
+            f", {bar['errors']} failed" if bar["errors"] else ""
+        )
+    total = sum(bar["requests"] for bar in bars)
+    return {"key": range_key, "label": label, "bars": bars, "peak": peak, "total": total,
+            "errors": sum(bar["errors"] for bar in bars), "ranges": [(k, v[0]) for k, v in CHART_RANGES.items()]}
+
+
+def _graphite_overview(request, user, is_admin: bool, lines: list[dict]) -> dict:
+    from django.db.models import Count, Q, Sum
+
+    visible = MCPServer.objects.visible_to(user)
+    day_ago = timezone.now() - timedelta(hours=24)
+
+    # KPIs
+    by_key = {}
+    for line in lines:
+        by_key[line["status"]["key"]] = by_key.get(line["status"]["key"], 0) + 1
+    total = len(lines)
+    running = visible.filter(status=MCPServer.Status.RUNNING).count()
+    unhealthy = by_key.get("down", 0) + by_key.get("degraded", 0)
+    stats = MCPRequestStat.objects.filter(mcp_server__in=visible, bucket_start__gte=day_ago).aggregate(
+        requests=Sum("request_count"), errors=Sum("error_count"), ms=Sum("total_response_ms"))
+    requests_24h = stats["requests"] or 0
+    avg_latency = (stats["ms"] or 0) / requests_24h if requests_24h else None
+
+    # Server health donut: healthy / needs a look / down / stopped (incl. hosted elsewhere)
+    segments = [
+        {"key": "healthy", "label": "Healthy", "count": by_key.get("healthy", 0)},
+        {"key": "degraded", "label": "Degraded or not checked", "count": by_key.get("degraded", 0) + by_key.get("not_checked", 0)},
+        {"key": "down", "label": "Down", "count": by_key.get("down", 0)},
+        {"key": "stopped", "label": "Stopped", "count": by_key.get("stopped", 0) + by_key.get("external", 0)},
+    ]
+    circumference = 301.59  # 2 * pi * r (r = 48)
+    offset = 0.0
+    for segment in segments:
+        length = circumference * segment["count"] / total if total else 0
+        segment["dash"] = f"{max(length - 2, 0):.2f} {circumference:.2f}" if segment["count"] else f"0 {circumference:.2f}"
+        segment["offset"] = f"{-offset:.2f}"
+        offset += length
+    health_pct = round(100 * by_key.get("healthy", 0) / total) if total else 0
+
+    # Platform status (administrators)
+    platform = None
+    if is_admin:
+        checks = MCPHealthCheck.objects.filter(mcp_server__in=visible, checked_at__gte=day_ago).aggregate(
+            total=Count("id"), ok=Count("id", filter=Q(status=MCPHealthCheck.Status.HEALTHY)))
+        last = MCPHealthCheck.objects.filter(mcp_server__in=visible).order_by("-checked_at").values_list("checked_at", flat=True).first()
+        platform = {
+            "check_rate": round(100 * checks["ok"] / checks["total"], 1) if checks["total"] else None,
+            "checks": checks["total"],
+            "last_check": last,
+        }
+
+    # Activity timeline: audited actions plus monitor warnings, newest first
+    events = []
+    log = MCPActivityLog.objects.exclude(action=MCPActivityLog.Action.MCP_CONNECTION)
+    if not has_capability(user, "view_audit_log"):
+        log = log.filter(user=user)
+    for entry in log.select_related("mcp_server")[:8]:
+        failed = entry.result != MCPActivityLog.Result.SUCCESS
+        events.append({
+            "when": entry.timestamp, "icon": TIMELINE_ICONS.get(entry.action, "bi-dot"),
+            "tone": "danger" if failed else ("accent" if entry.action.startswith("mcp_") else "neutral"),
+            "title": entry.get_action_display() + (f" · {entry.get_result_display().lower()}" if failed else ""),
+            "detail": " · ".join(p for p in [entry.username, entry.mcp_slug] if p),
+        })
+    if is_admin:
+        for event in MCPMonitorEvent.objects.filter(level__in=["warning", "error"]).select_related("mcp_server").order_by("-created_at")[:5]:
+            events.append({
+                "when": event.created_at, "icon": TIMELINE_ICONS.get(event.kind, "bi-heart-pulse"),
+                "tone": "danger" if event.level == "error" else "warning",
+                "title": event.message, "detail": event.mcp_server.slug,
+            })
+    events.sort(key=lambda e: e["when"], reverse=True)
+
+    range_key = request.GET.get("range", "24h")
+    if range_key not in CHART_RANGES:
+        range_key = "24h"
+    return {
+        "today": timezone.localtime(),
+        "kpi": {"total": total, "running": running, "unhealthy": unhealthy,
+                "requests": requests_24h, "avg_latency": avg_latency},
+        "chart": _request_chart(visible, range_key),
+        "health": {"segments": segments, "pct": health_pct, "total": total},
+        "platform": platform,
+        "timeline": events[:8],
+    }

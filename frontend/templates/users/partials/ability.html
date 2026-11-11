@@ -1,0 +1,21 @@
+{% comment %} One platform ability with its on/off switch. Flipping it saves at once (HTMX swaps this row). {% endcomment %}
+<li class="mg-ability" id="ability-{{ ability.code }}">
+  <div class="mg-ability-text">
+    <strong id="ability-{{ ability.code }}-label">{{ ability.label }}</strong>
+    <span>{{ ability.help }}</span>
+  </div>
+  {% if can_edit_abilities %}
+    <form method="post" action="{% url 'frontend:user-capability' account.pk ability.code %}"
+          hx-post="{% url 'frontend:user-capability' account.pk ability.code %}" hx-trigger="change" hx-target="#ability-{{ ability.code }}" hx-swap="outerHTML">
+      {% csrf_token %}
+      <input type="hidden" name="on" value="{% if ability.on %}0{% else %}1{% endif %}">
+      <div class="form-check form-switch m-0">
+        <input class="form-check-input" type="checkbox" role="switch" {% if ability.on %}checked{% endif %}
+               aria-labelledby="ability-{{ ability.code }}-label">
+      </div>
+      <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">{% if ability.on %}Turn off{% else %}Turn on{% endif %}</button></noscript>
+    </form>
+  {% else %}
+    <span class="mg-ability-state {% if ability.on %}is-on{% endif %}">{% if ability.on %}On{% else %}Off{% endif %}</span>
+  {% endif %}
+</li>

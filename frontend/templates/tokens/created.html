@@ -35,7 +35,7 @@
       <pre class="bg-body-tertiary rounded p-2 small mb-0"><code>Authorization: Bearer &lt;your token&gt;</code></pre>
 
       <dl class="row small mt-3 mb-0">
-        <dt class="col-4">Expires</dt><dd class="col-8">{{ token.expires_at|date:"j M Y, H:i" }}</dd>
+        <dt class="col-4">Expires</dt><dd class="col-8">{% if token.expires_at %}{{ token.expires_at|date:"j M Y, H:i" }}{% else %}Never (lifetime){% endif %}</dd>
         <dt class="col-4">Recognise it by</dt><dd class="col-8 mb-0"><code>{{ token.token_prefix }}…</code></dd>
       </dl>
     </div>

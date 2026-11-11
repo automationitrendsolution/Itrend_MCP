@@ -16,13 +16,15 @@ class MCPServerQuerySet(models.QuerySet):
         """
         MCP servers a user may see (permission level VIEW or higher).
 
-        Staff see everything. People see servers open to all employees, and any
+        People who run MCPs or manage access see everything. People see servers open to all employees, and any
         server they have an explicit permission on. Service accounts only see
         servers they were explicitly granted. Rules: backend/services/access.py.
         """
         if not user.is_authenticated or not user.is_active:
             return self.none()
-        if user.is_staff:
+        from backend.permissions import sees_all_mcps
+
+        if sees_all_mcps(user):
             return self
         granted = Q(permissions__user=user)
         if hasattr(user, "service_account"):

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load mcp_tags %}
-{# Shared by the four tabs of an MCP: Overview, Logs, Who has access, User manual. #}
+{% comment %} Shared by the MCP page's tabs: Connect, Tokens, Logs, Access, Manual, Settings. {% endcomment %}
 
 {% block title %}{{ server.name }}{% endblock %}
 {% block page_title %}{{ server.name }}{% endblock %}
@@ -12,29 +12,28 @@
 {% block page_header %}{% endblock %}
 
 {% block content %}
-<div class="app-mcp-header">
-  <div class="me-auto" style="min-width: 0">
-    <h1 class="text-truncate">{{ server.name }}</h1>
-    {% if server.description %}<p class="pg-page-desc">{{ server.description }}</p>{% endif %}
-    <div class="pg-meta mt-2">
-      <code>{{ server.slug }}</code>
-      <span><i class="bi {% if server.access_policy == 'all_users' %}bi-people{% else %}bi-lock{% endif %}" aria-hidden="true"></i>{{ server.get_access_policy_display }}</span>
-      <span title="{{ level_help }}"><i class="bi bi-person-check" aria-hidden="true"></i>Your access: <strong>{{ level.label }}</strong></span>
-    </div>
+<header class="sb-mcp-head">
+  <div class="sb-mcp-id">
+    <div class="sb-label">MCP server</div>
+    <h1 class="sb-title">{{ server.name }}</h1>
+    {% if server.description %}<p class="sb-mcp-desc">{{ server.description }}</p>{% endif %}
+    <p class="sb-meta">
+      <span>{{ server.slug }}</span>
+      <span>{{ server.get_transport_type_display }}</span>
+      {% if manifest %}<span>:{{ manifest.port }}</span>{% endif %}
+      <span>{% if server.access_policy == "all_users" %}All employees{% else %}Restricted{% endif %}</span>
+      <span title="{{ level_help }}">You: <strong>{{ level.label }}</strong></span>
+    </p>
   </div>
-  {# Live state + Start / Stop / Restart. Refreshes every 5 seconds. #}
+  {% comment %} Live state + Start / Stop / Restart. Refreshes every 5 seconds. {% endcomment %}
   {% include "mcps/partials/state.html" %}
-</div>
+</header>
 
-<ul class="nav app-tabs">
+<nav class="sb-tabs" aria-label="{{ server.name }} sections">
   {% for key, label, icon, url_name in tabs %}
-    <li class="nav-item">
-      <a class="nav-link {% if key == tab %}active{% endif %}" href="{% url url_name server.pk %}" {% if key == tab %}aria-current="page"{% endif %}>
-        <i class="bi {{ icon }} me-1" aria-hidden="true"></i>{{ label }}
-      </a>
-    </li>
+    <a class="sb-tab {% if key == tab %}is-active{% endif %}" href="{% url url_name server.pk %}" {% if key == tab %}aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}
-</ul>
+</nav>
 
 {% block tab %}{% endblock %}
 {% endblock %}

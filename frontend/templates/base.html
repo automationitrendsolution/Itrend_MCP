@@ -7,19 +7,21 @@
   {% include "partials/theme_init.html" %}
   <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/brand/favicon-32.png' %}">
   <link rel="apple-touch-icon" href="{% static 'images/brand/apple-touch-icon.png' %}">
-  <link rel="preload" href="{% static 'vendor/fonts/inter-latin-wght-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{% static 'vendor/fonts/manrope-latin-wght-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=mg-5">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=mg-5">
   <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
   <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}" defer></script>
-  <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="{% static 'js/app.js' %}?v=mg-5" defer></script>
 </head>
 {# hx-headers sends the CSRF token with every HTMX request. #}
 <body class="{% block body_class %}app-body{% endblock %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 {% block layout %}
   <a class="pg-skip" href="#main">Skip to content</a>
+  {% comment %} The Pulse Line: a dot travels along it for each real request through the gateway (amber for refusals). {% endcomment %}
+  <div class="pg-pulse-line" data-pulse-url="{% url 'frontend:pulse' %}" aria-hidden="true"></div>
   <div class="app-shell">
     {% include "partials/sidebar.html" %}
 
@@ -52,9 +54,21 @@
         </form>
         <a class="pg-icon-btn d-md-none ms-auto" href="{% url 'frontend:mcp-list' %}" aria-label="Search MCP servers"><i class="bi bi-search" aria-hidden="true"></i></a>
 
+        {% include "partials/alerts_menu.html" %}
         {% include "partials/theme_menu.html" %}
         {% include "partials/user_menu.html" %}
       </header>
+
+      {% if system_banner %}
+        {% comment %} The one place for platform-wide problems. Pages only refer to it. {% endcomment %}
+        <div class="pg-banner" role="status">
+          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+          <span class="pg-banner-text">{{ system_banner.text }}</span>
+          <input type="text" class="visually-hidden" id="monitorCommand" value="{{ system_banner.command }}" readonly tabindex="-1">
+          <button type="button" class="pg-banner-btn" data-copy-target="#monitorCommand"><i class="bi bi-clipboard" aria-hidden="true"></i>Copy start command</button>
+          <a class="pg-banner-btn" href="{% url 'frontend:monitoring' %}">Details</a>
+        </div>
+      {% endif %}
 
       <main class="app-content" id="main" tabindex="-1">
         {# Page title, one-line description and the page's main actions. Pages with their own header replace this block. #}

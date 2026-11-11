@@ -1,0 +1,1 @@
+<span class="pg-status pg-status--{% if result.ok %}healthy{% else %}down{% endif %}"><span class="pg-status-dot" aria-hidden="true"></span>{{ result.text }}</span>{% if not result.ok %} <a class="sb-link" href="{% url 'frontend:mcp-logs' server.pk %}">Open logs</a>{% endif %}

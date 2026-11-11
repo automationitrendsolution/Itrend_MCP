@@ -5,7 +5,8 @@ Access tokens for MCP servers.
   "itmcp_3q8Z…". Only their SHA-256 hash is stored, so a database leak does
   not reveal usable tokens. (A slow password hash is unnecessary here: the
   tokens are random, not human-chosen, so they cannot be guessed.)
-- Each token works for exactly one MCP server and always expires.
+- Each token works for exactly one MCP server. It expires after the chosen
+  period, or never ("lifetime") when the creator chooses so.
 - A token only works while its owner is active and still has CONNECT
   permission on that MCP, so removing someone's access takes effect at once.
 """
@@ -28,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 TOKEN_PREFIX = "itmcp_"
 PREFIX_DISPLAY_LENGTH = 14  # "itmcp_" + 8 random characters
-EXPIRY_CHOICES_DAYS = (7, 30, 90, 180, 365)
+NEVER_EXPIRES = 0  # "Lifetime": the token works until it is revoked or deleted
+EXPIRY_CHOICES_DAYS = (7, 30, 90, 180, 365, NEVER_EXPIRES)
 DEFAULT_EXPIRY_DAYS = 90
 
 # Repeated events (every MCP request checks the token) are logged at most this often.
@@ -59,11 +61,17 @@ def can_create_for(actor, owner) -> bool:
         return False
     if actor.pk == owner.pk:
         return not access.is_service_account(owner)
-    return actor.is_staff and access.is_service_account(owner)
+    from backend.permissions import has_capability
+
+    return has_capability(actor, "manage_users") and access.is_service_account(owner)
 
 
 def can_revoke(actor, token: AccessToken) -> bool:
-    return actor.is_authenticated and actor.is_active and (actor.pk == token.user_id or actor.is_staff)
+    from backend.permissions import has_capability
+
+    if not (actor.is_authenticated and actor.is_active):
+        return False
+    return actor.pk == token.user_id or has_capability(actor, "manage_users")
 
 
 @transaction.atomic
@@ -95,7 +103,7 @@ def create_token(*, owner, server: MCPServer, name: str, expires_in_days: int, c
         token_prefix=plaintext[:PREFIX_DISPLAY_LENGTH],
         token_hash=hash_token(plaintext),
         created_by=created_by,
-        expires_at=timezone.now() + timedelta(days=expires_in_days),
+        expires_at=None if expires_in_days == NEVER_EXPIRES else timezone.now() + timedelta(days=expires_in_days),
     )
     audit.record(
         audit.Action.TOKEN_CREATED,
@@ -105,7 +113,7 @@ def create_token(*, owner, server: MCPServer, name: str, expires_in_days: int, c
         token_name=token.name,
         token_prefix=token.token_prefix,
         owner=owner.get_username(),
-        expires_at=token.expires_at.isoformat(),
+        expires_at=token.expires_at.isoformat() if token.expires_at else "never",
     )
     return token, plaintext
 
@@ -129,6 +137,23 @@ def revoke_token(token: AccessToken, *, revoked_by) -> AccessToken:
         owner=token.user.get_username(),
     )
     return token
+
+
+@transaction.atomic
+def delete_token(token: AccessToken, *, deleted_by) -> None:
+    """Remove a token completely. It stops working at once. The audit log keeps a record."""
+    if not can_revoke(deleted_by, token):
+        raise PermissionDenied("You cannot delete this token.")
+    audit.record(
+        audit.Action.TOKEN_DELETED,
+        user=deleted_by,
+        mcp_server=token.mcp_server,
+        token_id=token.pk,
+        token_name=token.name,
+        token_prefix=token.token_prefix,
+        owner=token.user.get_username(),
+    )
+    token.delete()
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +216,7 @@ def introspect(raw_token: str, mcp_slug: str) -> Introspection:
 def _deny_reason(token: AccessToken, mcp_slug: str) -> str:
     if token.revoked_at:
         return "revoked"
-    if token.expires_at <= timezone.now():
+    if token.expires_at is not None and token.expires_at <= timezone.now():
         return "expired"
     if token.mcp_server.slug != mcp_slug:
         return "wrong_mcp"

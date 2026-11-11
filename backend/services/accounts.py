@@ -3,7 +3,7 @@
 import re
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 
@@ -55,6 +55,47 @@ def create_service_account(*, name: str, description: str, created_by) -> Servic
     account = ServiceAccount.objects.create(user=user, description=description.strip(), created_by=created_by)
     audit.record(audit.Action.SERVICE_ACCOUNT_CREATED, user=created_by, target_user=username)
     return account
+
+
+@transaction.atomic
+def create_user(*, username: str, password: str, first_name: str = "", last_name: str = "", email: str = "", created_by):
+    """A normal person's account. It starts with no abilities and no MCP permissions."""
+    User = get_user_model()
+    username = username.strip()
+    if User.objects.filter(username__iexact=username).exists():
+        raise ValidationError({"username": f"An account named {username} already exists."})
+    if username.lower().startswith(SERVICE_ACCOUNT_PREFIX):
+        raise ValidationError({"username": f"Names starting with {SERVICE_ACCOUNT_PREFIX} are for service accounts."})
+    user = User(username=username, first_name=first_name.strip(), last_name=last_name.strip(),
+                email=email.strip(), is_staff=False, is_superuser=False)
+    user.set_password(password)
+    user.save()
+    audit.record(audit.Action.USER_CREATED, user=created_by, target_user=username)
+    return user
+
+
+@transaction.atomic
+def set_capability(user, code: str, enabled: bool, *, changed_by) -> None:
+    """Switch one platform ability on or off for a user (superusers only)."""
+    from django.contrib.auth.models import Permission
+
+    from backend.permissions import CAPABILITY_CODES
+
+    if not (changed_by.is_active and changed_by.is_superuser):
+        raise PermissionDenied("Only superusers can change abilities.")
+    if code not in CAPABILITY_CODES:
+        raise ValidationError("Unknown ability.")
+    if user.is_superuser:
+        raise ValidationError("Superusers always have every ability.")
+    if hasattr(user, "service_account"):
+        raise ValidationError("Service accounts cannot have platform abilities.")
+    permission = Permission.objects.get(content_type__app_label="backend", codename=code)
+    if enabled:
+        user.user_permissions.add(permission)
+    else:
+        user.user_permissions.remove(permission)
+    audit.record(audit.Action.CAPABILITY_CHANGED, user=changed_by, target_user=user.get_username(),
+                 capability=code, enabled=enabled)
 
 
 @transaction.atomic

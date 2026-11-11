@@ -2,130 +2,236 @@
 {% load mcp_tags %}
 
 {% block title %}Overview{% endblock %}
-{% block page_title %}Overview{% endblock %}
-{% block page_description %}Welcome back, {{ user.get_short_name|default:user.get_username }}. The MCP servers you can see and the state of the platform.{% endblock %}
-{% block page_actions %}
-  {% if is_admin %}
-    <a href="{% url 'frontend:monitoring' %}" class="btn btn-outline-secondary"><i class="bi bi-activity me-1" aria-hidden="true"></i>Monitoring</a>
-  {% endif %}
-  {% if can_create_token %}
-    <a href="{% url 'frontend:token-create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Generate token</a>
-  {% endif %}
+
+{% block page_header %}
+  <header class="mg-head">
+    <div>
+      <div class="mg-eyebrow">Workspace <span aria-hidden="true">·</span> <time datetime="{{ today|date:'c' }}">{{ today|date:"l, j F Y" }}</time></div>
+      <h1 class="mg-title">{{ greeting }}, {{ user.get_short_name|default:user.get_username }}</h1>
+      <p class="mg-summary">
+        {{ kpi.total }} MCP server{{ kpi.total|pluralize }} · {{ healthy_count }} healthy · {{ requests_today }} request{{ requests_today|pluralize }} in the last 24 hours
+      </p>
+    </div>
+    <div class="mg-actions">
+      {% if is_admin %}
+        <form method="post" action="{% url 'frontend:mcp-rescan' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-secondary" title="Look for new or changed MCP folders under mcp_servers/"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Rescan MCP folders</button>
+        </form>
+      {% endif %}
+      {% if can_create_token %}<a href="{% url 'frontend:token-create' %}" class="btn btn-primary"><i class="bi bi-plus-lg" aria-hidden="true"></i> Generate token</a>{% endif %}
+    </div>
+  </header>
 {% endblock %}
 
 {% block content %}
-{% comment %} Every number here is real: counts from the registry (only MCPs this person can see),
-   traffic from the gateway's counters, health from the monitor's last check. {% endcomment %}
-<section class="app-summary mb-4" aria-label="Key figures">
-  <div class="app-summary-item"><div class="value">{{ counts.total }}</div><div class="label">MCP servers</div></div>
-  <div class="app-summary-item"><div class="value">{{ counts.running }}</div><div class="label">Running</div></div>
-  <div class="app-summary-item"><div class="value">{{ counts.stopped }}</div><div class="label">Stopped</div></div>
-  <div class="app-summary-item"><div class="value {% if counts.unhealthy %}text-danger{% endif %}">{{ counts.unhealthy }}</div><div class="label">Unhealthy</div></div>
-  {% if is_admin %}
-    <div class="app-summary-item"><div class="value">{{ traffic.requests }}</div><div class="label">Requests ·&nbsp;24&nbsp;h</div></div>
-    <div class="app-summary-item">
-      <div class="value {% if traffic.errors %}text-danger{% endif %}">{% if traffic.error_rate is not None %}{{ traffic.error_rate|floatformat:1 }}<span class="pg-unit">%</span>{% else %}–{% endif %}</div>
-      <div class="label">Error rate ·&nbsp;24&nbsp;h</div>
+{# ---- KPI strip ---- #}
+<section class="mg-kpis" aria-label="Key figures">
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-neutral" aria-hidden="true"><i class="bi bi-hdd-stack"></i></span>
+    <div><div class="mg-kpi-value">{{ kpi.total }}</div><div class="mg-kpi-label">MCP servers</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-teal" aria-hidden="true"><i class="bi bi-play-circle"></i></span>
+    <div><div class="mg-kpi-value">{{ kpi.running }}</div><div class="mg-kpi-label">Running</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon {% if kpi.unhealthy %}mg-tone-danger{% else %}mg-tone-neutral{% endif %}" aria-hidden="true"><i class="bi bi-heart-pulse"></i></span>
+    <div><div class="mg-kpi-value">{{ kpi.unhealthy }}</div><div class="mg-kpi-label">Unhealthy</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-accent" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
+    <div>
+      <div class="mg-kpi-value">{{ kpi.requests }}
+        {% if requests_yesterday or requests_today %}
+          <span class="mg-trend {% if requests_delta > 0 %}is-up{% elif requests_delta < 0 %}is-down{% endif %}" title="Compared with the 24 hours before ({{ requests_yesterday }})">
+            {% if requests_delta > 0 %}<i class="bi bi-arrow-up-short" aria-hidden="true"></i>{{ requests_delta }}{% elif requests_delta < 0 %}<i class="bi bi-arrow-down-short" aria-hidden="true"></i>{{ requests_delta|stringformat:"d"|slice:"1:" }}{% else %}±0{% endif %}
+          </span>
+        {% endif %}
+      </div>
+      <div class="mg-kpi-label">Requests, 24 h</div>
     </div>
-    <div class="app-summary-item">
-      <div class="value">{% if traffic.avg_response_ms is not None %}{{ traffic.avg_response_ms|floatformat:0 }}<span class="pg-unit">ms</span>{% else %}–{% endif %}</div>
-      <div class="label">Avg. latency ·&nbsp;24&nbsp;h</div>
-    </div>
-    <div class="app-summary-item"><div class="value">{{ active_user_count }}</div><div class="label">Active accounts</div></div>
-  {% else %}
-    <div class="app-summary-item"><div class="value">{{ my_active_tokens }}</div><div class="label">Your active tokens</div></div>
-  {% endif %}
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-neutral" aria-hidden="true"><i class="bi bi-stopwatch"></i></span>
+    <div><div class="mg-kpi-value">{% if kpi.avg_latency is not None %}{{ kpi.avg_latency|floatformat:0 }}<small> ms</small>{% else %}–{% endif %}</div><div class="mg-kpi-label">Average latency</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon {% if error_rate > 5 %}mg-tone-danger{% else %}mg-tone-neutral{% endif %}" aria-hidden="true"><i class="bi bi-exclamation-triangle"></i></span>
+    <div><div class="mg-kpi-value">{{ error_rate|floatformat:1 }}<small> %</small></div><div class="mg-kpi-label">Failed requests</div></div>
+  </div>
 </section>
 
-{% if is_admin %}
-  <section class="card app-card mb-4" aria-labelledby="warningsTitle">
-    <div class="card-header"><h2 class="pg-card-title" id="warningsTitle">Needs attention</h2>{% if warnings %}<span class="badge text-bg-warning">{{ warnings|length }}</span>{% endif %}</div>
-    {% if warnings %}
-      <ul class="pg-list">
-        {% for warning in warnings %}
-          <li class="pg-list-item">
-            <i class="bi {% if warning.level == 'error' %}bi-x-octagon text-danger{% else %}bi-exclamation-triangle text-warning{% endif %}" aria-hidden="true"></i>
-            <span class="visually-hidden">{% if warning.level == 'error' %}Error:{% else %}Warning:{% endif %}</span>
-            <span class="flex-grow-1">{{ warning.text }}</span>
-            <a href="{{ warning.url }}" class="pg-list-action">{{ warning.action }}<i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></a>
+<div class="mg-grid">
+<div class="mg-col-8 mg-stack">
+  {# ---- Request activity ---- #}
+  <section class="mg-panel" aria-labelledby="chartTitle">
+    <header class="mg-panel-head">
+      <div>
+        <h2 class="mg-panel-title" id="chartTitle">Request activity</h2>
+        <p class="mg-panel-meta">{{ chart.total }} request{{ chart.total|pluralize }}{% if chart.errors %} · {{ chart.errors }} failed{% endif %} · {{ chart.label|lower }}</p>
+      </div>
+      <nav class="mg-seg" aria-label="Time range">
+        {% for key, label in chart.ranges %}
+          <a href="?range={{ key }}" class="mg-seg-btn {% if key == chart.key %}is-active{% endif %}" {% if key == chart.key %}aria-current="true"{% endif %} title="{{ label }}">{{ key }}</a>
+        {% endfor %}
+      </nav>
+    </header>
+    {% if chart.total %}
+      <div class="mg-chart" role="img" aria-label="Requests {{ chart.label|lower }}: {{ chart.total }} in total, at most {{ chart.peak }} in one {% if chart.key == '24h' %}hour{% else %}day{% endif %}.">
+        <div class="mg-chart-y" aria-hidden="true"><span>{{ chart.peak }}</span><span>0</span></div>
+        <div class="mg-chart-plot">
+          {% for bar in chart.bars %}
+            <div class="mg-bar" data-tip="{{ bar.tip }}" style="--h: {{ bar.height }}%; --e: {{ bar.error_height }}%; --i: {{ forloop.counter0 }}">
+              <span class="mg-bar-fill"></span>{% if bar.errors %}<span class="mg-bar-err"></span>{% endif %}
+              <span class="mg-bar-x {% if not bar.axis %}is-hidden{% endif %}" aria-hidden="true">{{ bar.label }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="mg-legend"><span><i class="mg-swatch mg-swatch--req"></i>Requests</span><span><i class="mg-swatch mg-swatch--err"></i>Failed</span></div>
+    {% else %}
+      <div class="mg-empty">
+        <i class="bi bi-bar-chart" aria-hidden="true"></i>
+        <p>No requests {{ chart.label|lower }}.</p>
+        <span>Requests through the gateway show up here as clients use your MCP servers.</span>
+      </div>
+    {% endif %}
+  </section>
+
+  {# ---- MCP servers ---- #}
+  <section class="mg-panel mg-panel--flush" aria-labelledby="serversTitle">
+    <header class="mg-panel-head">
+      <div>
+        <h2 class="mg-panel-title" id="serversTitle">MCP servers</h2>
+        <p class="mg-panel-meta">The servers you can use, with their last 24 hours</p>
+      </div>
+      <a href="{% url 'frontend:mcp-list' %}" class="mg-link">Open registry <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+    </header>
+    {% if lines %}
+      <div class="table-responsive">
+        <table class="mg-table">
+          <thead>
+            <tr>
+              <th scope="col">Server</th>
+              <th scope="col">Status</th>
+              <th scope="col">Last 24 h</th>
+              <th scope="col" class="num">Requests</th>
+              <th scope="col" class="num">Latency</th>
+              <th scope="col">Access</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for line in lines %}
+              <tr data-href="{% url 'frontend:mcp-detail' line.server.pk %}">
+                <td>
+                  <a href="{% url 'frontend:mcp-detail' line.server.pk %}" class="mg-name">{{ line.server.name }}</a>
+                  <span class="mg-sub">{{ line.server.description|default:line.server.slug|truncatechars:56 }}</span>
+                </td>
+                <td><span class="pg-status pg-status--{{ line.status.key }}" title="{{ line.status.reason }}"><span class="pg-status-dot" aria-hidden="true"></span>{{ line.status.word }}</span></td>
+                <td>{% line_ticks line.server %}</td>
+                <td class="num mg-mono">{{ line.requests }}</td>
+                <td class="num mg-mono">{% if line.avg_ms is not None %}{{ line.avg_ms|floatformat:0 }} ms{% else %}–{% endif %}</td>
+                <td><span class="mg-tag">{{ line.level }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="mg-empty">
+        <i class="bi bi-hdd-stack" aria-hidden="true"></i>
+        <p>No MCP servers yet.</p>
+        <span>{% if is_admin %}Add a folder with an mcp.json under mcp_servers/, then rescan.{% else %}Ask an administrator for access to an MCP server.{% endif %}</span>
+      </div>
+    {% endif %}
+  </section>
+
+  {# ---- Needs attention ---- #}
+  <section class="mg-panel " aria-labelledby="attentionTitle">
+    <header class="mg-panel-head"><h2 class="mg-panel-title" id="attentionTitle">Needs attention</h2>{% if attention %}<span class="mg-count">{{ attention|length }}</span>{% endif %}</header>
+    {% if attention %}
+      <ul class="mg-alerts">
+        {% for item in attention %}
+          <li class="mg-alert mg-alert--{{ item.level }}">
+            <i class="bi {% if item.level == 'error' %}bi-x-octagon{% else %}bi-exclamation-triangle{% endif %}" aria-hidden="true"></i>
+            <span class="visually-hidden">{% if item.level == 'error' %}Error:{% else %}Warning:{% endif %}</span>
+            <span class="mg-alert-text">{{ item.text }}</span>
+            <a href="{{ item.url }}" class="mg-link">{{ item.action }}</a>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <div class="pg-allgood"><i class="bi bi-check-circle text-success" aria-hidden="true"></i>Nothing needs attention: no failed MCPs, no failed checks, no folder problems.</div>
+      <p class="mg-calm"><i class="bi bi-check2-circle" aria-hidden="true"></i> Nothing needs your attention.</p>
     {% endif %}
   </section>
-{% endif %}
 
-<div class="row g-4">
-  <div class="col-xl-8">
-    <section class="card app-card" aria-labelledby="serversTitle">
-      <div class="card-header">
-        <h2 class="pg-card-title" id="serversTitle">MCP servers</h2>
-        <a href="{% url 'frontend:mcp-list' %}" class="ms-auto small">Open registry</a>
-      </div>
-      {% if servers %}
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0 app-table">
-            <thead><tr><th scope="col">Name</th><th scope="col">Runtime</th><th scope="col">Health</th><th scope="col" class="d-none d-sm-table-cell">Last check</th></tr></thead>
-            <tbody>
-              {% for server in servers %}
-                {% with health=server|health_key %}
-                <tr>
-                  <td><a href="{% url 'frontend:mcp-detail' server.pk %}" class="fw-semibold text-decoration-none">{{ server.name }}</a></td>
-                  <td><span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span></td>
-                  <td>{% include "monitoring/partials/health_badge.html" %}</td>
-                  <td class="d-none d-sm-table-cell small text-body-secondary">{% if server.last_check_at and health != "stopped" and health != "down" %}{{ server.last_check_at|timesince }} ago{% else %}–{% endif %}</td>
-                </tr>
-                {% endwith %}
-              {% endfor %}
-            </tbody>
-          </table>
+</div>
+<div class="mg-col-4 mg-stack">
+  {# ---- Server health ---- #}
+  <section class="mg-panel" aria-labelledby="healthTitle">
+    <header class="mg-panel-head"><h2 class="mg-panel-title" id="healthTitle">Server health</h2></header>
+    {% if health.total %}
+      <div class="mg-donut-wrap">
+        <div class="mg-donut">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="mg-donut-track" cx="60" cy="60" r="48"></circle>
+            {% for s in health.segments %}{% if s.count %}
+              <circle class="mg-donut-seg mg-donut-seg--{{ s.key }}" cx="60" cy="60" r="48" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}"></circle>
+            {% endif %}{% endfor %}
+          </svg>
+          <div class="mg-donut-center"><strong>{{ health.pct }}<small>%</small></strong><span>healthy</span></div>
         </div>
-        {% if counts.total > servers|length %}
-          <div class="card-footer">Showing {{ servers|length }} of {{ counts.total }}. <a href="{% url 'frontend:mcp-list' %}">See all</a></div>
-        {% endif %}
-      {% else %}
-        <div class="app-empty">
-          <i class="bi bi-hdd-stack" aria-hidden="true"></i>
-          <p class="mb-0">{% if is_admin %}No MCP servers yet. Add a folder with an <code>mcp.json</code> file to <code>mcp_servers/</code>.{% else %}No MCP servers are available to you yet. Ask an administrator for access.{% endif %}</p>
-        </div>
-      {% endif %}
-    </section>
-  </div>
-
-  <div class="col-xl-4 d-flex flex-column gap-4">
-    <section class="card app-card" aria-labelledby="platformTitle">
-      <div class="card-header">
-        <h2 class="pg-card-title" id="platformTitle">Platform</h2>
-        <span class="htmx-indicator spinner-border spinner-border-sm text-secondary ms-auto" id="statusSpinner" role="status" aria-label="Refreshing"></span>
+        <ul class="mg-donut-legend">
+          {% for s in health.segments %}
+            <li><span class="pg-status-dot pg-status--{{ s.key }}" aria-hidden="true"></span>{{ s.label }}<strong>{{ s.count }}</strong></li>
+          {% endfor %}
+        </ul>
       </div>
-      <div class="card-body py-2" hx-get="{% url 'frontend:system-status' %}" hx-trigger="load, every 30s" hx-indicator="#statusSpinner">
-        <span class="text-body-secondary small">Checking…</span>
-      </div>
-    </section>
-
-    {% if is_admin %}
-      <section class="card app-card flex-grow-1" aria-labelledby="activityTitle">
-        <div class="card-header">
-          <h2 class="pg-card-title" id="activityTitle">Recent activity</h2>
-          <a href="{% url 'frontend:activity-list' %}" class="ms-auto small">Audit log</a>
-        </div>
-        {% for entry in activity %}
-          {% include "activity/partials/event.html" %}
-        {% empty %}
-          <div class="app-empty"><i class="bi bi-journal-text" aria-hidden="true"></i><p class="mb-0">No activity yet.</p></div>
-        {% endfor %}
-      </section>
     {% else %}
-      <section class="card app-card" aria-labelledby="accessTitle">
-        <div class="card-header"><h2 class="pg-card-title" id="accessTitle">Connecting</h2></div>
-        <div class="card-body small">
-          <p class="mb-3">To use an MCP from Claude, VS Code or a server, open it in the registry, copy its connection link and generate a token for it.</p>
-          <a href="{% url 'frontend:token-list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-key me-1" aria-hidden="true"></i>Your tokens</a>
-        </div>
-      </section>
+      <div class="mg-empty"><i class="bi bi-heart-pulse" aria-hidden="true"></i><p>No MCP servers yet.</p></div>
     {% endif %}
-  </div>
+  </section>
+
+  {# ---- Platform status (administrators) ---- #}
+  {% if platform %}
+    <section class="mg-panel" aria-labelledby="platformTitle">
+      <header class="mg-panel-head">
+        <h2 class="mg-panel-title" id="platformTitle">Platform status</h2>
+        <span class="mg-pill {% if monitor_ok and database_ok %}mg-pill--ok{% else %}mg-pill--warn{% endif %}">{% if monitor_ok and database_ok %}Operational{% else %}Needs attention{% endif %}</span>
+      </header>
+      <dl class="mg-kv">
+        {% for part in parts %}
+          <div><dt>{{ part.name }}</dt><dd><span class="pg-status pg-status--{% if part.ok %}healthy{% else %}degraded{% endif %}"><span class="pg-status-dot" aria-hidden="true"></span>{{ part.state }}</span></dd></div>
+        {% endfor %}
+        <div><dt>Last health check</dt><dd class="mg-mono">{% if platform.last_check %}<span title="{{ platform.last_check|date:'j M Y, H:i' }}">{{ platform.last_check|timesince }} ago</span>{% else %}Never{% endif %}</dd></div>
+        <div><dt>Checks passed, 24 h</dt><dd class="mg-mono">{% if platform.check_rate is not None %}{{ platform.check_rate }}% of {{ platform.checks }}{% else %}No checks{% endif %}</dd></div>
+      </dl>
+    </section>
+  {% endif %}
+  {# ---- Activity timeline ---- #}
+  <section class="mg-panel" aria-labelledby="timelineTitle">
+    <header class="mg-panel-head">
+      <h2 class="mg-panel-title" id="timelineTitle">{% if caps.view_audit_log %}Activity{% else %}Your activity{% endif %}</h2>
+      {% if caps.view_audit_log %}<a href="{% url 'frontend:activity-list' %}" class="mg-link">Audit logs <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endif %}
+    </header>
+    {% if timeline %}
+      <ol class="mg-timeline">
+        {% for e in timeline|slice:":6" %}
+          <li class="mg-tl mg-tl--{{ e.tone }}">
+            <span class="mg-tl-icon" aria-hidden="true"><i class="bi {{ e.icon }}"></i></span>
+            <div class="mg-tl-body">
+              <div class="mg-tl-title">{{ e.title }}</div>
+              <div class="mg-tl-meta">{% if e.detail %}{{ e.detail }} · {% endif %}<time datetime="{{ e.when|date:'c' }}" title="{{ e.when|date:'j M Y, H:i' }}">{{ e.when|timesince }} ago</time></div>
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <div class="mg-empty"><i class="bi bi-clock-history" aria-hidden="true"></i><p>No activity yet.</p></div>
+    {% endif %}
+  </section>
+
+</div>
 </div>
 {% endblock %}

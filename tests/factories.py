@@ -5,8 +5,21 @@ from django.contrib.auth import get_user_model
 PASSWORD = "Correct-Horse-Battery-9"
 
 
-def create_user(username: str = "alice", *, password: str = PASSWORD, **extra):
-    return get_user_model().objects.create_user(username=username, password=password, **extra)
+def create_user(username: str = "alice", *, password: str = PASSWORD, abilities=None, **extra):
+    """
+    A user. Staff users get every platform ability (as existing administrators did when
+    abilities were introduced); pass abilities=[...] to give a chosen few instead.
+    """
+    from django.contrib.auth.models import Permission
+
+    from backend.permissions import CAPABILITY_CODES
+
+    user = get_user_model().objects.create_user(username=username, password=password, **extra)
+    if abilities is None:
+        abilities = CAPABILITY_CODES if extra.get("is_staff") else []
+    if abilities:
+        user.user_permissions.add(*Permission.objects.filter(content_type__app_label="backend", codename__in=abilities))
+    return user
 
 
 def create_server(name: str = "MySQL MCP", slug: str = "mysql", **extra):

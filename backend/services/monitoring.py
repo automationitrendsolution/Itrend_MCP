@@ -420,3 +420,95 @@ def summary(server: MCPServer, *, hours: int = 24) -> dict:
         "auto_restarts": restarts,
         "traffic": totals(server, hours=hours),
     }
+
+
+# ---------------------------------------------------------------------------
+# Switchboard: one status word per MCP, and the 24-hour "Line Ticks"
+# ---------------------------------------------------------------------------
+
+STATUS_WORDS = {
+    "stopped": "Stopped",
+    "down": "Down",
+    "not_checked": "Not checked",
+    "degraded": "Degraded",
+    "healthy": "Healthy",
+    "external": "Hosted elsewhere",
+}
+TICK_COUNT = 48            # the last 24 hours ...
+TICK_MINUTES = 30          # ... in 30-minute slots
+
+
+def _ago(moment: datetime) -> str:
+    seconds = int((timezone.now() - moment).total_seconds())
+    if seconds < 90:
+        return "just now"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} min ago"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 48:
+        return f"{hours}h {minutes}m ago"
+    return f"{hours // 24} days ago"
+
+
+def status_of(server: MCPServer, last_status: str | None, last_checked_at: datetime | None,
+              last_error: str = "", monitor_running: bool | None = None) -> dict:
+    """
+    Exactly one state per MCP, decided in this order:
+    Stopped -> Down -> Not checked (monitor off, never checked, or last check older than
+    10 minutes) -> Degraded -> Healthy. Returns {"key", "word", "reason"}; the reason is
+    shown as a tooltip.
+    """
+    health = health_of(server, last_status, last_checked_at)
+    if health == "not_monitored":
+        key, reason = "external", "This MCP runs outside the platform, so the platform does not check it."
+    elif health == "stopped":
+        key, reason = "stopped", "Stopped. An administrator can start it on its page."
+    elif health == "down":
+        key, reason = "down", "The process stopped unexpectedly. Its Logs tab shows why."
+    elif health in {"no_data", "stale"}:
+        key = "not_checked"
+        running = worker_is_running() if monitor_running is None else monitor_running
+        when = f"last check {_ago(last_checked_at)}" if last_checked_at else "never checked"
+        reason = f"Monitor is off — {when}." if not running else f"No recent check — {when}."
+    elif health == "unhealthy":
+        key, reason = "degraded", last_error or "Running, but not answering properly."
+    else:
+        key = "healthy"
+        reason = f"Answering normally — last check {_ago(last_checked_at)}." if last_checked_at else "Answering normally."
+    return {"key": key, "word": STATUS_WORDS[key], "reason": reason}
+
+
+def line_ticks(server: MCPServer) -> list[dict]:
+    """
+    48 slots of 30 minutes covering the last 24 hours, oldest first:
+    {"requests": n, "health": "live" | "amber" | "fault" | "none", "start": datetime}.
+    Volume from the gateway's request counts; colour from the worst health check in the slot.
+    """
+    from django.db.models import Sum
+
+    step = timedelta(minutes=TICK_MINUTES)
+    now = timezone.now()
+    end = now.replace(minute=(now.minute // TICK_MINUTES) * TICK_MINUTES, second=0, microsecond=0) + step
+    start = end - TICK_COUNT * step
+    ticks = [{"requests": 0, "health": "none", "start": start + i * step} for i in range(TICK_COUNT)]
+
+    for bucket, count in (
+        MCPRequestStat.objects.filter(mcp_server=server, bucket_start__gte=start, bucket_start__lt=end)
+        .values_list("bucket_start").annotate(total=Sum("request_count"))
+    ):
+        index = int((bucket - start) / step)
+        if 0 <= index < TICK_COUNT:
+            ticks[index]["requests"] += count
+
+    rank = {"none": 0, "live": 1, "amber": 2, "fault": 3}
+    colour = {Status.HEALTHY: "live", Status.UNHEALTHY: "amber", Status.DOWN: "fault"}
+    for checked_at, status in MCPHealthCheck.objects.filter(
+        mcp_server=server, checked_at__gte=start, checked_at__lt=end
+    ).values_list("checked_at", "status"):
+        index = int((checked_at - start) / step)
+        if 0 <= index < TICK_COUNT:
+            value = colour.get(status, "none")
+            if rank[value] > rank[ticks[index]["health"]]:
+                ticks[index]["health"] = value
+    return ticks

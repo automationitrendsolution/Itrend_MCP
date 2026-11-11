@@ -60,8 +60,8 @@
         <h2 class="pg-card-title" id="accessTitle">Your access</h2>
         <a href="{% url 'frontend:token-list' %}" class="ms-auto small">{{ my_active_tokens }} active token{{ my_active_tokens|pluralize }}</a>
       </div>
-      {% if user.is_staff %}
-        <div class="pg-allgood"><i class="bi bi-shield-check text-success" aria-hidden="true"></i>As a platform administrator you have Admin on every MCP.</div>
+      {% if caps.manage_mcps or caps.manage_access %}
+        <div class="pg-allgood"><i class="bi bi-shield-check text-success" aria-hidden="true"></i>You run MCPs or manage access, so you have Admin on every MCP.</div>
       {% endif %}
       {% if my_permissions %}
         <div class="table-responsive">
@@ -78,7 +78,7 @@
             </tbody>
           </table>
         </div>
-      {% elif not user.is_staff %}
+      {% elif not caps.manage_mcps and not caps.manage_access %}
         <div class="app-empty"><i class="bi bi-person-lock" aria-hidden="true"></i><p class="mb-0">No permissions granted to you directly. MCPs open to all employees are listed in the <a href="{% url 'frontend:mcp-list' %}">registry</a>.</p></div>
       {% endif %}
     </section>

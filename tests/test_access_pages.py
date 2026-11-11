@@ -59,7 +59,7 @@ class TokenPageTests(TestCase):
 
     def test_mcp_detail_offers_tokens(self):
         response = self.client.get(reverse("frontend:mcp-detail", args=[self.server.pk]))
-        self.assertContains(response, "Your access: <strong>Connect</strong>", html=False)
+        self.assertContains(response, "You: <strong>Connect</strong>", html=False)
         self.assertContains(response, f"{reverse('frontend:token-create')}?mcp={self.server.pk}")
         self.assertNotContains(response, "Who has access")
 

@@ -6,7 +6,11 @@
     <div class="card-header">
       <h2 class="pg-card-title" id="serverLogTitle">Server log</h2>
       <span class="small text-body-secondary">One block per run · newest first · updates every 5 seconds</span>
-      <a class="btn btn-outline-secondary btn-sm ms-auto" href="{% url 'frontend:mcp-log-download' server.pk %}" title="The complete technical output, for troubleshooting">
+      <button type="button" class="btn btn-outline-secondary btn-sm pg-live ms-auto" data-pg-pause="#mcpRuns" aria-pressed="false"
+              title="Pause or resume the live updates">
+        <span class="pg-live-dot" aria-hidden="true"></span><span data-pg-pause-label>Live</span>
+      </button>
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'frontend:mcp-log-download' server.pk %}" title="The complete technical output, for troubleshooting">
         <i class="bi bi-download me-1" aria-hidden="true"></i>Full log
       </a>
     </div>
@@ -38,7 +42,7 @@
     {% include "activity/partials/events.html" with entries=events hide_mcp=True %}
     <div class="card-footer small text-body-secondary">
       Showing the latest {{ events|length }} events.
-      {% if is_admin %}<a href="{% url 'frontend:activity-list' %}?q={{ server.slug|urlencode }}">See all in Audit Logs</a>{% endif %}
+      {% if caps.view_audit_log %}<a href="{% url 'frontend:activity-list' %}?q={{ server.slug|urlencode }}">See all in Audit Logs</a>{% endif %}
     </div>
   {% else %}
     <div class="app-empty"><i class="bi bi-clock-history" aria-hidden="true"></i><p class="mb-0">Nothing has happened on this MCP yet.</p></div>

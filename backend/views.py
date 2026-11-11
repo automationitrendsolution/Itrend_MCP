@@ -155,7 +155,7 @@ class TokenIntrospectionView(APIView):
                 "username": token.user.get_username(),
                 "token_id": token.pk,
                 "permission": result.level,
-                "expires_at": int(token.expires_at.timestamp()),
+                "expires_at": int(token.expires_at.timestamp()) if token.expires_at else None,
             },
             headers={"Cache-Control": "no-store"},
         )

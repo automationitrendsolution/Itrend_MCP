@@ -1,9 +1,11 @@
+from django.contrib.auth import get_user_model, password_validation
+from django.core.exceptions import ValidationError
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
 from backend.models import PERMISSION_LEVEL_HELP, MCPMonitorSettings, MCPServer, PermissionLevel
 from backend.services import access, audit, login_protection
-from backend.services.tokens import DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES_DAYS
+from backend.services.tokens import DEFAULT_EXPIRY_DAYS, EXPIRY_CHOICES_DAYS, NEVER_EXPIRES
 
 
 def apply_bootstrap(form: forms.BaseForm) -> None:
@@ -85,14 +87,38 @@ class AccessTokenForm(BootstrapForm):
     expires_in_days = forms.TypedChoiceField(
         label="Expires after",
         coerce=int,
-        choices=[(days, f"{days} days") for days in EXPIRY_CHOICES_DAYS],
+        choices=[(days, "Never (lifetime)" if days == NEVER_EXPIRES else f"{days} days") for days in EXPIRY_CHOICES_DAYS],
         initial=DEFAULT_EXPIRY_DAYS,
-        help_text="Tokens always expire. Create a new one before it does.",
+        help_text="A lifetime token works until you revoke or delete it, so keep it somewhere safe.",
     )
 
     def __init__(self, *args, servers=(), **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.fields["mcp_server"].queryset = MCPServer.objects.filter(pk__in=[s.pk for s in servers])
+
+
+class UserCreateForm(BootstrapForm):
+    """A person's account: name, email and a first password (checked by Django's password rules)."""
+
+    username = forms.CharField(max_length=150, help_text="Used to sign in. Letters, digits and @ . + - _ only.",
+                               validators=[get_user_model().username_validator])
+    first_name = forms.CharField(max_length=150, required=False)
+    last_name = forms.CharField(max_length=150, required=False)
+    email = forms.EmailField(required=False)
+    password1 = forms.CharField(label="Password", strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+    password2 = forms.CharField(label="Password again", strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+
+    def clean(self):
+        data = super().clean()
+        if data.get("password1") and data.get("password1") != data.get("password2"):
+            self.add_error("password2", "The two passwords are different.")
+        elif data.get("password1"):
+            try:
+                password_validation.validate_password(
+                    data["password1"], get_user_model()(username=data.get("username", ""), email=data.get("email", "")))
+            except ValidationError as exc:
+                self.add_error("password1", exc)
+        return data
 
 
 class PermissionGrantForm(BootstrapForm):

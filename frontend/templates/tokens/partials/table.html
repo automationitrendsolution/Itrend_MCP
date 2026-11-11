@@ -23,7 +23,7 @@
             {% if show_mcp %}<td>{{ token.mcp_server.name }}</td>{% endif %}
             {% if show_owner %}<td>{{ token.user.get_username }}</td>{% endif %}
             <td><span class="badge {{ token.state|badge_class }}">{{ token.state|capfirst }}</span></td>
-            <td class="d-none d-md-table-cell">{{ token.expires_at|date:"j M Y" }}</td>
+            <td class="d-none d-md-table-cell">{% if token.expires_at %}{{ token.expires_at|date:"j M Y" }}{% else %}Never{% endif %}</td>
             <td class="d-none d-lg-table-cell">{{ token.last_used_at|date:"j M Y, H:i"|default:"Never" }}</td>
             <td class="text-end">
               {% if token.state == "active" %}
@@ -34,6 +34,12 @@
                   <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Revoke {{ token.name }}">Revoke</button>
                 </form>
               {% endif %}
+              <form method="post" action="{% url 'frontend:token-delete' token.pk %}" class="d-inline"
+                    data-confirm="Delete “{{ token.name }}” permanently? Anything using it stops working immediately. This cannot be undone." data-confirm-action="Delete">
+                {% csrf_token %}
+                {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+                <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Delete {{ token.name }}"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
+              </form>
             </td>
           </tr>
         {% endfor %}
@@ -51,7 +57,7 @@
           <code class="pg-code-inline">{{ token.token_prefix }}…</code>
           {% if show_mcp %}<span>{{ token.mcp_server.name }}</span>{% endif %}
           {% if show_owner %}<span>{{ token.user.get_username }}</span>{% endif %}
-          <span>expires {{ token.expires_at|date:"j M Y" }}</span>
+          <span>{% if token.expires_at %}expires {{ token.expires_at|date:"j M Y" }}{% else %}never expires{% endif %}</span>
         </div>
         {% if token.state == "active" %}
           <form method="post" action="{% url 'frontend:token-revoke' token.pk %}" class="mt-2"

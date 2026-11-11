@@ -166,3 +166,60 @@ def health_key(server) -> str:
     from backend.services.monitoring import health_of
 
     return health_of(server, getattr(server, "last_check_status", None), getattr(server, "last_check_at", None))
+
+
+# ---------------------------------------------------------------------------
+# Switchboard components
+# ---------------------------------------------------------------------------
+
+def _last_check_of(server):
+    """The latest check as (status, checked_at, error): from the row's annotation, else one query."""
+    if hasattr(server, "last_check_status"):
+        return server.last_check_status, server.last_check_at, getattr(server, "last_check_error", "") or ""
+    from backend.services.monitoring import last_check
+
+    check = last_check(server)
+    return (check.status, check.checked_at, check.error_message) if check else (None, None, "")
+
+
+@register.simple_tag
+def mcp_status(server) -> dict:
+    """{% mcp_status server as status %} → {"key", "word", "reason"}."""
+    from backend.services.monitoring import status_of
+
+    return status_of(server, *_last_check_of(server))
+
+
+@register.inclusion_tag("partials/status_chip.html")
+def status_chip(server):
+    """Dot + one word, the reason as a tooltip. The word is always there: colour is never the only signal."""
+    return {"status": mcp_status(server)}
+
+
+@register.simple_tag
+def line_ticks(server, animate=True):
+    """The last 24 hours as 48 ticks: height = requests, colour = health in that half hour."""
+    from django.utils import timezone
+    from django.utils.html import escape
+    from django.utils.safestring import mark_safe
+
+    from backend.services.monitoring import line_ticks as ticks_for
+
+    ticks = ticks_for(server)
+    peak = max((t["requests"] for t in ticks), default=0) or 1
+    words = {"live": "healthy", "amber": "degraded", "fault": "down", "none": "no check"}
+    parts, total = [], 0
+    for i, tick in enumerate(ticks):
+        total += tick["requests"]
+        height = 2 if not tick["requests"] else max(3, round(tick["requests"] / peak * 18))
+        start = timezone.localtime(tick["start"])
+        label = f'{start:%H:%M}: {tick["requests"]} request{"s" if tick["requests"] != 1 else ""}, {words[tick["health"]]}'
+        parts.append(
+            f'<rect class="tick tick--{tick["health"]}" x="{i * 3}" y="{20 - height}" width="2" height="{height}" rx="1" '
+            f'style="--i:{i}"><title>{escape(label)}</title></rect>'
+        )
+    summary = f"Last 24 hours: {total} request{'s' if total != 1 else ''}"
+    return mark_safe(  # noqa: S308 - numbers and escaped labels only
+        f'<svg class="pg-ticks{" pg-ticks--animate" if animate else ""}" viewBox="0 0 143 20" width="143" height="20" '
+        f'role="img" aria-label="{escape(summary)}">{"".join(parts)}</svg>'
+    )

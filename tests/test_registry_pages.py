@@ -75,11 +75,13 @@ class DetailPageTests(TestCase):
         self.assertNotContains(response, "mcp-mysql:8000")
         self.assertNotContains(response, "max_rows")
         self.assertNotContains(response, reverse("frontend:mcp-delete", args=[server.pk]))
+        self.assertNotContains(response, reverse("frontend:mcp-settings", args=[server.pk]))
+        self.assertIn(self.client.get(reverse("frontend:mcp-settings", args=[server.pk])).status_code, (403, 404))
 
     def test_internal_settings_shown_to_staff(self):
         self.client.force_login(create_user("admin", is_staff=True))
         server = create_server(internal_endpoint="http://mcp-mysql:8000/mcp")
-        response = self.client.get(reverse("frontend:mcp-detail", args=[server.pk]))
+        response = self.client.get(reverse("frontend:mcp-settings", args=[server.pk]))
         self.assertContains(response, "mcp-mysql:8000")
         self.assertContains(response, reverse("frontend:mcp-delete", args=[server.pk]))
 

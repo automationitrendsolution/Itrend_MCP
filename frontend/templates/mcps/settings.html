@@ -1,0 +1,31 @@
+{% extends "mcps/base_mcp.html" %}
+
+{% block tab %}
+{% if manifest_problem %}<p class="sb-note sb-note--warn">{{ manifest_problem }}</p>{% endif %}
+<div class="sb-grid">
+  <section class="sb-col-8" aria-labelledby="runsLabel">
+    <div class="sb-section-label" id="runsLabel">01 — How it runs</div>
+    <dl class="sb-kv">
+      {% if manifest %}
+        <div><dt>Folder</dt><dd><code>mcp_servers/{{ server.source_dir }}/</code></dd></div>
+        <div><dt>Start command</dt><dd><code>{{ manifest.command|join:" " }}</code></dd></div>
+        <div><dt>Health check</dt><dd><code>{{ manifest.health_url|default:"port check only" }}</code></dd></div>
+        {% if runtime.pid %}<div><dt>Process ID</dt><dd><code>{{ runtime.pid }}</code></dd></div>{% endif %}
+      {% else %}
+        <div><dt>Internal endpoint</dt><dd><code>{{ server.internal_endpoint|default:"Not set" }}</code></dd></div>
+      {% endif %}
+    </dl>
+    <p class="sb-hint">Name and description come from <code>mcp.json</code>; edit that file to change them. Limits and automatic restarts are on <a href="{% url 'frontend:monitoring-detail' server.pk %}">Monitoring</a>.</p>
+  </section>
+  {% if can_delete %}
+    <aside class="sb-col-4" aria-labelledby="removeLabel">
+      <div class="sb-section-label" id="removeLabel">02 — Remove</div>
+      <p class="sb-note">Removes this MCP, its permissions and access tokens from the platform. This cannot be undone.</p>
+      <form method="post" action="{% url 'frontend:mcp-delete' server.pk %}" data-confirm="Remove {{ server.name }} from the platform? Its permissions and tokens are deleted too." data-confirm-action="Remove">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">Remove from the platform</button>
+      </form>
+    </aside>
+  {% endif %}
+</div>
+{% endblock %}

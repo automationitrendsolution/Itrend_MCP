@@ -2,132 +2,91 @@
 {% load mcp_tags %}
 
 {% block tab %}
-{% if manifest_problem and is_admin %}
-  <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>{{ manifest_problem }}</div>
-{% endif %}
-
-<div class="row g-3">
-  <div class="col-lg-7">
-    <div class="card app-card mb-3">
-      <div class="card-header">How to connect</div>
-      <div class="card-body">
-        {% if server.is_external %}
-          <label class="form-label small text-body-secondary" for="connectionUrl">Connection URL</label>
-          <div class="input-group">
-            <input type="text" id="connectionUrl" class="form-control font-monospace" value="{{ server.connection_url }}" readonly>
-            <button class="btn btn-outline-secondary" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard me-1" aria-hidden="true"></i>Copy</button>
-          </div>
-          <div class="alert alert-warning small mt-3 mb-0">
-            <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>This MCP runs outside the platform, so platform tokens and permissions do not protect it.
-          </div>
-        {% else %}
-          <label class="form-label small text-body-secondary" for="connectionUrl">Connection link – share this with people who have access</label>
-          <div class="input-group">
-            <input type="text" id="connectionUrl" class="form-control font-monospace" value="{{ server.connection_url }}" readonly>
-            <button class="btn btn-outline-secondary" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard me-1" aria-hidden="true"></i>Copy</button>
-          </div>
-          <div class="small text-body-secondary mt-3">
-            <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>The platform checks every request: the client must send a personal access token
-            (<code>Authorization: Bearer …</code>) for this MCP. Step-by-step instructions are in the
-            <a href="{% url 'frontend:mcp-manual' server.pk %}">User manual</a> tab.
-          </div>
-          {% if is_admin and manifest %}
-            <div class="small text-body-secondary mt-2">
-              <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Administrators: the MCP itself listens on <code>{{ manifest.local_url }}</code>.
-              Use that only for testing on this computer; it skips the platform's checks and logging.
-            </div>
-          {% endif %}
-        {% endif %}
+<div class="sb-grid">
+  <section class="sb-col-8" aria-labelledby="connectLabel">
+    <div class="sb-section-label" id="connectLabel">01 — Connect</div>
+    {% if server.is_external %}
+      <div class="sb-field">
+        <input type="text" id="connectionUrl" class="sb-field-input" value="{{ server.connection_url }}" readonly aria-label="Connection URL">
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
       </div>
-    </div>
+      <p class="sb-note sb-note--warn">This MCP runs outside the platform, so platform tokens and permissions do not protect it.</p>
+    {% else %}
+      <div class="sb-field">
+        <input type="text" id="connectionUrl" class="sb-field-input" value="{{ server.connection_url }}" readonly aria-label="Connection URL">
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-copy-target="#connectionUrl"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+      </div>
 
-    {% if not server.is_external %}
-      <div class="card app-card mb-3">
-        <div class="card-header d-flex align-items-center">
-          <span>Your tokens for this MCP</span>
-          {% if can_connect %}
-            <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}" class="btn btn-primary btn-sm ms-auto"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Generate token</a>
-          {% endif %}
+      {% if can_connect %}
+        <p class="sb-note">Every request needs your token. <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}">Generate a token</a> for {{ server.name }}, then paste one of these into your client:</p>
+        <div class="sb-seg" role="tablist" aria-label="MCP client">
+          <button type="button" role="tab" class="sb-seg-btn is-active" aria-selected="true" data-sb-seg="cfg-code">Claude Code</button>
+          <button type="button" role="tab" class="sb-seg-btn" aria-selected="false" data-sb-seg="cfg-desktop">Claude Desktop</button>
+          <button type="button" role="tab" class="sb-seg-btn" aria-selected="false" data-sb-seg="cfg-vscode">VS Code</button>
+          <button type="button" role="tab" class="sb-seg-btn" aria-selected="false" data-sb-seg="cfg-other">Other</button>
         </div>
-        {% if can_connect %}
-          {% include "tokens/partials/table.html" with tokens=my_tokens next=request.path empty="You have no tokens for this MCP." %}
-        {% else %}
-          <div class="card-body small text-body-secondary">
-            <i class="bi bi-lock me-1" aria-hidden="true"></i>You can view this MCP but not connect to it. Ask an administrator for <strong>Connect</strong> permission.
-          </div>
-        {% endif %}
-      </div>
-    {% endif %}
-  </div>
-
-  <div class="col-lg-5">
-    <div class="card app-card mb-3">
-      <div class="card-header">Details</div>
-      <div class="card-body">
-        <dl class="row mb-0 small">
-          <dt class="col-5">Runtime</dt><dd class="col-7"><span class="badge {{ server.status|badge_class }}">{{ server.get_status_display }}</span></dd>
-          {% if server.is_local %}
-            <dt class="col-5">Health</dt>
-            <dd class="col-7">
-              {% with health=health_now %}{% include "monitoring/partials/health_badge.html" %}{% endwith %}
-              {% if last_check and health_now != "stopped" and health_now != "down" %}<div class="text-body-secondary mt-1">checked {{ last_check.checked_at|timesince }} ago</div>{% endif %}
-            </dd>
-          {% endif %}
-          {% if is_admin %}
-            <dt class="col-5">Requests ·&nbsp;24&nbsp;h</dt>
-            <dd class="col-7">{{ traffic.requests }}{% if traffic.errors %} <span class="text-danger">({{ traffic.errors }} failed)</span>{% endif %}</dd>
-          {% endif %}
-          <dt class="col-5">Slug</dt><dd class="col-7"><code>{{ server.slug }}</code></dd>
-          <dt class="col-5">Source</dt><dd class="col-7">{{ server.get_deployment_type_display }}</dd>
-          <dt class="col-5">Who can use it</dt><dd class="col-7">{{ server.get_access_policy_display }}</dd>
-          <dt class="col-5">Transport</dt><dd class="col-7">{{ server.get_transport_type_display }}</dd>
-          {% if manifest %}
-            <dt class="col-5">Port</dt><dd class="col-7">{{ manifest.port }}</dd>
-          {% endif %}
-          <dt class="col-5">Added</dt><dd class="col-7 mb-0">{{ server.created_at|date:"j M Y, H:i" }}</dd>
-        </dl>
-      </div>
-      {% if is_admin %}
-        <div class="card-footer"><a href="{% url 'frontend:monitoring-detail' server.pk %}"><i class="bi bi-activity me-1" aria-hidden="true"></i>Monitoring, limits and incidents</a></div>
+        <div class="sb-code" id="cfg-code" role="tabpanel">
+          <button type="button" class="sb-code-copy" data-copy-target="#cfg-code-text" aria-label="Copy the Claude Code command"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+          <pre id="cfg-code-text">claude mcp add --transport http {{ server.slug }} {{ server.connection_url }} --header "Authorization: Bearer <mark>YOUR_TOKEN</mark>"</pre>
+        </div>
+        <div class="sb-code" id="cfg-desktop" role="tabpanel" hidden>
+          <button type="button" class="sb-code-copy" data-copy-target="#cfg-desktop-text" aria-label="Copy the Claude Desktop settings"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+          <pre id="cfg-desktop-text">"{{ server.slug }}": {
+  "command": "npx",
+  "args": ["-y", "mcp-remote", "{{ server.connection_url }}",
+           "--header", "Authorization:${AUTH_HEADER}"],
+  "env": { "AUTH_HEADER": "Bearer <mark>YOUR_TOKEN</mark>" }
+}</pre>
+          <p class="sb-hint">Settings → Developer → Edit Config, add this inside <code>"mcpServers"</code>, then quit Claude Desktop completely and reopen it. Needs Node.js.</p>
+        </div>
+        <div class="sb-code" id="cfg-vscode" role="tabpanel" hidden>
+          <button type="button" class="sb-code-copy" data-copy-target="#cfg-vscode-text" aria-label="Copy the VS Code settings"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+          <pre id="cfg-vscode-text">{
+  "servers": {
+    "{{ server.slug }}": {
+      "type": "http",
+      "url": "{{ server.connection_url }}",
+      "headers": { "Authorization": "Bearer <mark>YOUR_TOKEN</mark>" }
+    }
+  }
+}</pre>
+          <p class="sb-hint">Put this in <code>.vscode/mcp.json</code>.</p>
+        </div>
+        <div class="sb-code" id="cfg-other" role="tabpanel" hidden>
+          <button type="button" class="sb-code-copy" data-copy-target="#cfg-other-text" aria-label="Copy the connection details"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+          <pre id="cfg-other-text">Transport:  Streamable HTTP
+URL:        {{ server.connection_url }}
+Header:     Authorization: Bearer <mark>YOUR_TOKEN</mark></pre>
+        </div>
+      {% else %}
+        <p class="sb-note">You can view this MCP but not connect to it. Ask an administrator for <strong>Connect</strong> permission.</p>
       {% endif %}
-    </div>
 
-    {% if is_admin %}
-      <div class="card app-card mb-3">
-        <div class="card-header">How the platform runs it <span class="badge text-bg-light ms-auto">Administrators only</span></div>
-        <div class="card-body small">
-          {% if manifest %}
-            <div class="text-body-secondary mb-1">Folder</div>
-            <div class="mb-3"><code>mcp_servers/{{ server.source_dir }}/</code></div>
-            <div class="text-body-secondary mb-1">Start command (from mcp.json)</div>
-            <div class="mb-3"><code>{{ manifest.command|join:" " }}</code></div>
-            <div class="text-body-secondary mb-1">Health check</div>
-            <div class="mb-3"><code>{{ manifest.health_url|default:"port check only" }}</code></div>
-            {% if runtime.pid %}
-              <div class="text-body-secondary mb-1">Process ID</div>
-              <div class="mb-3"><code>{{ runtime.pid }}</code></div>
-            {% endif %}
-            <div class="text-body-secondary">Name and description come from <code>mcp.json</code>; edit that file to change them.</div>
-          {% else %}
-            <div class="text-body-secondary mb-1">Internal endpoint</div>
-            <div><code>{{ server.internal_endpoint|default:"Not set" }}</code></div>
-          {% endif %}
-        </div>
-      </div>
-
-      {% if can_delete %}
-        <div class="card app-card pg-danger-zone">
-          <div class="card-header">Remove from the platform</div>
-          <div class="card-body small">
-            <p>Removes this MCP, its permissions and access tokens from the platform. This cannot be undone.</p>
-            <form method="post" action="{% url 'frontend:mcp-delete' server.pk %}" data-confirm="Remove {{ server.name }} from the platform? Its permissions and tokens are deleted too.">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button>
-            </form>
-          </div>
+      {% if can_connect or is_admin %}
+        <div class="sb-test">
+          <button type="button" class="btn btn-outline-secondary btn-sm" hx-post="{% url 'frontend:mcp-test' server.pk %}" hx-target="#testResult" hx-swap="innerHTML">Test connection</button>
+          <span id="testResult" class="sb-mono" aria-live="polite"></span>
         </div>
       {% endif %}
     {% endif %}
-  </div>
+  </section>
+
+  <aside class="sb-col-4" aria-labelledby="detailsLabel">
+    <div class="sb-section-label" id="detailsLabel">02 — Details</div>
+    {% mcp_status server as st %}
+    <dl class="sb-kv">
+      <div><dt>Status</dt><dd><span class="pg-status pg-status--{{ st.key }}" title="{{ st.reason }}"><span class="pg-status-dot" aria-hidden="true"></span>{{ st.word }}</span></dd></div>
+      {% if is_admin %}<div><dt>Requests 24 h</dt><dd class="sb-mono">{{ traffic.requests }}{% if traffic.errors %} · {{ traffic.errors }} failed{% endif %}</dd></div>{% endif %}
+      <div><dt>Slug</dt><dd class="sb-mono">{{ server.slug }}</dd></div>
+      <div><dt>Source</dt><dd>{{ server.get_deployment_type_display }}</dd></div>
+      <div><dt>Transport</dt><dd>{{ server.get_transport_type_display }}</dd></div>
+      {% if manifest %}<div><dt>Port</dt><dd class="sb-mono">{{ manifest.port }}</dd></div>{% endif %}
+      <div><dt>Who can use it</dt><dd>{% if server.access_policy == "all_users" %}All employees{% else %}Restricted{% endif %}</dd></div>
+      <div><dt>Added</dt><dd class="sb-mono" title="{{ server.created_at|date:'j M Y, H:i' }}">{{ server.created_at|date:"j M Y" }}</dd></div>
+    </dl>
+    {% if is_admin and manifest %}
+      <p class="sb-hint">Testing on this computer only: the MCP itself listens on <code>{{ manifest.local_url }}</code>. That address skips the platform's checks.</p>
+    {% endif %}
+  </aside>
 </div>
 {% endblock %}

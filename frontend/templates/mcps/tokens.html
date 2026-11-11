@@ -1,0 +1,9 @@
+{% extends "mcps/base_mcp.html" %}
+
+{% block tab %}
+<div class="sb-tab-head">
+  <div class="sb-section-label">01 — Your tokens for {{ server.name }}</div>
+  <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg" aria-hidden="true"></i> Generate token</a>
+</div>
+{% include "tokens/partials/table.html" with tokens=my_tokens next=request.path empty="No tokens yet. Generate one to connect Claude, VS Code or any MCP client." %}
+{% endblock %}
