@@ -5,12 +5,24 @@
 {% block page_description %}Who did what, when and from where: sign-ins, connections, access changes and MCP operations.{% endblock %}
 
 {% block content %}
-<div class="app-summary mb-3" aria-label="Last 24 hours">
-  <div class="app-summary-item"><div class="value">{{ recent.connections }}</div><div class="label"><i class="bi bi-plug me-1" aria-hidden="true"></i>MCP connections ·&nbsp;24&nbsp;h</div></div>
-  <div class="app-summary-item"><div class="value {% if recent.refused %}text-danger{% endif %}">{{ recent.refused }}</div><div class="label"><i class="bi bi-x-octagon me-1" aria-hidden="true"></i>Refused connections ·&nbsp;24&nbsp;h</div></div>
-  <div class="app-summary-item"><div class="value {% if recent.failed_logins %}text-danger{% endif %}">{{ recent.failed_logins }}</div><div class="label"><i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Failed sign-ins ·&nbsp;24&nbsp;h</div></div>
-  <div class="app-summary-item"><div class="value">{{ recent.changes }}</div><div class="label"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Changes ·&nbsp;24&nbsp;h</div></div>
-</div>
+<section class="mg-kpis" data-count="4" aria-label="Last 24 hours">
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-teal" aria-hidden="true"><i class="bi bi-plug"></i></span>
+    <div><div class="mg-kpi-value">{{ recent.connections }}</div><div class="mg-kpi-label">MCP connections · 24 h</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon {% if recent.refused %}mg-tone-danger{% else %}mg-tone-neutral{% endif %}" aria-hidden="true"><i class="bi bi-x-octagon"></i></span>
+    <div><div class="mg-kpi-value">{{ recent.refused }}</div><div class="mg-kpi-label">Refused connections · 24 h</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon {% if recent.failed_logins %}mg-tone-danger{% else %}mg-tone-neutral{% endif %}" aria-hidden="true"><i class="bi bi-shield-exclamation"></i></span>
+    <div><div class="mg-kpi-value">{{ recent.failed_logins }}</div><div class="mg-kpi-label">Failed sign-ins · 24 h</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-accent" aria-hidden="true"><i class="bi bi-pencil-square"></i></span>
+    <div><div class="mg-kpi-value">{{ recent.changes }}</div><div class="mg-kpi-label">Changes · 24 h</div></div>
+  </div>
+</section>
 
 <form class="card app-card mb-3 pg-filterbar-card" method="get" action="{% url 'frontend:activity-list' %}"
       hx-get="{% url 'frontend:activity-list' %}" hx-target="#activityTimeline" hx-push-url="true"

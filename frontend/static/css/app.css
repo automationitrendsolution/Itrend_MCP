@@ -1466,3 +1466,33 @@ html[data-bs-theme="dark"] .mg-seg-btn.is-active { background: var(--pg-raised);
 .mg-ability-state { font-size: .6875rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--pg-neutral-soft); color: var(--pg-text-2); }
 .mg-ability-state.is-on { background: var(--pg-teal-soft); color: var(--pg-teal-text); }
 .mg-ability.htmx-request { opacity: .6; }
+
+/* ==========================================================================
+   25. Modern Graphite on every page: cards as panels, KPI strips of any length
+   ========================================================================== */
+.pg-page-heading .mg-eyebrow { margin-bottom: var(--pg-s1); }
+.mg-kpis[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mg-kpis[data-count="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+.app-card {
+  background: var(--pg-panel); border: 1px solid var(--pg-border);
+  border-radius: var(--pg-r); box-shadow: var(--pg-shadow-sm); overflow: hidden;
+}
+.app-card > .card-header {
+  padding: var(--pg-s4) var(--pg-s5); background: transparent; border-bottom: 1px solid var(--pg-border);
+  display: flex; align-items: center; gap: var(--pg-s3); flex-wrap: wrap;
+}
+.app-card > .card-body { padding: var(--pg-s5); }
+.app-card > .card-footer { padding: var(--pg-s3) var(--pg-s5); background: transparent; border-top: 1px solid var(--pg-border); }
+.pg-card-title { font-size: var(--pg-fs-section); font-weight: 600; letter-spacing: -.015em; }
+
+/* Tables inside panels: the Overview's quiet header row */
+.app-card .table > thead > tr > th, .app-table thead th {
+  font-size: .6875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--pg-text-3); background: transparent; border-bottom: 1px solid var(--pg-border);
+}
+.app-card .table > tbody > tr:hover > * { background: var(--pg-surface-2); }
+.app-card .table > :not(caption) > * > :first-child { padding-left: var(--pg-s5); }
+.app-card .table > :not(caption) > * > :last-child { padding-right: var(--pg-s5); }
+.app-card > .card-header { font-size: var(--pg-fs-section); font-weight: 600; letter-spacing: -.015em; }
+.app-card > .card-header .small, .app-card > .card-header small, .app-card > .card-header .btn { font-size: var(--pg-fs-small); letter-spacing: 0; }

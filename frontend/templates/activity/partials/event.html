@@ -33,6 +33,11 @@
       {% elif entry.action == "mcp_connection" %}
         {% if entry.result == "success" %}used {% if hide_mcp %}this MCP{% else %}{% include "activity/partials/mcp_name.html" %}{% endif %}
         {% else %}was refused by {% if hide_mcp %}this MCP{% else %}{% include "activity/partials/mcp_name.html" %}{% endif %}: {{ m.reason|deny_reason }}{% endif %}
+      {% elif entry.action == "token_deleted" %}
+        deleted the token “{{ m.token_name }}”{% if m.owner and m.owner != entry.username %} of <strong>{{ m.owner }}</strong>{% endif %}{% if not hide_mcp %} on {% include "activity/partials/mcp_name.html" %}{% endif %}
+      {% elif entry.action == "user_created" %}added the user <strong>{{ m.target_user }}</strong>
+      {% elif entry.action == "capability_changed" %}
+        switched <strong>{{ m.capability|ability_label }}</strong> {% if m.enabled %}on{% else %}off{% endif %} for <strong>{{ m.target_user }}</strong>
       {% elif entry.action == "user_activated" %}activated <strong>{{ m.target_user }}</strong>
       {% elif entry.action == "user_deactivated" %}deactivated <strong>{{ m.target_user }}</strong>
       {% elif entry.action == "service_account_created" %}created the service account <strong>{{ m.target_user }}</strong>

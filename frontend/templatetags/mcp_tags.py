@@ -78,7 +78,18 @@ EVENT_STYLES = {
     "user_activated": ("bi-person-check", "green"),
     "user_deactivated": ("bi-person-slash", "amber"),
     "service_account_created": ("bi-robot", "purple"),
+    "token_deleted": ("bi-trash", "amber"),
+    "user_created": ("bi-person-plus", "purple"),
+    "capability_changed": ("bi-toggles", "purple"),
 }
+
+
+@register.filter
+def ability_label(code: str) -> str:
+    """manage_users -> "Manage users" (the name shown on the user page)."""
+    from backend.permissions import CAPABILITIES
+
+    return next((label for key, label, _ in CAPABILITIES if key == code), str(code).replace("_", " "))
 
 DENY_REASONS = {
     "unknown_token": "the token is not recognised",

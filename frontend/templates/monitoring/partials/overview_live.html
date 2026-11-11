@@ -1,13 +1,28 @@
 {% load mcp_tags %}
 {% include "monitoring/partials/worker_warning.html" %}
 
-<div class="app-summary mb-3" aria-label="Overview">
-  <div class="app-summary-item"><div class="value">{{ counts.monitored }}</div><div class="label"><i class="bi bi-hdd-stack me-1" aria-hidden="true"></i>Monitored MCPs</div></div>
-  <div class="app-summary-item"><div class="value {% if counts.healthy %}text-success{% endif %}">{{ counts.healthy }}</div><div class="label"><i class="bi bi-heart-pulse me-1" aria-hidden="true"></i>Healthy now</div></div>
-  <div class="app-summary-item"><div class="value {% if counts.problems %}text-danger{% endif %}">{{ counts.problems }}</div><div class="label"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Down or not answering</div></div>
-  <div class="app-summary-item"><div class="value">{{ traffic.requests }}</div><div class="label"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Requests · {{ range.short }}</div></div>
-  <div class="app-summary-item"><div class="value {% if traffic.errors %}text-danger{% endif %}">{{ traffic.errors }}</div><div class="label"><i class="bi bi-bug me-1" aria-hidden="true"></i>Failed requests · {{ range.short }}</div></div>
-</div>
+<section class="mg-kpis" data-count="5" aria-label="Overview">
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-neutral" aria-hidden="true"><i class="bi bi-hdd-stack"></i></span>
+    <div><div class="mg-kpi-value">{{ counts.monitored }}</div><div class="mg-kpi-label">Monitored MCPs</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon {% if counts.healthy %}mg-tone-teal{% else %}mg-tone-neutral{% endif %}" aria-hidden="true"><i class="bi bi-heart-pulse"></i></span>
+    <div><div class="mg-kpi-value">{{ counts.healthy }}</div><div class="mg-kpi-label">Healthy now</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon {% if counts.problems %}mg-tone-danger{% else %}mg-tone-neutral{% endif %}" aria-hidden="true"><i class="bi bi-exclamation-triangle"></i></span>
+    <div><div class="mg-kpi-value">{{ counts.problems }}</div><div class="mg-kpi-label">Down or not answering</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon mg-tone-accent" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
+    <div><div class="mg-kpi-value">{{ traffic.requests }}</div><div class="mg-kpi-label">Requests · {{ range.short }}</div></div>
+  </div>
+  <div class="mg-kpi">
+    <span class="mg-kpi-icon {% if traffic.errors %}mg-tone-danger{% else %}mg-tone-neutral{% endif %}" aria-hidden="true"><i class="bi bi-bug"></i></span>
+    <div><div class="mg-kpi-value">{{ traffic.errors }}</div><div class="mg-kpi-label">Failed requests · {{ range.short }}</div></div>
+  </div>
+</section>
 
 <div class="card app-card mb-3">
   <div class="card-header">MCP servers</div>

@@ -26,10 +26,19 @@ SECTIONS = [
 ]
 
 
+# Section → the sidebar group it sits in, shown above each page title.
+SECTION_GROUPS = {
+    "overview": "Workspace", "mcps": "Workspace", "tokens": "Workspace",
+    "monitoring": "Infrastructure",
+    "users": "Governance", "permissions": "Governance", "audit": "Governance",
+    "profile": "Account",
+}
+
+
 def _section(view_name: str) -> dict | None:
     for prefix, (key, label, url_name) in SECTIONS:
         if view_name.startswith(prefix):
-            return {"key": key, "label": label, "url": reverse(url_name)}
+            return {"key": key, "label": label, "url": reverse(url_name), "group": SECTION_GROUPS.get(key, "")}
     return None
 
 
