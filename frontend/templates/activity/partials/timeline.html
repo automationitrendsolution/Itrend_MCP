@@ -1,4 +1,12 @@
 <div class="card app-card">
+  <div class="card-header small">
+    <span class="text-body-secondary me-auto">{{ page.paginator.count }} entr{{ page.paginator.count|pluralize:"y,ies" }}</span>
+    {% if page.paginator.count %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'frontend:activity-export' %}{% if query %}?{{ query }}{% endif %}" download>
+        <i class="bi bi-download me-1" aria-hidden="true"></i>Download CSV
+      </a>
+    {% endif %}
+  </div>
   {% if page.object_list %}
     {% include "activity/partials/events.html" with entries=page.object_list %}
     {% if page.has_other_pages %}

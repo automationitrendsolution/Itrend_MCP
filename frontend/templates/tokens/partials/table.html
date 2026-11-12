@@ -24,7 +24,10 @@
             {% if show_owner %}<td>{{ token.user.get_username }}</td>{% endif %}
             <td><span class="badge {{ token.state|badge_class }}">{{ token.state|capfirst }}</span></td>
             <td class="d-none d-md-table-cell">{% if token.expires_at %}{{ token.expires_at|date:"j M Y" }}{% else %}Never{% endif %}</td>
-            <td class="d-none d-lg-table-cell">{{ token.last_used_at|date:"j M Y, H:i"|default:"Never" }}</td>
+            <td class="d-none d-lg-table-cell">
+              {{ token.last_used_at|date:"j M Y, H:i"|default:"Never" }}
+              {% if token.is_unused %}<span class="badge text-bg-warning ms-1" title="Not used for {{ token.idle_days }} days">Unused {{ token.idle_days }} d</span>{% endif %}
+            </td>
             <td class="text-end">
               {% if token.state == "active" %}
                 <form method="post" action="{% url 'frontend:token-revoke' token.pk %}" class="d-inline"
@@ -52,6 +55,7 @@
         <div class="d-flex align-items-start gap-2">
           <span class="fw-semibold me-auto">{{ token.name }}</span>
           <span class="badge {{ token.state|badge_class }}">{{ token.state|capfirst }}</span>
+          {% if token.is_unused %}<span class="badge text-bg-warning">Unused {{ token.idle_days }} d</span>{% endif %}
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2 mt-2 small text-body-secondary">
           <code class="pg-code-inline">{{ token.token_prefix }}…</code>

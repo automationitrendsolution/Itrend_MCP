@@ -10,6 +10,20 @@
 {% endblock %}
 
 {% block content %}
+{% if unused_count %}
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-3" role="status">
+    <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+    <span class="me-auto">
+      <strong>{{ unused_count }} token{{ unused_count|pluralize }}</strong> {{ unused_count|pluralize:"has,have" }} not been used for {{ unused_days }} days or more.
+      A token nobody uses is only a risk: revoke it, and generate a new one when you need it.
+    </span>
+    <form method="post" action="{% url 'frontend:token-revoke-unused' %}"
+          data-confirm="Revoke {{ unused_count }} unused token{{ unused_count|pluralize }}? Anything still using {{ unused_count|pluralize:'it,them' }} stops working immediately." data-confirm-action="Revoke">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-outline-danger">Revoke unused</button>
+    </form>
+  </div>
+{% endif %}
 <div class="card app-card">
   {% url 'frontend:token-list' as here %}
   {% include "tokens/partials/table.html" with show_mcp=True next=here empty="You have no tokens. Generate one to connect an MCP client." %}

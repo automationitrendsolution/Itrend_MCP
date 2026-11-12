@@ -1,5 +1,7 @@
 """Who may use which MCP: permissions, access tokens and service accounts."""
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -93,10 +95,21 @@ class ServiceAccount(models.Model):
         return self.user.get_username()
 
 
+# A live token nobody has used for this many days is flagged as unused.
+UNUSED_AFTER_DAYS = 30
+
+
 class AccessTokenQuerySet(models.QuerySet):
     def active(self):
         return self.filter(revoked_at__isnull=True).filter(
             models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
+        )
+
+    def unused(self):
+        """Active tokens not used for UNUSED_AFTER_DAYS (never-used ones count from when they were created)."""
+        cutoff = timezone.now() - timedelta(days=UNUSED_AFTER_DAYS)
+        return self.active().filter(
+            models.Q(last_used_at__lt=cutoff) | models.Q(last_used_at__isnull=True, created_at__lt=cutoff)
         )
 
 
@@ -153,3 +166,12 @@ class AccessToken(models.Model):
     @property
     def is_active(self) -> bool:
         return self.state == self.State.ACTIVE
+
+    @property
+    def idle_days(self) -> int:
+        """Days since the token was last used (or created, if never used)."""
+        return (timezone.now() - (self.last_used_at or self.created_at)).days
+
+    @property
+    def is_unused(self) -> bool:
+        return self.is_active and self.idle_days >= UNUSED_AFTER_DAYS

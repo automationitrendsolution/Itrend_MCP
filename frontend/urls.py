@@ -31,6 +31,7 @@ urlpatterns = [
     # Access tokens
     path("tokens/", views.token_list, name="token-list"),
     path("tokens/add/", views.token_create, name="token-create"),
+    path("tokens/revoke-unused/", views.token_revoke_unused, name="token-revoke-unused"),
     path("tokens/<int:pk>/revoke/", views.token_revoke, name="token-revoke"),
     path("tokens/<int:pk>/delete/", views.token_delete, name="token-delete"),
     # Permissions
@@ -47,6 +48,7 @@ urlpatterns = [
     path("users/<int:user_pk>/tokens/add/", views.token_create, name="user-token-create"),
     # Activity log
     path("activity/", views.activity_list, name="activity-list"),
+    path("activity/export.csv", views.activity_export, name="activity-export"),
     # Monitoring
     path("monitoring/", views.monitoring_overview, name="monitoring"),
     path("monitoring/<int:pk>/", views.monitoring_detail, name="monitoring-detail"),

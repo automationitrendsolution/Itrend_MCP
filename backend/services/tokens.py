@@ -156,6 +156,15 @@ def revoke_token(token: AccessToken, *, revoked_by) -> AccessToken:
     return token
 
 
+def revoke_unused(owner, *, revoked_by) -> int:
+    """Revoke all of owner's tokens flagged as unused. Returns how many were revoked."""
+    revoked = 0
+    for token in list_tokens(user=owner).unused():
+        revoke_token(token, revoked_by=revoked_by)
+        revoked += 1
+    return revoked
+
+
 @transaction.atomic
 def delete_token(token: AccessToken, *, deleted_by) -> None:
     """Remove a token completely. It stops working at once. The audit log keeps a record."""

@@ -1,5 +1,8 @@
+import csv
+import json
 import logging
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 from functools import wraps
 
 from django.contrib import messages
@@ -9,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Count, OuterRef, Q, Subquery
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -28,6 +31,7 @@ from backend.models import (
     MCPServer,
     PermissionLevel,
 )
+from backend.models.access import UNUSED_AFTER_DAYS
 from backend.permissions import CAPABILITIES, CAPABILITY_CODES, can_manage_mcps, has_capability
 from backend.services import access, accounts, audit, catalog, mcplogs, monitoring, registry, runner, tokens, traffic
 from backend.services.health import check_platform
@@ -204,6 +208,14 @@ def _switchboard_overview(user, servers, is_admin: bool, warnings: list[dict]) -
             "level": "warning",
             "text": f"Your token “{token.name}” for {token.mcp_server.name} expires in {days} day{'s' if days != 1 else ''}.",
             "url": reverse("frontend:token-create") + f"?mcp={token.mcp_server_id}", "action": "Generate a new one",
+        })
+    unused = tokens.list_tokens(user=user).unused().count()
+    if unused:
+        attention.append({
+            "level": "warning",
+            "text": (f"{unused} of your tokens have" if unused > 1 else "One of your tokens has")
+            + f" not been used for {UNUSED_AFTER_DAYS}+ days.",
+            "url": reverse("frontend:token-list"), "action": "Review",
         })
 
     database_ok = check_database().status == "ok"
@@ -527,8 +539,22 @@ def token_list(request: HttpRequest) -> HttpResponse:
     context = {
         "tokens": tokens.list_tokens(user=request.user),
         "can_create": not access.is_service_account(request.user),
+        "unused_count": tokens.list_tokens(user=request.user).unused().count(),
+        "unused_days": UNUSED_AFTER_DAYS,
     }
     return render(request, "tokens/list.html", context)
+
+
+@require_POST
+@login_required
+def token_revoke_unused(request: HttpRequest) -> HttpResponse:
+    """Revoke every one of your own tokens that has not been used for UNUSED_AFTER_DAYS."""
+    count = tokens.revoke_unused(request.user, revoked_by=request.user)
+    if count:
+        messages.success(request, f"Revoked {count} unused token{'s' if count != 1 else ''}.")
+    else:
+        messages.info(request, "No unused tokens to revoke.")
+    return redirect("frontend:token-list")
 
 
 @never_cache
@@ -792,8 +818,8 @@ ACTIVITY_PERIODS = {
 }
 
 
-@capability_required("view_audit_log")
-def activity_list(request: HttpRequest) -> HttpResponse:
+def _filtered_activity(request: HttpRequest):
+    """The Audit Logs entries matching the page's filters (?kind, ?problems, ?q, ?period)."""
     filters = {
         "kind": request.GET.get("kind", ""),
         "problems": request.GET.get("problems") == "1",
@@ -813,6 +839,50 @@ def activity_list(request: HttpRequest) -> HttpResponse:
         entries = entries.filter(
             Q(username__icontains=filters["q"]) | Q(mcp_slug__icontains=filters["q"]) | Q(mcp_server__name__icontains=filters["q"])
         )
+    return entries, filters
+
+
+def _csv_cell(value) -> str:
+    """Stop spreadsheet apps from running a cell as a formula (CSV injection)."""
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+class _Echo:
+    """A file-like object for csv.writer that hands each row straight back."""
+
+    def write(self, value):
+        return value
+
+
+@capability_required("view_audit_log")
+def activity_export(request: HttpRequest) -> HttpResponse:
+    """The Audit Logs as CSV, with the same filters as the page. Streamed, so long histories stay cheap."""
+    entries, _ = _filtered_activity(request)
+    writer = csv.writer(_Echo())
+
+    def rows():
+        yield "\ufeff"  # BOM so Excel reads the file as UTF-8
+        yield writer.writerow(["Time (UTC)", "Person", "Action", "Result", "MCP", "Source IP", "Details"])
+        for entry in entries.iterator(chunk_size=2000):
+            yield writer.writerow([_csv_cell(value) for value in (
+                entry.timestamp.astimezone(dt_timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                entry.username,
+                entry.get_action_display(),
+                entry.get_result_display(),
+                entry.mcp_server.name if entry.mcp_server else entry.mcp_slug,
+                entry.source_ip or "",
+                json.dumps(entry.metadata, ensure_ascii=False, sort_keys=True) if entry.metadata else "",
+            )])
+
+    response = StreamingHttpResponse(rows(), content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="audit-log-{timezone.localdate():%Y-%m-%d}.csv"'
+    return response
+
+
+@capability_required("view_audit_log")
+def activity_list(request: HttpRequest) -> HttpResponse:
+    entries, filters = _filtered_activity(request)
 
     since = timezone.now() - timedelta(hours=24)
     recent = MCPActivityLog.objects.filter(timestamp__gte=since).aggregate(
