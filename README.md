@@ -1,117 +1,188 @@
 # iTrend MCP Platform
 
-A central website for registering, deploying, securing and monitoring MCP
-(Model Context Protocol) servers for iTrend Solutions. MCP servers run on a
-dedicated Linux host instead of the PPC production server. The PPC server and
-other approved clients connect to them over HTTPS with individual access tokens.
+One website to **run, share and watch MCP servers** at iTrend Solutions.
 
-Target URL: `https://mcp.itrendsolution.com`
+An MCP server gives an AI tool (Claude Desktop, VS Code, the PPC server…) safe access to
+something, for example a database. This platform keeps all those servers in one place:
 
-> **Status:** Phases 1–4 (foundation, MCP registry, first remote MCP, authentication and
-> permissions), Phase 5 part 1 (your own MCPs: add through code, start/stop from the website)
-> and Phase 6 (monitoring) are complete.
+- **Run** them: start, stop and restart from the website.
+- **Share** them: decide who can use which MCP, and give each person their own access token.
+- **Watch** them: health, CPU, RAM, traffic and incidents, with automatic restarts.
+- **Record** everything: every sign-in, connection and change is in the Audit Logs.
 
-## Requirements
+The live site will be at `https://mcp.itrendsolution.com`.
 
-- Python 3.12 (installed automatically by uv)
-- [uv](https://docs.astral.sh/uv/)
-- MySQL 8.0 or later running locally, with an empty database (e.g. `CREATE DATABASE itrend_mcp CHARACTER SET utf8mb4;`)
+---
 
-## First-time setup
+## Quick start
 
-```powershell
-# 1. Install dependencies into .venv
-uv sync
+You need **[uv](https://docs.astral.sh/uv/)** (it installs Python 3.12 for you) and **MySQL 8**
+with an empty database:
 
-# 2. Create your environment file and fill in DJANGO_SECRET_KEY and the DB_* MySQL settings
-copy .env.example .env
-uv run python -c "import secrets; print(secrets.token_urlsafe(50))"
-
-# 3. Create the database tables
-uv run python manage.py migrate
-
-# 4. Create your administrator account
-uv run python manage.py createsuperuser
-
-# 5. Run the site at http://127.0.0.1:8000
-uv run python manage.py runserver
+```sql
+CREATE DATABASE itrend_mcp CHARACTER SET utf8mb4;
 ```
 
-### Without MySQL (SQLite fallback)
+Then, in the project folder:
 
-For quick local work only, set `DB_ENGINE=sqlite` in `.env`. Django then uses
-`db.sqlite3` in the project folder. This is refused when `DJANGO_DEBUG=False`,
-so it can never be used in production by accident.
+```powershell
+uv sync                                       # 1. install everything
+copy .env.example .env                        # 2. create your settings file
+uv run python manage.py migrate               # 3. create the tables
+uv run python manage.py createsuperuser       # 4. create your admin account
+uv run python manage.py runserver             # 5. start the website
+```
 
-## Everyday commands
+Open **http://127.0.0.1:8000** and sign in.
 
-| Task | Command |
+Before step 3, open `.env` and fill in:
+
+| Setting | What to put |
 |---|---|
-| Run the dev server | `uv run python manage.py runserver` |
-| Run the MCP monitor (second terminal) | `uv run python manage.py monitor_mcps` |
-| Check every MCP once | `uv run python manage.py monitor_mcps --once` |
-| Run all tests | `uv run python manage.py test` |
-| Check configuration | `uv run python manage.py check` |
-| Production settings check | `$env:DJANGO_DEBUG="False"; uv run python manage.py check --deploy` |
-| Apply migrations | `uv run python manage.py migrate` |
-| Add a dependency | `uv add <package>` |
+| `DJANGO_SECRET_KEY` | A long random value. Make one with `uv run python -c "import secrets; print(secrets.token_urlsafe(50))"` |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Your MySQL database and login |
+| `MCP_INTROSPECTION_KEY` | Another random value (same command). MCP servers use it to check tokens |
 
-## Useful URLs (development)
+> **No MySQL?** Set `DB_ENGINE=sqlite` for quick local work. It only works while
+> `DJANGO_DEBUG=True`, so it can never reach production by accident.
 
-| URL | Purpose |
+---
+
+## Daily use: two terminals
+
+| Terminal | Command | What it does |
+|---|---|---|
+| 1 | `uv run python manage.py runserver` | The website |
+| 2 | `uv run python manage.py monitor_mcps` | The monitor: checks every MCP, restarts crashed ones |
+
+The monitor is optional, but without it the Monitoring page shows a warning and nothing is checked.
+
+> **Keep the website on port 8000.** MCP servers check tokens at `http://127.0.0.1:8000`.
+> If another project already uses port 8000, move that project, not this one.
+
+---
+
+## Who can do what
+
+There are two separate things: **abilities** (what you can do on the platform) and
+**MCP access** (which MCPs you can connect to).
+
+**Abilities.** A superuser switches these on per person, on that person's user page:
+
+| Ability | Lets you |
 |---|---|
-| `/` | Dashboard (login required) |
-| `/accounts/login/` | Sign in |
-| `/accounts/profile/` | Your profile |
-| `/admin/` | Django admin (staff only) |
-| `/mcps/` | All MCP servers. Each MCP has tabs: Overview, Logs, Who has access, User manual; administrators can Start / Stop / Restart |
-| `/tokens/` | Your access tokens: generate and revoke |
-| `/users/` | Users and service accounts (administrators) |
-| `/permissions/` | All MCP permissions (administrators) |
-| `/activity/` | Activity log as a readable timeline (administrators) |
-| `/monitoring/` | Health, CPU/RAM, traffic and incidents of every MCP; per-MCP limits and automatic restarts (administrators) |
-| `/api/v1/mcps/<id>/health/` | Latest health check and last 24 hours of one MCP you can see |
-| `/api/v1/mcps/` | MCP registry REST API, read-only (login required) |
-| `/api/v1/tokens/` | Your tokens: list, create (`POST`), revoke (`DELETE /api/v1/tokens/<id>/`) |
-| `/api/v1/users/` | User list (administrators) |
-| `/api/v1/tokens/introspect/` | Token check for MCP servers (needs `MCP_INTROSPECTION_KEY`, not for people) |
-| `/mcp/<slug>/` | **MCP gateway**: the connection link for each MCP. Needs `Authorization: Bearer <token>` |
-| `/api/v1/health/` | Platform health check (public, returns 200 or 503) |
+| Run MCP servers | Start, stop, restart and change MCP settings |
+| Manage MCP access | Give and remove access to MCPs |
+| See monitoring | View the Monitoring page (read only) |
+| Manage users | Add, activate and deactivate people; revoke their tokens |
+| See the audit log | View and download the Audit Logs |
+
+**MCP access**, given per MCP, from lowest to highest:
+
+| Level | Lets you |
+|---|---|
+| View | See the MCP, its connection link and its manual |
+| Connect | View, plus create a token and connect an AI tool to it |
+| Manage | Connect, plus edit the MCP's details |
+| Admin | Manage, plus see its logs and give or remove other people's access |
+
+Abilities do **not** give connect access. To connect, a person needs Connect (or higher)
+on that MCP. Superusers can do everything.
+
+**Service accounts** are for programs, not people (e.g. the PPC server). They cannot sign in,
+and they get at most Connect.
+
+---
+
+## Connecting an AI tool to an MCP
+
+1. Open **Access Tokens → Generate token**, pick the MCP and an expiry.
+2. Copy the token. **It is shown only once.**
+3. In your AI tool, use the MCP's link `http://127.0.0.1:8000/mcp/<name>/` with the header
+   `Authorization: Bearer <your token>`. Each MCP's **Connect** tab shows ready-made examples.
+
+Tokens stop working when they expire, are revoked, or you lose access to the MCP.
+Tokens nobody has used for 30 days are flagged, with a one-click **Revoke unused**.
+
+---
 
 ## Adding your own MCP
 
-Put it in its own folder under `mcp_servers/` with an `mcp.json` file. The
-platform finds it automatically. Step by step: [mcp_servers/README.md](mcp_servers/README.md).
+Create a folder under `mcp_servers/` with an `mcp.json` file in it. The platform finds it
+by itself within about 30 seconds (or run `uv run python manage.py sync_mcps` to register it right away).
 
-```powershell
-uv run python manage.py sync_mcps   # optional: register new folders right now
-```
+Step-by-step guide: [mcp_servers/README.md](mcp_servers/README.md).
+Working example: [mcp_servers/mysql/](mcp_servers/mysql/).
 
-## Monitoring
+---
 
-The website shows what the **monitor** measured. The monitor is a separate
-program; run it next to the website:
+## Useful commands
 
-```powershell
-uv run python manage.py monitor_mcps
-```
+| Task | Command |
+|---|---|
+| Start the website | `uv run python manage.py runserver` |
+| Start the monitor | `uv run python manage.py monitor_mcps` |
+| Check every MCP once | `uv run python manage.py monitor_mcps --once` |
+| Register new MCP folders now | `uv run python manage.py sync_mcps` |
+| Run the tests | `uv run python manage.py test` |
+| Apply database changes | `uv run python manage.py migrate` |
+| Check the setup | `uv run python manage.py check` |
+| Check production settings | `$env:DJANGO_DEBUG="False"; uv run python manage.py check --deploy` |
+| Add a Python package | `uv add <package>` |
 
-It really talks to each running MCP (not just "is the process alive"), measures
-its CPU and RAM, records incidents, and restarts MCPs that crashed or stopped
-answering, at most 3 times an hour by default. MCPs stopped by an administrator,
-or started in a terminal, are never restarted. Without it, the Monitoring page
-shows a warning and no new checks are made.
+---
+
+## Pages
+
+| Page | Address | Who sees it |
+|---|---|---|
+| Overview | `/` | Everyone |
+| MCP Registry | `/mcps/` | Everyone (only the MCPs they can see) |
+| Access Tokens | `/tokens/` | Everyone |
+| Monitoring | `/monitoring/` | "See monitoring" |
+| Users | `/users/` | "Manage users" |
+| Permissions | `/permissions/` | "Manage MCP access" |
+| Audit Logs | `/activity/` | "See the audit log" (with CSV download) |
+| Profile | `/accounts/profile/` | Everyone |
+| Django admin | `/admin/` | Superusers |
+
+## API
+
+| Address | What it does |
+|---|---|
+| `/mcp/<name>/` | **The MCP gateway**: where AI tools connect. Needs a Bearer token |
+| `/api/v1/mcps/` | List the MCPs you can see (read only) |
+| `/api/v1/mcps/<id>/health/` | Latest health and last 24 hours of one MCP |
+| `/api/v1/tokens/` | Your tokens: list, create (`POST`), revoke (`DELETE /api/v1/tokens/<id>/`) |
+| `/api/v1/users/` | User list ("Manage users") |
+| `/api/v1/health/` | Is the platform up? (public; 200 or 503) |
+| `/api/v1/tokens/introspect/` | Token check for MCP servers only (needs `MCP_INTROSPECTION_KEY`) |
+
+---
+
+## Optional settings
+
+All in `.env`; the defaults are fine for local work. See [.env.example](.env.example) for the full list.
+
+| Setting | Default | What it changes |
+|---|---|---|
+| `TOKEN_LIFETIME_ALLOWED` | `all` | Who may create never-expiring tokens: `all`, `service_accounts` or `none` |
+| `LOGIN_MAX_FAILED_ATTEMPTS` | `5` | Failed sign-ins before a short lockout |
+| `LOGIN_LOCKOUT_SECONDS` | `900` | How long that lockout lasts |
+| `SESSION_COOKIE_AGE` | `28800` | Seconds before you are signed out (8 hours) |
+| `MONITORING_RETENTION_DAYS` | `14` | How long monitoring data is kept |
+| `DJANGO_LOG_TO_FILE` | `False` | Also write logs to `logs/` |
+
+---
 
 ## Project layout
 
 ```
-config/        Django settings and root URLs
-frontend/      Django app for the website: views, forms, templates, static files
-backend/       Django app for models, business logic (services/) and the REST API
-mcp_servers/   MCP servers, each a separate project (mysql/: see its README)
+config/        Settings and the main URL list
+frontend/      The website: pages, forms, templates, CSS
+backend/       Data, business rules (services/) and the REST API
+mcp_servers/   The MCP servers, one folder each
 tests/         Automated tests
-logs/          Log files when DJANGO_LOG_TO_FILE=True (not committed)
 ```
 
-Rule of thumb: anything the user sees belongs in `frontend/`, and everything
-behind it belongs in `backend/`.
+Rule of thumb: what people **see** goes in `frontend/`; everything **behind** it goes in `backend/`.
