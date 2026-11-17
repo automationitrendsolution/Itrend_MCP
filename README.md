@@ -167,7 +167,7 @@ All in `.env`; the defaults are fine for local work. See [.env.example](.env.exa
 | Setting | Default | What it changes |
 |---|---|---|
 | `TOKEN_LIFETIME_ALLOWED` | `all` | Who may create never-expiring tokens: `all`, `service_accounts` or `none` |
-| `LOGIN_MAX_FAILED_ATTEMPTS` | `5` | Failed sign-ins before a short lockout |
+| `LOGIN_MAX_FAILED_ATTEMPTS` | `5` | Failed sign-ins before a short lockout (`0` = no lockout) |
 | `LOGIN_LOCKOUT_SECONDS` | `900` | How long that lockout lasts |
 | `SESSION_COOKIE_AGE` | `28800` | Seconds before you are signed out (8 hours) |
 | `MONITORING_RETENTION_DAYS` | `14` | How long monitoring data is kept |

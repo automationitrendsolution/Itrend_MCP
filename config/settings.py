@@ -195,12 +195,8 @@ MONITOR_HEARTBEAT_FILE = Path(env_str("MONITOR_HEARTBEAT_FILE", default=str(BASE
 # Authentication
 # ---------------------------------------------------------------------------
 
-AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
-]
+# No password rules: any password is accepted (owner's choice).
+AUTH_PASSWORD_VALIDATORS = []
 
 if TESTING:
     # Deliberately slow production hashing makes every test login take seconds.
@@ -210,9 +206,12 @@ LOGIN_URL = "frontend:login"
 LOGIN_REDIRECT_URL = "frontend:dashboard"
 LOGOUT_REDIRECT_URL = "frontend:login"
 
-# Failed-login lockout (see backend/services/login_protection.py).
+# Failed-login lockout (see backend/services/login_protection.py). 0 attempts = lockout off.
 LOGIN_MAX_FAILED_ATTEMPTS = int(env_str("LOGIN_MAX_FAILED_ATTEMPTS", default="5"))
 LOGIN_LOCKOUT_SECONDS = int(env_str("LOGIN_LOCKOUT_SECONDS", default="900"))
+# True only when the site is reachable solely through our own proxy (nginx, Docker):
+# then the visitor's real address is the last entry nginx adds to X-Forwarded-For.
+TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", default=False)
 
 
 # ---------------------------------------------------------------------------

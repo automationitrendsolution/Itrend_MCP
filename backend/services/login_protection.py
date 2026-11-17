@@ -26,10 +26,16 @@ def get_client_ip(request: HttpRequest) -> str:
     """
     Return the client's IP address.
 
-    Only REMOTE_ADDR is trusted. Headers such as X-Forwarded-For can be forged
-    by the client, so the Nginx gateway (Phase 7) is responsible for setting
-    REMOTE_ADDR to the real client address.
+    By default only REMOTE_ADDR is trusted, because X-Forwarded-For can be forged.
+    Behind nginx + Docker, REMOTE_ADDR is the proxy's address for every visitor, so
+    with TRUST_PROXY_HEADERS on we use the LAST X-Forwarded-For entry: the one nginx
+    appended itself. Earlier entries come from the client and are ignored.
     """
+    if settings.TRUST_PROXY_HEADERS:
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        last = forwarded.split(",")[-1].strip()
+        if last:
+            return last
     return request.META.get("REMOTE_ADDR", "") or "unknown"
 
 
@@ -45,6 +51,8 @@ def _keys(username: str, ip: str) -> tuple[str, str]:
 def is_locked_out(username: str, ip: str) -> bool:
     user_key, ip_key = _keys(username, ip)
     limit = settings.LOGIN_MAX_FAILED_ATTEMPTS
+    if limit <= 0:
+        return False  # lockout switched off
     return cache.get(user_key, 0) >= limit or cache.get(ip_key, 0) >= limit * IP_LIMIT_MULTIPLIER
 
 

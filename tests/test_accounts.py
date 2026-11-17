@@ -135,3 +135,35 @@ class ProfileTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(reverse("frontend:profile"))
         self.assertContains(response, "alice@example.com")
+
+
+class LoginProtectionSettingsTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        create_user()
+        self.url = reverse("frontend:login")
+
+    @override_settings(LOGIN_MAX_FAILED_ATTEMPTS=0)
+    def test_zero_attempts_means_no_lockout(self):
+        for _ in range(10):
+            self.client.post(self.url, {"username": "alice", "password": "wrong"})
+        response = self.client.post(self.url, {"username": "alice", "password": PASSWORD})
+        self.assertRedirects(response, reverse("frontend:dashboard"))
+
+    @override_settings(LOGIN_MAX_FAILED_ATTEMPTS=3, TRUST_PROXY_HEADERS=True)
+    def test_behind_proxy_each_visitor_is_counted_separately(self):
+        # Through nginx every request has the same REMOTE_ADDR; X-Forwarded-For tells them apart.
+        for _ in range(3):
+            self.client.post(self.url, {"username": "alice", "password": "wrong"}, HTTP_X_FORWARDED_FOR="203.0.113.5")
+        other = Client(HTTP_X_FORWARDED_FOR="198.51.100.7")
+        response = other.post(self.url, {"username": "alice", "password": PASSWORD})
+        self.assertRedirects(response, reverse("frontend:dashboard"))
+
+    @override_settings(TRUST_PROXY_HEADERS=True)
+    def test_forged_forwarded_entries_are_ignored(self):
+        from django.test import RequestFactory
+
+        from backend.services.login_protection import get_client_ip
+
+        request = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.5")
+        self.assertEqual(get_client_ip(request), "203.0.113.5")
