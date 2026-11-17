@@ -328,3 +328,22 @@ class LogFilterPageTests(FolderTestCase):
         page = self.client.get(reverse("frontend:mcp-logs", args=[self.server.pk]), {"severity": "errors", "q": "query"})
         self.assertContains(page, 'value="query"')
         self.assertContains(page, 'value="errors" checked')
+
+
+class StatePartialTests(FolderTestCase):
+    def test_buttons_return_to_the_page_not_the_partial(self):
+        server = self.fake_mcp()
+        self.client.force_login(create_user(username="boss", is_superuser=True))
+        response = self.client.get(
+            reverse("frontend:mcp-state", args=[server.pk]),
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_CURRENT_URL=f"http://testserver/mcps/{server.pk}/logs/",
+        )
+        self.assertContains(response, f'name="next" value="/mcps/{server.pk}/logs/"')
+        self.assertNotContains(response, f'value="/mcps/{server.pk}/state/"')
+
+    def test_without_htmx_header_falls_back_to_the_detail_page(self):
+        server = self.fake_mcp()
+        self.client.force_login(create_user(username="boss", is_superuser=True))
+        response = self.client.get(reverse("frontend:mcp-state", args=[server.pk]))
+        self.assertContains(response, f'name="next" value="{reverse("frontend:mcp-detail", args=[server.pk])}"')

@@ -4,6 +4,7 @@ import logging
 from datetime import timedelta
 from datetime import timezone as dt_timezone
 from functools import wraps
+from urllib.parse import urlsplit
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -481,8 +482,19 @@ def mcp_state(request: HttpRequest, pk: int) -> HttpResponse:
         "is_admin": can_manage_mcps(request.user),
         "manifest": catalog.manifest_for(server),
         "runtime": runner.get_state(server),
+        # This partial is fetched from /mcps/<pk>/state/; after Start/Stop the user must go
+        # back to the page they are on (HTMX sends it), never to the bare partial.
+        "back_url": _page_path(request) or reverse("frontend:mcp-detail", args=[server.pk]),
     }
     return render(request, "mcps/partials/state.html", context)
+
+
+def _page_path(request: HttpRequest) -> str:
+    """Path of the page an HTMX request came from, if it is on this site."""
+    current = request.headers.get("HX-Current-URL", "")
+    if current and url_has_allowed_host_and_scheme(current, allowed_hosts={request.get_host()}):
+        return urlsplit(current).path
+    return ""
 
 
 @require_POST

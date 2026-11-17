@@ -1,6 +1,6 @@
 {% load mcp_tags %}
 {% comment %} The MCP's one status word, its last 24 hours, and (administrators) Start / Stop / Restart.
-   Polls itself every 5 seconds. Stop asks for confirmation inline. {% endcomment %}
+   Polls itself every 5 seconds; back_url keeps the buttons returning to the page, not to this partial. Stop asks for confirmation inline. {% endcomment %}
 <div id="mcpState" class="sb-mcp-state" hx-get="{% url 'frontend:mcp-state' server.pk %}" hx-trigger="every 5s" hx-swap="outerHTML">
   {% if manifest %}
     <div class="sb-mcp-live">
@@ -12,18 +12,18 @@
       <div class="sb-mcp-controls">
         {% if runtime.can_start %}
           <form method="post" action="{% url 'frontend:mcp-control' server.pk 'start' %}">
-            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ back_url|default:request.path }}">
             <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-play-fill" aria-hidden="true"></i> Start</button>
           </form>
         {% endif %}
         {% if runtime.can_stop %}
           <form method="post" action="{% url 'frontend:mcp-control' server.pk 'restart' %}">
-            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ back_url|default:request.path }}">
             <button type="submit" class="btn btn-outline-secondary btn-sm">Restart</button>
           </form>
           <form method="post" action="{% url 'frontend:mcp-control' server.pk 'stop' %}"
                 data-confirm="Stop {{ server.name }}? Connected clients will get errors." data-confirm-action="Stop">
-            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ back_url|default:request.path }}">
             <button type="submit" class="btn btn-outline-danger btn-sm">Stop</button>
           </form>
         {% endif %}
