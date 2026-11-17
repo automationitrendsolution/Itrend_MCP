@@ -1,0 +1,18 @@
+# Secrets come in at run time (env_file / volume), never baked into the image.
+.env
+.env.*
+**/.env
+!.env.example
+.git
+.venv
+**/.venv
+**/__pycache__
+staticfiles
+var
+logs
+tests
+**/tests
+.vscode
+.idea
+*.log
+db.sqlite3

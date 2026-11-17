@@ -74,6 +74,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves /static/ itself, so the site works the same behind nginx or in Docker.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -228,6 +230,9 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", default=not DEBUG)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# MCP servers on the same machine call these over plain http://127.0.0.1, which never
+# leaves the server; redirecting them to https would break token checks.
+SECURE_REDIRECT_EXEMPT = [r"^api/v1/tokens/introspect/$", r"^api/v1/health/$"]
 SECURE_HSTS_SECONDS = int(env_str("DJANGO_SECURE_HSTS_SECONDS", default="0" if DEBUG else "31536000"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 # Browser preload lists are very hard to leave again, so this is an explicit opt-in.

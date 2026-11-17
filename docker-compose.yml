@@ -1,0 +1,22 @@
+# Run:   docker compose up -d --build
+# Logs:  docker compose logs -f
+# Uses the MySQL already running on this server (reached as host.docker.internal).
+services:
+  web:
+    build: .
+    container_name: itrend-mcp
+    restart: unless-stopped
+    init: true                      # cleans up finished MCP processes
+    env_file: .env
+    environment:
+      DB_HOST: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8010:8000"       # only nginx on this server can reach it
+    volumes:
+      - itrend_mcp_var:/app/var     # MCP logs and monitor heartbeat survive restarts
+      - ./mcp_servers/mysql/.env:/app/mcp_servers/mysql/.env:ro
+
+volumes:
+  itrend_mcp_var:
