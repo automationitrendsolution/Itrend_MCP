@@ -1,0 +1,7 @@
+{% extends "oauth/layout.html" %}
+{% block title %}Can't connect{% endblock %}
+{% block content %}
+  <h1 class="h4">This connection request can't be used</h1>
+  <p class="text-body-secondary mb-4">{{ message }} Remove the connector in the app and add it again.</p>
+  <a class="btn btn-primary" href="/">Back to overview</a>
+{% endblock %}

@@ -101,6 +101,10 @@ and they get at most Connect.
 3. In your AI tool, use the MCP's link `http://127.0.0.1:8000/mcp/<name>/` with the header
    `Authorization: Bearer <your token>`. Each MCP's **Connect** tab shows ready-made examples.
 
+**Claude in the browser (claude.ai)** needs no token: in Claude, open **Settings → Connectors →
+Add custom connector** and paste the MCP's link. Claude opens this website; sign in and click **Allow**.
+The connection then appears on your Access Tokens page, where you can revoke it.
+
 Tokens stop working when they expire, are revoked, or you lose access to the MCP.
 Tokens nobody has used for 30 days are flagged, with a one-click **Revoke unused**.
 
@@ -157,6 +161,7 @@ Working example: [mcp_servers/mysql/](mcp_servers/mysql/).
 | `/api/v1/users/` | User list ("Manage users") |
 | `/api/v1/health/` | Is the platform up? (public; 200 or 503) |
 | `/api/v1/tokens/introspect/` | Token check for MCP servers only (needs `MCP_INTROSPECTION_KEY`) |
+| `/.well-known/oauth-…`, `/oauth/…` | Sign-in for apps like Claude in the browser (OAuth 2.1 with PKCE) |
 
 ---
 

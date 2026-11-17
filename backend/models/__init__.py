@@ -14,6 +14,7 @@ from .access import (
 )
 from .activity import MCPActivityLog
 from .monitoring import MCPHealthCheck, MCPMonitorEvent, MCPMonitorSettings, MCPRequestStat
+from .oauth import OAuthClient, OAuthCode, OAuthGrant
 from .registry import MCPDeployment, MCPServer, MCPServerQuerySet
 
 __all__ = [
@@ -28,6 +29,9 @@ __all__ = [
     "MCPPermission",
     "MCPServer",
     "MCPServerQuerySet",
+    "OAuthClient",
+    "OAuthCode",
+    "OAuthGrant",
     "PermissionLevel",
     "PlatformCapability",
     "ServiceAccount",

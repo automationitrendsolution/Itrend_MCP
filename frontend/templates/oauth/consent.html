@@ -1,0 +1,32 @@
+{% extends "oauth/layout.html" %}
+{% block title %}Allow access{% endblock %}
+{% block content %}
+{% if can_connect %}
+  <h1 class="h4">Allow {{ auth.client.client_name }} to use {{ auth.server.name }}?</h1>
+  <p class="text-body-secondary">
+    <strong>{{ auth.client.client_name }}</strong> (at <code>{{ client_host }}</code>) wants to use
+    <strong>{{ auth.server.name }}</strong> as <strong>{{ user.get_username }}</strong>.
+    It can do whatever you can do with this MCP.
+  </p>
+  <p class="small text-body-secondary mb-4">
+    You can stop it at any time: revoke its token on the <strong>Access Tokens</strong> page.
+  </p>
+  <form method="post" action="{% url 'oauth-authorize' %}" class="d-flex gap-2">
+    {% csrf_token %}
+    {% for name, value in fields.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <button type="submit" name="decision" value="allow" class="btn btn-primary">Allow</button>
+    <button type="submit" name="decision" value="deny" class="btn btn-outline-secondary">Deny</button>
+  </form>
+{% else %}
+  <h1 class="h4">You can't connect to {{ auth.server.name }}</h1>
+  <p class="text-body-secondary mb-4">
+    You are signed in as <strong>{{ user.get_username }}</strong>, who does not have <strong>Connect</strong>
+    permission on {{ auth.server.name }}. Ask an administrator for access, then try again.
+  </p>
+  <form method="post" action="{% url 'oauth-authorize' %}">
+    {% csrf_token %}
+    {% for name, value in fields.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <button type="submit" name="decision" value="deny" class="btn btn-outline-secondary">Go back</button>
+  </form>
+{% endif %}
+{% endblock %}

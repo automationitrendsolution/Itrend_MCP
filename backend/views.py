@@ -177,10 +177,14 @@ class TokenIntrospectionView(APIView):
 # ---------------------------------------------------------------------------
 
 
-def _gateway_error(error: gateway.GatewayError) -> JsonResponse:
+def _gateway_error(error: gateway.GatewayError, request: HttpRequest | None = None, slug: str = "") -> JsonResponse:
     response = JsonResponse({"error": {"code": error.code, "message": error.message}}, status=error.status)
     if error.status == 401:
-        response["WWW-Authenticate"] = f'Bearer realm="iTrend MCP", error="{error.code}"'
+        # resource_metadata tells OAuth clients (e.g. Claude in the browser) where to sign in.
+        metadata = f'{request.scheme}://{request.get_host()}/.well-known/oauth-protected-resource/mcp/{slug}/' if request else ""
+        code = "invalid_token" if error.code == "invalid_token" else "invalid_request"
+        extra = f', resource_metadata="{metadata}"' if metadata else ""
+        response["WWW-Authenticate"] = f'Bearer realm="iTrend MCP", error="{code}"{extra}'
     response["Cache-Control"] = "no-store"
     return response
 
@@ -214,7 +218,7 @@ def mcp_gateway(request: HttpRequest, slug: str, rest: str | None = None) -> Htt
     except gateway.GatewayError as error:
         if server is not None:  # unknown slugs are not counted
             traffic.record(server, error.status, (time.perf_counter() - started) * 1000)
-        return _gateway_error(error)
+        return _gateway_error(error, request, slug)
 
     # Response time = until the MCP starts answering (a stream may stay open much longer).
     traffic.record(server, upstream.status, (time.perf_counter() - started) * 1000)

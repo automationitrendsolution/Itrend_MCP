@@ -18,9 +18,10 @@
       </div>
 
       {% if can_connect %}
-        <p class="sb-note">Every request needs your token. <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}">Generate a token</a> for {{ server.name }}, then paste one of these into your client:</p>
+        <p class="sb-note">Every request needs your token (Claude in the browser signs in instead). <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}">Generate a token</a> for {{ server.name }}, then paste one of these into your client:</p>
         <div class="sb-seg" role="tablist" aria-label="MCP client">
           <button type="button" role="tab" class="sb-seg-btn is-active" aria-selected="true" data-sb-seg="cfg-code">Claude Code</button>
+          <button type="button" role="tab" class="sb-seg-btn" aria-selected="false" data-sb-seg="cfg-web">Claude (browser)</button>
           <button type="button" role="tab" class="sb-seg-btn" aria-selected="false" data-sb-seg="cfg-desktop">Claude Desktop</button>
           <button type="button" role="tab" class="sb-seg-btn" aria-selected="false" data-sb-seg="cfg-vscode">VS Code</button>
           <button type="button" role="tab" class="sb-seg-btn" aria-selected="false" data-sb-seg="cfg-other">Other</button>
@@ -28,6 +29,13 @@
         <div class="sb-code" id="cfg-code" role="tabpanel">
           <button type="button" class="sb-code-copy" data-copy-target="#cfg-code-text" aria-label="Copy the Claude Code command"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
           <pre id="cfg-code-text">claude mcp add --transport http {{ server.slug }} {{ server.connection_url }} --header "Authorization: Bearer <mark>YOUR_TOKEN</mark>"</pre>
+        </div>
+        <div class="sb-code" id="cfg-web" role="tabpanel" hidden>
+          <button type="button" class="sb-code-copy" data-copy-target="#cfg-web-text" aria-label="Copy the connector URL"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
+          <pre id="cfg-web-text">{{ server.connection_url }}</pre>
+          <p class="sb-hint">No token needed. On claude.ai: <strong>Settings → Connectors → Add custom connector</strong>, name it
+            “{{ server.name }}” and paste this URL. Click <strong>Connect</strong>, sign in here and click <strong>Allow</strong>.
+            On Team and Enterprise plans an owner adds the connector first. To disconnect, revoke its token on the Access Tokens page.</p>
         </div>
         <div class="sb-code" id="cfg-desktop" role="tabpanel" hidden>
           <button type="button" class="sb-code-copy" data-copy-target="#cfg-desktop-text" aria-label="Copy the Claude Desktop settings"><i class="bi bi-clipboard" aria-hidden="true"></i> Copy</button>
