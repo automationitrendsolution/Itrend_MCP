@@ -6,6 +6,8 @@
 //   Copy buttons          data-copy-target="#inputId"
 //   Confirmation dialog   <form data-confirm="Revoke this token?" data-confirm-action="Revoke">
 //   Toasts                Django messages (partials/toasts.html)
+//   Background forms      POST forms on app pages submit without reloading: a spinner shows in the
+//                         clicked button, not in the browser tab. Opt out with data-no-boost.
 
 (function () {
   "use strict";
@@ -84,7 +86,7 @@
   }
 
   function askToConfirm(message, actionLabel) {
-    dialog = dialog || buildDialog();
+    if (!dialog || !dialog.isConnected) dialog = buildDialog();  // the page body may have been replaced
     dialog.querySelector("#pgConfirmMessage").textContent = message;
     const ok = dialog.querySelector("[data-pg-confirm-ok]");
     ok.textContent = actionLabel || "Confirm";
@@ -102,6 +104,7 @@
   // Listening on the document also covers forms that HTMX adds to the page later.
   document.addEventListener("submit", (event) => {
     const form = event.target;
+    if (isBoosted(form)) return;  // background forms confirm in "htmx:confirm" below
     const message = form.dataset ? form.dataset.confirm : null;
     if (!message) return;
     if (form.dataset.pgConfirmed === "1") { delete form.dataset.pgConfirmed; return; }
@@ -142,9 +145,100 @@
   });
 
   // ---------------------------------------------------------------------
-  // On load
+  // Background forms (HTMX boost on POST forms inside the app)
   // ---------------------------------------------------------------------
-  document.addEventListener("DOMContentLoaded", () => {
+  const BOOST_SKIP = "[data-no-boost], [hx-post], [hx-get], [hx-put], [hx-patch], [hx-delete], [target]";
+  const isBoosted = (el) => el instanceof HTMLFormElement && el.getAttribute("hx-boost") === "true";
+  // The form that sent a request (swap events are fired on the page body, not on the form).
+  const sourceOf = (event) => (event.detail.requestConfig && event.detail.requestConfig.elt) || event.detail.elt;
+
+  function boostForms(scope) {
+    if (typeof htmx === "undefined" || !scope.querySelectorAll) return;
+    const forms = scope.matches && scope.matches("form") ? [scope] : scope.querySelectorAll("form");
+    forms.forEach((form) => {
+      if ((form.getAttribute("method") || "").toLowerCase() !== "post") return;
+      if (!form.closest(".app-shell") || form.matches(BOOST_SKIP) || form.hasAttribute("hx-boost")) return;
+      form.setAttribute("hx-boost", "true");
+      htmx.process(form);
+    });
+  }
+
+  function setBusy(button, busy) {
+    if (!button) return;
+    if (busy) {
+      button.dataset.pgLabel = button.innerHTML;
+      button.style.minWidth = `${button.offsetWidth}px`;  // keep the button's width while it spins
+      button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>'
+        + '<span class="visually-hidden">Working…</span>';
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+    } else if (button.dataset.pgLabel !== undefined) {
+      button.innerHTML = button.dataset.pgLabel;
+      delete button.dataset.pgLabel;
+      button.style.minWidth = "";
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+    }
+  }
+
+  // Ask first for forms with data-confirm, then send.
+  document.addEventListener("htmx:confirm", (event) => {
+    const form = event.detail.elt;
+    if (!isBoosted(form) || !form.dataset.confirm) return;
+    event.preventDefault();
+    askToConfirm(form.dataset.confirm, form.dataset.confirmAction).then((yes) => {
+      if (yes) event.detail.issueRequest(true);
+    });
+  });
+
+  document.addEventListener("htmx:beforeRequest", (event) => {
+    const form = event.detail.elt;
+    if (!isBoosted(form)) return;
+    const trigger = event.detail.requestConfig && event.detail.requestConfig.triggeringEvent;
+    const button = (trigger && trigger.submitter) || form.querySelector('[type="submit"], button:not([type])');
+    form.pgBusyButton = button;
+    setBusy(button, true);
+  });
+
+  document.addEventListener("htmx:afterRequest", (event) => {
+    const form = sourceOf(event);
+    if (isBoosted(form) && !event.detail.successful) setBusy(form.pgBusyButton, false);
+  });
+
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    if (!isBoosted(sourceOf(event))) return;
+    const xhr = event.detail.xhr;
+    const html = xhr.responseText || "";
+    if (xhr.status < 400 && !/<body[^>]*class="[^"]*app-body/.test(html)) {
+      // Not an app page (e.g. signed out -> login page): load it normally.
+      event.detail.shouldSwap = false;
+      window.location.assign(xhr.responseURL || window.location.href);
+      return;
+    }
+    // Error pages (403, 500 …) are shown too, instead of nothing happening.
+    event.detail.shouldSwap = true;
+    event.detail.isError = false;
+  });
+
+  document.addEventListener("htmx:afterSettle", (event) => {
+    if (!isBoosted(sourceOf(event))) return;
+    const url = event.detail.xhr && event.detail.xhr.responseURL;
+    if (url) {
+      const next = new URL(url);
+      if (next.origin === location.origin && next.pathname + next.search !== location.pathname + location.search) {
+        history.pushState({ htmx: true }, "", next.pathname + next.search);
+      }
+    }
+    initPage(true);
+  });
+
+  // Back/forward restores a saved copy of the page: wire it up again, without replaying old toasts.
+  document.addEventListener("htmx:historyRestore", () => initPage(false));
+
+  // ---------------------------------------------------------------------
+  // Page set-up: on load, and again after a background form replaced the page
+  // ---------------------------------------------------------------------
+  function initPage(showToasts) {
     applyTheme(root.getAttribute("data-theme-pref") || "system");
     document.querySelectorAll("[data-pg-theme]").forEach((item) => {
       item.addEventListener("click", () => {
@@ -170,7 +264,8 @@
 
     // Django messages as toasts.
     document.querySelectorAll("#toastContainer .toast").forEach((el) => {
-      bootstrap.Toast.getOrCreateInstance(el, { delay: 5000 }).show();
+      if (showToasts) bootstrap.Toast.getOrCreateInstance(el, { delay: 5000 }).show();
+      else el.remove();
     });
 
     // Copy buttons: <button data-copy-target="#inputId">.
@@ -188,6 +283,12 @@
         setTimeout(() => { button.innerHTML = original; }, 2000);
       });
     });
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    initPage(true);
+    // Forms already on the page, and forms that later HTMX swaps bring in (e.g. Start / Stop).
+    if (typeof htmx !== "undefined") htmx.onLoad((element) => boostForms(element));
   });
 })();
 
@@ -209,8 +310,8 @@
 
   // The Pulse Line: one dot per real request through the gateway (amber for refusals).
   // Reads two numbers every few seconds; sends at most three dots of each kind per reading.
-  const line = document.querySelector(".pg-pulse-line[data-pulse-url]");
-  if (!line) return;
+  const findLine = () => document.querySelector(".pg-pulse-line[data-pulse-url]");
+  if (!findLine()) return;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let last = null;
 
@@ -220,12 +321,15 @@
     dot.className = "pg-pulse-dot" + (kind === "amber" ? " pg-pulse-dot--amber" : "");
     dot.style.animationDelay = delay + "ms";
     dot.addEventListener("animationend", () => dot.remove());
-    line.appendChild(dot);
+    const line = findLine();
+    if (line) line.appendChild(dot);
   }
 
   async function poll() {
     if (document.hidden) return;
     try {
+      const line = findLine();
+      if (!line) return;
       const response = await fetch(line.dataset.pulseUrl, { credentials: "same-origin", headers: { Accept: "application/json" } });
       if (!response.ok) return;
       const now = await response.json();

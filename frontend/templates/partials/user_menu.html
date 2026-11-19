@@ -17,7 +17,7 @@
     <li><a class="dropdown-item" href="{% url 'frontend:token-list' %}"><i class="bi bi-key" aria-hidden="true"></i>Access tokens</a></li>
     <li><hr class="dropdown-divider"></li>
     <li>
-      <form method="post" action="{% url 'frontend:logout' %}">
+      <form method="post" action="{% url 'frontend:logout' %}" data-no-boost>
         {% csrf_token %}
         <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Sign out</button>
       </form>

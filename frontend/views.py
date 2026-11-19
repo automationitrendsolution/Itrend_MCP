@@ -84,6 +84,11 @@ def redirect_back(request: HttpRequest, default: str) -> HttpResponse:
     return redirect(default)
 
 
+def _wants_partial(request: HttpRequest) -> bool:
+    """An HTMX request for part of a page. Background form submits (boosted) need the whole page."""
+    return bool(request.htmx) and not request.htmx.boosted
+
+
 def visible_server_or_404(request: HttpRequest, pk: int) -> MCPServer:
     # Servers the user may not see return 404, so their existence is not revealed.
     return get_object_or_404(MCPServer.objects.visible_to(request.user), pk=pk)
@@ -308,7 +313,7 @@ def mcp_list(request: HttpRequest) -> HttpResponse:
         "servers_dir": catalog.servers_dir(),
     }
     # HTMX search/filter/pagination only needs the table, not the whole page.
-    template = "mcps/partials/table.html" if request.htmx else "mcps/list.html"
+    template = "mcps/partials/table.html" if _wants_partial(request) else "mcps/list.html"
     return render(request, template, context)
 
 
@@ -913,7 +918,7 @@ def activity_list(request: HttpRequest) -> HttpResponse:
         "recent": recent,
         "query": query.urlencode(),
     }
-    template = "activity/partials/timeline.html" if request.htmx else "activity/list.html"
+    template = "activity/partials/timeline.html" if _wants_partial(request) else "activity/list.html"
     return render(request, template, context)
 
 
@@ -964,7 +969,7 @@ def monitoring_overview(request: HttpRequest) -> HttpResponse:
         "worker_last_seen": monitoring.worker_last_seen(),
     }
     # The live part refreshes itself every few seconds through HTMX.
-    template = "monitoring/partials/overview_live.html" if request.htmx else "monitoring/index.html"
+    template = "monitoring/partials/overview_live.html" if _wants_partial(request) else "monitoring/index.html"
     return render(request, template, context)
 
 
@@ -1004,7 +1009,7 @@ def monitoring_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "can_edit_settings": can_edit,
         "worker_running": monitoring.worker_is_running(),
     }
-    template = "monitoring/partials/detail_live.html" if request.htmx else "monitoring/detail.html"
+    template = "monitoring/partials/detail_live.html" if _wants_partial(request) else "monitoring/detail.html"
     return render(request, template, context)
 
 

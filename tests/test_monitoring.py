@@ -592,6 +592,17 @@ class MonitoringPageTests(TestCase):
         self.assertEqual(sum(row["requests"] for row in week.context["hours"]), 3)
         self.assertEqual(len(self.client.get(detail, {"range": "1h"}).context["hours"]), 1)
 
+    def test_background_form_submit_gets_the_whole_page(self):
+        # Live refresh (plain HTMX) wants the partial; a background form submit (boosted) needs the full page.
+        self.client.force_login(self.admin)
+        url = reverse("frontend:monitoring-detail", args=[self.server.pk])
+        live = self.client.get(url, HTTP_HX_REQUEST="true")
+        self.assertTemplateUsed(live, "monitoring/partials/detail_live.html")
+        self.assertTemplateNotUsed(live, "base.html")
+        boosted = self.client.get(url, HTTP_HX_REQUEST="true", HTTP_HX_BOOSTED="true")
+        self.assertTemplateUsed(boosted, "monitoring/detail.html")
+        self.assertContains(boosted, 'class="app-body"')
+
     def test_zero_healthy_is_not_shown_as_good_news(self):
         self.client.force_login(self.admin)
         self.assertNotContains(self.client.get(reverse("frontend:monitoring")), 'class="value text-success">0<')
