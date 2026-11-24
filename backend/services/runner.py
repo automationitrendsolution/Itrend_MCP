@@ -26,6 +26,7 @@ from pathlib import Path
 
 import psutil
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from backend.models import MCPServer
@@ -212,6 +213,25 @@ def get_state(server: MCPServer) -> RuntimeState:
 
 
 def start(server: MCPServer, *, by) -> RuntimeState:
+    """
+    Start the MCP. One start at a time: the website's Start button and the monitor's automatic
+    restart run in different processes, and two copies racing for the port left the platform
+    tracking the copy that lost (shown as "Started outside the platform").
+    """
+    error = None
+    with transaction.atomic():
+        locked = MCPServer.objects.select_for_update().get(pk=server.pk)  # waits for any other start
+        try:
+            state = _start(locked, by=by)
+        except RunnerError as exc:
+            error = exc  # raised after the block, so what was recorded (e.g. "failed") is kept
+    server.refresh_from_db()
+    if error is not None:
+        raise error
+    return state
+
+
+def _start(server: MCPServer, *, by) -> RuntimeState:
     manifest = catalog.manifest_for(server)
     if manifest is None:
         raise RunnerError(catalog.manifest_problem(server) or "This MCP has no mcp.json folder, so it cannot be started here.")
