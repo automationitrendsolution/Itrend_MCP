@@ -67,12 +67,16 @@ class PlatformTokenVerifier:
             self._cache.pop(key, None)
             return None
 
+        items = answer.get("items")
         access = AccessToken(
             token=token,
             client_id=f"itmcp-token-{answer['token_id']}",
             subject=str(answer.get("username", "")),
             scopes=[READ_SCOPE],
-            expires_at=int(answer["expires_at"]),
+            # Lifetime tokens have no expiry.
+            expires_at=int(answer["expires_at"]) if answer.get("expires_at") is not None else None,
+            # The databases this person may use ("*" = all). Missing = none (fail closed).
+            claims={"databases": [i for i in items if isinstance(i, str)] if isinstance(items, list) else []},
             # The platform confirmed this token was issued for this MCP, so it is
             # bound to this server's URL (checked again by the SDK).
             resource=self._resource_url,
@@ -101,7 +105,8 @@ class PlatformTokenVerifier:
             return None
         if body.get("active") is not True or body.get("mcp") != self._slug:
             return None
-        if not isinstance(body.get("token_id"), int) or not isinstance(body.get("expires_at"), int):
+        expires_at = body.get("expires_at")
+        if not isinstance(body.get("token_id"), int) or not (expires_at is None or isinstance(expires_at, int)):
             logger.error("Platform token check returned an unexpected answer.")
             return None
         return body

@@ -34,7 +34,7 @@ from backend.models import (
 )
 from backend.models.access import UNUSED_AFTER_DAYS
 from backend.permissions import CAPABILITIES, CAPABILITY_CODES, can_manage_mcps, has_capability
-from backend.services import access, accounts, audit, catalog, mcplogs, monitoring, registry, runner, tokens, traffic
+from backend.services import access, accounts, audit, catalog, items, mcplogs, monitoring, registry, runner, tokens, traffic
 from backend.services.health import check_platform
 
 from .markdown import render_markdown_file
@@ -411,6 +411,12 @@ def mcp_detail(request: HttpRequest, pk: int) -> HttpResponse:
     )
     last = context["last_check"]
     context["health_now"] = monitoring.health_of(server, last.status if last else None, last.checked_at if last else None)
+    if context["can_connect"] and items.uses_items(server):
+        mine = items.allowed_items(request.user, server)
+        labels = {item["key"]: item["label"] for item in items.items_of(server)}
+        # In the MCP's own order, the same order Claude sees in list_databases.
+        context["my_items"] = [label for key, label in labels.items() if items.ALL in mine or key in mine]
+        context["items_label"] = items.items_label(server)
     return render(request, "mcps/detail.html", context)
 
 
@@ -466,7 +472,49 @@ def mcp_access(request: HttpRequest, pk: int) -> HttpResponse:
     context["permissions"] = access.list_permissions(server=server)
     context["grant_form"] = PermissionGrantForm(server=server)
     context["policy_choices"] = MCPServer.AccessPolicy.choices
+    context.update(_item_context(server, context["permissions"]))
     return render(request, "mcps/access.html", context)
+
+
+def _item_context(server: MCPServer, permissions) -> dict:
+    """Per-part switches (e.g. databases) for MCPs that offer them."""
+    if not items.uses_items(server):
+        return {"item_list": None}
+    items.refresh(server)  # cheap and local; keeps the list current while the MCP runs
+    item_list = items.items_of(server)
+    on = items.switched_on(server)
+    people = {permission.user.pk: permission.user for permission in permissions}
+    if server.access_policy == MCPServer.AccessPolicy.ALL_USERS:
+        # Everyone may connect without being added one by one, so everyone needs a row.
+        for person in access.grantable_users():
+            people.setdefault(person.pk, person)
+    rows = []
+    for person in sorted(people.values(), key=lambda p: p.get_username().lower()):
+        if not access.can_connect(person, server):
+            continue  # View only: nothing to switch on
+        rows.append({
+            "person": person,
+            "everything": person.is_superuser,
+            "cells": [{"item": item, "on": item["key"] in on.get(person.pk, set())} for item in item_list],
+        })
+    return {"item_list": item_list, "items_label": items.items_label(server), "item_rows": rows}
+
+
+@require_POST
+@login_required
+def mcp_item_toggle(request: HttpRequest, pk: int, user_pk: int, key: str) -> HttpResponse:
+    """Switch one part of an MCP (e.g. one database) on or off for one person."""
+    server = get_object_or_404(MCPServer, pk=pk)
+    if not access.can_admin(request.user, server):
+        raise PermissionDenied
+    person = get_object_or_404(get_user_model(), pk=user_pk)
+    on = request.POST.get("on") == "1"
+    items.set_item(server=server, user=person, item=key, on=on, changed_by=request.user)
+    if _wants_partial(request):
+        item = next(i for i in items.items_of(server) if i["key"] == key)
+        return render(request, "mcps/partials/item_switch.html", {"server": server, "person": person, "cell": {"item": item, "on": on}})
+    messages.success(request, f"{key} switched {'on' if on else 'off'} for {person.get_username()}.")
+    return redirect("frontend:mcp-access", pk=server.pk)
 
 
 @login_required

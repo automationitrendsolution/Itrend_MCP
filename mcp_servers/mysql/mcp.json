@@ -1,9 +1,14 @@
 {
   "name": "MySQL MCP",
-  "description": "Read-only access to the Power BI MySQL database (powerbidb): list tables, describe them and run SELECT queries.",
-  "command": ["uv", "run", "mysql-mcp"],
+  "description": "Read-only access to MySQL databases (such as Power BI): list tables, describe them and run SELECT queries. Each person only sees the databases switched on for them.",
+  "command": [
+    "uv",
+    "run",
+    "mysql-mcp"
+  ],
   "port": 8101,
   "mcp_path": "/mcp",
   "health_path": "/health",
-  "manual": "README.md"
+  "manual": "README.md",
+  "access_items_path": "/access-items"
 }

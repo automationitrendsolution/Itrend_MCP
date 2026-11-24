@@ -54,6 +54,30 @@ class MCPPermission(models.Model):
         return f"{self.user} – {self.get_permission_level_display()} on {self.mcp_server}"
 
 
+class MCPItemAccess(models.Model):
+    """
+    One part of an MCP (e.g. one database) switched on for one person. Only for MCPs that list
+    such parts (mcp.json "access_items_path"); nobody gets a part until it is switched on.
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mcp_item_access")
+    mcp_server = models.ForeignKey(MCPServer, on_delete=models.CASCADE, related_name="item_access")
+    item = models.CharField(max_length=64)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "MCP item access"
+        constraints = [
+            models.UniqueConstraint(fields=["user", "mcp_server", "item"], name="unique_item_access"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} – {self.item} on {self.mcp_server}"
+
+
 class PlatformCapability(models.Model):
     """
     Not a table. Holds the platform abilities a superuser switches on or off per user

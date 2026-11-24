@@ -46,6 +46,7 @@ mcp_servers/
    | `mcp_path` | no | Default `/mcp`. |
    | `health_path` | no | Default `/health`; `null` = only check the port answers. |
    | `manual` | no | Default `README.md`; shown on the User manual tab. |
+   | `access_items_path` | no | Address listing parts people are switched on for one by one (e.g. `/access-items`, answering `{"label": "Databases", "items": [{"key": "powerbi", "label": "Power BI"}]}`). The token check then sends each person's parts as `items` (`["*"]` = all). |
 
 4. **Put its secrets in its own `.env`** (database passwords, API keys,
    `MCP_INTROSPECTION_KEY`). The platform never passes its own secrets to an MCP.

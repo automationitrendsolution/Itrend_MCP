@@ -37,7 +37,7 @@ async def _call(url, token, mode="auto"):
 def test_health_needs_no_token(live_server):
     response = httpx2.get(f"{live_server}/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "database": "ok"}
+    assert response.json() == {"status": "ok", "database": "ok", "databases_ok": 1, "databases_total": 1}
 
 
 def test_health_reports_database_outage(live_server, fake_db):
@@ -83,7 +83,7 @@ def test_initialize_streams_and_creates_session(live_server):
 async def test_official_client_end_to_end(live_server, mode):
     """Both current and older (initialize-handshake) MCP clients can connect and call tools."""
     tools, result = await _call(f"{live_server}/mcp", VALID_TOKEN, mode=mode)
-    assert {tool.name for tool in tools.tools} == {"list_tables", "describe_table", "run_query"}
+    assert {tool.name for tool in tools.tools} == {"list_databases", "list_tables", "describe_table", "run_query"}
     assert result.structured_content["rows"] == [{"n": 1}]
 
 

@@ -10,13 +10,13 @@ pytestmark = pytest.mark.anyio
 
 @pytest.fixture
 def server(settings, fake_db):
-    return build_server(settings, fake_db)
+    return build_server(settings, fake_db, allowed=lambda: ["*"])
 
 
 async def test_lists_three_read_only_tools(server):
     async with Client(server) as client:
         tools = {tool.name: tool for tool in (await client.list_tools()).tools}
-    assert set(tools) == {"list_tables", "describe_table", "run_query"}
+    assert set(tools) == {"list_databases", "list_tables", "describe_table", "run_query"}
     for tool in tools.values():
         assert tool.annotations.read_only_hint is True
         assert tool.output_schema is not None

@@ -18,6 +18,11 @@
       </div>
 
       {% if can_connect %}
+        {% if items_label %}
+          <p class="sb-note">{{ items_label }} you can use:
+            {% if my_items %}<strong>{{ my_items|join:", " }}</strong>{% else %}<strong>none yet</strong> — ask an administrator to switch one on for you.{% endif %}
+          </p>
+        {% endif %}
         <p class="sb-note">Every request needs your token (Claude in the browser signs in instead). <a href="{% url 'frontend:token-create' %}?mcp={{ server.pk }}">Generate a token</a> for {{ server.name }}, then paste one of these into your client:</p>
         <div class="sb-seg" role="tablist" aria-label="MCP client">
           <button type="button" role="tab" class="sb-seg-btn is-active" aria-selected="true" data-sb-seg="cfg-code">Claude Code</button>

@@ -7,6 +7,7 @@ Database models, split by topic. Import them from here:
 from .access import (
     PERMISSION_LEVEL_HELP,
     AccessToken,
+    MCPItemAccess,
     MCPPermission,
     PermissionLevel,
     PlatformCapability,
@@ -23,6 +24,7 @@ __all__ = [
     "MCPActivityLog",
     "MCPDeployment",
     "MCPHealthCheck",
+    "MCPItemAccess",
     "MCPMonitorEvent",
     "MCPMonitorSettings",
     "MCPRequestStat",

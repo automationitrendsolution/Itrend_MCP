@@ -69,3 +69,46 @@ def check_read_only(sql: str) -> str:
         raise UnsafeQueryError(f"These keywords are not allowed: {', '.join(blocked)}.")
 
     return statement
+
+
+# ---------------------------------------------------------------------------
+# Staying inside one database
+# ---------------------------------------------------------------------------
+
+SYSTEM_SCHEMAS = frozenset({"information_schema", "mysql", "performance_schema", "sys"})
+# Text in '...' or "..." (backquoted names are kept: they can be database names).
+_TEXT_LITERAL = re.compile(r"'(?:[^'\\]|\\.|'')*'|" + r'"(?:[^"\\]|\\.|"")*"', re.DOTALL)
+_IDENT = r"(?:`(?:[^`]|``)+`|[A-Za-z0-9_$]+)"
+# name . name  or  name . *   -> the first name may be a database
+_QUALIFIER = re.compile(rf"({_IDENT})\s*\.\s*(?:{_IDENT}|\*)")
+_SHOW_SOURCE = re.compile(rf"\b(?:FROM|IN)\s+({_IDENT})", re.IGNORECASE)
+
+
+def _name(identifier: str) -> str:
+    if identifier.startswith("`"):
+        identifier = identifier[1:-1].replace("``", "`")
+    return identifier.lower()
+
+
+def check_own_database(sql: str, own: str, others: set[str]) -> None:
+    """
+    Refuse a query that reaches into another database (e.g. SELECT * FROM sales.orders).
+
+    `others` are the names of databases the MySQL login can see besides its own. Needed when
+    several databases share one MySQL login; with one login per database MySQL refuses anyway.
+    A table alias that happens to equal a database name is refused too: rename the alias.
+    """
+    text = _TEXT_LITERAL.sub("''", sql)
+    own = own.lower()
+    forbidden = ({name.lower() for name in others} | SYSTEM_SCHEMAS) - {own}
+    names = {_name(match) for match in _QUALIFIER.findall(text)}
+    if _WORD.match(text.strip()) and text.strip().split()[0].upper() == "SHOW":
+        names |= {_name(match) for match in _SHOW_SOURCE.findall(text)}
+        if any(name != own for name in names):
+            raise UnsafeQueryError("SHOW can only look at this database.")
+    blocked = sorted(names & forbidden)
+    if blocked:
+        raise UnsafeQueryError(
+            f"This query reaches into another database ({', '.join(blocked)}). "
+            "Only the chosen database can be used; pick another with the database argument if you have access to it."
+        )

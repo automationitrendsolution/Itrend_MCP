@@ -106,6 +106,9 @@ class MCPServer(models.Model):
     process_create_time = models.FloatField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     health_status = models.CharField(max_length=20, choices=HealthStatus.choices, default=HealthStatus.UNKNOWN)
+    # Parts of the MCP people are switched on for one by one (e.g. databases), as last reported
+    # by the MCP itself: {"label": "Databases", "items": [{"key": "powerbi", "label": "Power BI"}]}.
+    access_items = models.JSONField(default=dict, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )

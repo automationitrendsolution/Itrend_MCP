@@ -24,7 +24,7 @@ from .serializers import (
     MCPServerSerializer,
     UserSerializer,
 )
-from .services import gateway, monitoring, registry, tokens, traffic
+from .services import gateway, items, monitoring, registry, tokens, traffic
 from .services.health import check_platform
 
 
@@ -156,6 +156,8 @@ class TokenIntrospectionView(APIView):
                 "token_id": token.pk,
                 "permission": result.level,
                 "expires_at": int(token.expires_at.timestamp()) if token.expires_at else None,
+                # Parts of the MCP (e.g. databases) this person may use; "*" = all.
+                "items": items.allowed_items(token.user, token.mcp_server),
             },
             headers={"Cache-Control": "no-store"},
         )

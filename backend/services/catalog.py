@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 MANIFEST_NAME = "mcp.json"
 SYNC_CACHE_KEY = "mcp-catalog:last-sync"
-ALLOWED_KEYS = {"name", "description", "command", "port", "mcp_path", "health_path", "manual"}
+ALLOWED_KEYS = {"name", "description", "command", "port", "mcp_path", "health_path", "manual", "access_items_path"}
 PATH_RE = re.compile(r"^/[A-Za-z0-9._~/-]*$")
 
 
@@ -58,6 +58,8 @@ class Manifest:
     mcp_path: str = "/mcp"
     health_path: str | None = "/health"
     manual: str = "README.md"
+    # Optional: the MCP lists parts (e.g. databases) that people are switched on for one by one.
+    access_items_path: str | None = None
 
     @property
     def local_url(self) -> str:
@@ -66,6 +68,10 @@ class Manifest:
     @property
     def health_url(self) -> str | None:
         return f"http://127.0.0.1:{self.port}{self.health_path}" if self.health_path else None
+
+    @property
+    def access_items_url(self) -> str | None:
+        return f"http://127.0.0.1:{self.port}{self.access_items_path}" if self.access_items_path else None
 
     @property
     def manual_path(self) -> Path | None:
@@ -126,8 +132,9 @@ def load_manifest(folder: Path) -> Manifest:
 
     mcp_path = data.get("mcp_path", "/mcp")
     health_path = data.get("health_path", "/health")
-    for key, value in (("mcp_path", mcp_path), ("health_path", health_path)):
-        if value is None and key == "health_path":
+    access_items_path = data.get("access_items_path")
+    for key, value in (("mcp_path", mcp_path), ("health_path", health_path), ("access_items_path", access_items_path)):
+        if value is None and key in ("health_path", "access_items_path"):
             continue
         if not isinstance(value, str) or not PATH_RE.match(value):
             raise ManifestError(f"{slug}/{MANIFEST_NAME}: \"{key}\" must start with / (for example \"/mcp\").")
@@ -146,6 +153,7 @@ def load_manifest(folder: Path) -> Manifest:
         mcp_path=mcp_path,
         health_path=health_path,
         manual=manual,
+        access_items_path=access_items_path,
     )
 
 

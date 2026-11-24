@@ -21,6 +21,7 @@ urlpatterns = [
     path("mcps/<int:pk>/logs/download/", views.mcp_log_download, name="mcp-log-download"),
     path("mcps/<int:pk>/access/", views.mcp_access, name="mcp-access"),
     path("mcps/<int:pk>/access/policy/", views.mcp_access_policy, name="mcp-access-policy"),
+    path("mcps/<int:pk>/access/items/<int:user_pk>/<slug:key>/", views.mcp_item_toggle, name="mcp-item-toggle"),
     path("mcps/<int:pk>/manual/", views.mcp_manual, name="mcp-manual"),
     path("mcps/<int:pk>/tokens/", views.mcp_tokens, name="mcp-tokens"),
     path("mcps/<int:pk>/settings/", views.mcp_settings, name="mcp-settings"),

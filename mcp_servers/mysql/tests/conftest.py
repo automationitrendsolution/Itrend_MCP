@@ -9,7 +9,7 @@ import pytest
 import uvicorn
 
 from mysql_mcp.auth import PlatformTokenVerifier
-from mysql_mcp.config import DatabaseSettings, Settings
+from mysql_mcp.config import DatabaseEntry, DatabaseSettings, Settings
 from mysql_mcp.db import DatabaseUnavailableError, QueryResult
 from mysql_mcp.server import build_app
 
@@ -26,7 +26,7 @@ class FakePlatform:
         self.tokens = {
             VALID_TOKEN: {
                 "active": True, "mcp": "mysql", "username": "alice", "token_id": 1,
-                "permission": "connect", "expires_at": int(time.time()) + 3600,
+                "permission": "connect", "expires_at": int(time.time()) + 3600, "items": ["*"],
             }
         }
 
@@ -83,7 +83,7 @@ def anyio_backend():
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        database=DatabaseSettings("localhost", 3306, "u", "p", "d"),
+        databases=(DatabaseEntry("d", "Demo", DatabaseSettings("localhost", 3306, "u", "p", "d")),),
         introspection_key=INTROSPECTION_KEY,
         allowed_hosts=("127.0.0.1:*", "localhost:*"),
     )

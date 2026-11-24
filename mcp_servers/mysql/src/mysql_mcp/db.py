@@ -1,8 +1,13 @@
-"""MySQL access. Every query runs in a READ ONLY transaction with a time limit."""
+"""
+MySQL access. The MCP never writes, whatever rights its MySQL login has (even full access):
+the session is read-only and every query runs in a READ ONLY transaction with a time limit,
+so MySQL itself refuses any change. (The SQL guard in sql_guard.py refuses writes before that.)
+"""
 
 import datetime
 import decimal
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -50,10 +55,24 @@ def _to_json_value(value: Any) -> Any:
     return value
 
 
+SCHEMA_CACHE_SECONDS = 300
+
+
 class MySQLDatabase:
     def __init__(self, settings: DatabaseSettings) -> None:
         self.settings = settings
         self.max_rows = settings.max_rows
+        self._schemas: tuple[float, set[str]] | None = None
+
+    def visible_databases(self) -> set[str]:
+        """Names of all databases this MySQL login can see (cached for a few minutes)."""
+        now = time.monotonic()
+        if self._schemas and self._schemas[0] > now:
+            return self._schemas[1]
+        result = self.query("SHOW DATABASES", max_rows=10_000)
+        names = {str(next(iter(row.values()))) for row in result.rows}
+        self._schemas = (now + SCHEMA_CACHE_SECONDS, names)
+        return names
 
     def _connect(self) -> pymysql.connections.Connection:
         try:
@@ -79,6 +98,9 @@ class MySQLDatabase:
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SET SESSION MAX_EXECUTION_TIME = %s", (self.settings.query_timeout_ms,))
+                # Read-only twice over: the session and the transaction. MySQL refuses any change
+                # (INSERT, UPDATE, DELETE, CREATE, DROP, ...) even for a login with full access.
+                cursor.execute("SET SESSION TRANSACTION READ ONLY")
                 cursor.execute("START TRANSACTION READ ONLY")
                 cursor.execute(sql, params)
                 columns = [column[0] for column in cursor.description or ()]

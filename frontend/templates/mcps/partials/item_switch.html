@@ -1,0 +1,14 @@
+{% comment %} One switch: one part of the MCP (e.g. one database) for one person. Flipping it saves at once. {% endcomment %}
+<td class="text-center" id="item-{{ person.pk }}-{{ cell.item.key }}">
+  <form method="post" action="{% url 'frontend:mcp-item-toggle' server.pk person.pk cell.item.key %}"
+        hx-post="{% url 'frontend:mcp-item-toggle' server.pk person.pk cell.item.key %}" hx-trigger="change"
+        hx-target="#item-{{ person.pk }}-{{ cell.item.key }}" hx-swap="outerHTML" class="d-inline-block">
+    {% csrf_token %}
+    <input type="hidden" name="on" value="{% if cell.on %}0{% else %}1{% endif %}">
+    <div class="form-check form-switch m-0">
+      <input class="form-check-input" type="checkbox" role="switch" {% if cell.on %}checked{% endif %}
+             aria-label="{{ cell.item.label }} for {{ person.get_username }}">
+    </div>
+    <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">{% if cell.on %}Switch off{% else %}Switch on{% endif %}</button></noscript>
+  </form>
+</td>

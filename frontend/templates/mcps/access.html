@@ -10,6 +10,49 @@
         {% include "permissions/partials/grant_form.html" with next=request.path %}
       </div>
     </div>
+
+    {% if item_list is not None %}
+      <div class="card app-card mb-3">
+        <div class="card-header">{{ items_label }} each person may use</div>
+        {% if not item_list %}
+          <div class="card-body small text-body-secondary">
+            Start {{ server.name }} once so the platform can read its list of {{ items_label|lower }}.
+          </div>
+        {% elif not item_rows %}
+          <div class="card-body small text-body-secondary">Give someone <strong>Connect</strong> above, then switch on what they may use here.</div>
+        {% else %}
+          <div class="table-responsive">
+            <table class="table align-middle mb-0 app-table small">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  {% for item in item_list %}<th class="text-center">{{ item.label }}{% if item.label|lower != item.key %}<div class="sb-mono sb-dim fw-normal">{{ item.key }}</div>{% endif %}</th>{% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in item_rows %}
+                  <tr>
+                    <td>
+                      {{ row.person.get_username }}
+                      {% if row.person.service_account %}<span class="badge text-bg-light border ms-1">Service</span>{% endif %}
+                    </td>
+                    {% if row.everything %}
+                      <td colspan="{{ item_list|length }}" class="text-center text-body-secondary">All (superuser)</td>
+                    {% else %}
+                      {% for cell in row.cells %}{% include "mcps/partials/item_switch.html" with person=row.person %}{% endfor %}
+                    {% endif %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+        <div class="card-body border-top small text-body-secondary">
+          Nobody gets any of these until it is switched on for them. Changes reach {{ server.name }} within about 30 seconds.
+          {% if server.access_policy == "all_users" %}With “All users”, everyone is listed here, even people not added above.{% endif %}
+        </div>
+      </div>
+    {% endif %}
   </div>
 
   <div class="col-xl-4">

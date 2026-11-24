@@ -21,6 +21,10 @@
         {% else %}tried to start {% include "activity/partials/mcp_name.html" %}, but it stopped straight away{% if m.exit_code is not None %} (exit code {{ m.exit_code }}){% endif %}{% endif %}
       {% elif entry.action == "mcp_stopped" %}
         stopped {% include "activity/partials/mcp_name.html" %}
+      {% elif entry.action == "permission_granted" and m.item %}
+        switched on the {{ m.item_kind|default:"part" }} <strong>{{ m.item_label|default:m.item }}</strong> for <strong>{{ m.target_user }}</strong>{% if not hide_mcp %} on {% include "activity/partials/mcp_name.html" %}{% endif %}
+      {% elif entry.action == "permission_revoked" and m.item %}
+        switched off the {{ m.item_kind|default:"part" }} <strong>{{ m.item_label|default:m.item }}</strong> for <strong>{{ m.target_user }}</strong>{% if not hide_mcp %} on {% include "activity/partials/mcp_name.html" %}{% endif %}
       {% elif entry.action == "permission_granted" %}
         gave <strong>{{ m.target_user }}</strong> {{ m.level|capfirst }} access{% if not hide_mcp %} to {% include "activity/partials/mcp_name.html" %}{% endif %}
         {% if m.previous_level %}<span class="text-body-secondary">(was {{ m.previous_level|capfirst }})</span>{% endif %}

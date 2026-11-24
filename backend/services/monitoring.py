@@ -268,6 +268,11 @@ def check_server(server: MCPServer, sampler: ResourceSampler, *, client: httpx.C
         memory_mb=memory,
     )
 
+    if result.ok and manifest.access_items_path:
+        from . import items  # keep the list of databases (or other parts) on the Access page current
+
+        items.refresh(server)
+
     if result.ok and previous is not None and previous.status != Status.HEALTHY:
         _event(server, Kind.RECOVERED, Level.INFO, f"{server.name} is answering again.")
     if not result.ok and (previous is None or previous.status == Status.HEALTHY):

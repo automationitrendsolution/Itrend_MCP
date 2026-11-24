@@ -158,4 +158,8 @@ def revoke_permission(permission: MCPPermission, *, revoked_by) -> None:
         target_user=permission.user.get_username(),
         level=permission.permission_level,
     )
+    # Their per-part switches (e.g. databases) go too, so a new grant starts from nothing.
+    from backend.models import MCPItemAccess
+
+    MCPItemAccess.objects.filter(user=permission.user, mcp_server=permission.mcp_server).delete()
     permission.delete()

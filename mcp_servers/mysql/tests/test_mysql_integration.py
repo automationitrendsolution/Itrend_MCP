@@ -63,14 +63,49 @@ def test_readonly_user_cannot_read_other_databases(readonly_db):
         readonly_db.query("SELECT COUNT(*) FROM mysql.user")
 
 
-def test_read_only_transaction_blocks_writes_even_for_an_admin_account(readonly_db):
-    """Second safety layer: even with a powerful account, queries run in a READ ONLY transaction."""
+@pytest.fixture
+def admin_db(readonly_db):
     if not PLATFORM_ENV.get("DB_PASSWORD"):
         pytest.skip("Platform admin credentials not available")
-    admin_db = MySQLDatabase(_settings(PLATFORM_ENV["DB_USER"], PLATFORM_ENV["DB_PASSWORD"]))
-    with pytest.raises(QueryError, match="READ ONLY"):
-        admin_db.query("INSERT INTO customers (name, city, created_at) VALUES ('x', 'y', '2026-01-01')")
-    assert admin_db.query("SELECT COUNT(*) AS n FROM customers WHERE name = 'x'").rows[0]["n"] == 0
+    return MySQLDatabase(_settings(PLATFORM_ENV["DB_USER"], PLATFORM_ENV["DB_PASSWORD"]))
+
+
+def test_full_access_login_is_accepted_for_reading(admin_db):
+    assert admin_db.query("SELECT COUNT(*) AS n FROM customers").rows[0]["n"] > 0
+
+
+WRITES = [
+    "INSERT INTO customers (name, city, created_at) VALUES ('x', 'y', '2026-01-01')",
+    "UPDATE customers SET city = 'changed'",
+    "DELETE FROM customers",
+    "REPLACE INTO customers (id, name, city, created_at) VALUES (999999, 'x', 'y', '2026-01-01')",
+    "CREATE TABLE zz_mcp_probe (id INT)",
+    "CREATE TABLE zz_mcp_probe AS SELECT * FROM customers",
+    "ALTER TABLE customers ADD COLUMN zz_probe INT",
+    "TRUNCATE TABLE zz_mcp_probe_missing",
+    "DROP TABLE zz_mcp_probe_missing",
+    "RENAME TABLE customers TO zz_customers_renamed",
+    "CREATE DATABASE zz_mcp_probe_db",
+    "CREATE USER 'zz_probe'@'localhost'",
+    "GRANT SELECT ON mcp_demo.* TO 'mcp_readonly'@'localhost'",
+]
+
+
+@pytest.mark.parametrize("sql", WRITES)
+def test_full_access_login_still_cannot_write(admin_db, sql):
+    """
+    Without the SQL guard and with a full-access login, MySQL itself still refuses every change,
+    because the session and the transaction are READ ONLY.
+    """
+    before = admin_db.query("SELECT COUNT(*) AS n, MAX(city) AS c FROM customers").rows
+    with pytest.raises(QueryError):
+        admin_db.query(sql)
+    tables = {next(iter(r.values())) for r in admin_db.query("SHOW TABLES", max_rows=1000).rows}
+    dbs = {next(iter(r.values())) for r in admin_db.query("SHOW DATABASES", max_rows=1000).rows}
+    columns = {r["Field"] for r in admin_db.query("SHOW COLUMNS FROM customers").rows}
+    assert tables == {"customers", "orders", "products"}
+    assert "zz_mcp_probe_db" not in dbs and "zz_probe" not in columns
+    assert admin_db.query("SELECT COUNT(*) AS n, MAX(city) AS c FROM customers").rows == before
 
 
 def test_query_timeout(readonly_db):
