@@ -117,3 +117,25 @@ def set_active(user, active: bool, *, changed_by) -> None:
         user=changed_by,
         target_user=user.get_username(),
     )
+
+
+@transaction.atomic
+def delete_user(user, *, deleted_by) -> None:
+    """
+    Remove an account for good. Its MCP access, tokens, database switches and browser
+    sign-ins go with it, so its tokens stop working at once. The activity log keeps its
+    past entries (they store the username as text).
+    """
+    if user.pk == deleted_by.pk:
+        raise ValidationError("You cannot remove your own account.")
+    if user.is_superuser and not deleted_by.is_superuser:
+        raise ValidationError("Only a superuser can remove a superuser.")
+    username = user.get_username()
+    details = {
+        "target_user": username,
+        "kind": "service account" if hasattr(user, "service_account") else ("superuser" if user.is_superuser else "user"),
+        "permissions": user.mcp_permissions.count(),
+        "tokens": user.access_tokens.count(),
+    }
+    user.delete()
+    audit.record(audit.Action.USER_DELETED, user=deleted_by, **details)

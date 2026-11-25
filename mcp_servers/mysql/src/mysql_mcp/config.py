@@ -99,7 +99,13 @@ def _database(prefix: str, *, database: str, key: str) -> DatabaseSettings:
 def load_databases() -> tuple[DatabaseEntry, ...]:
     keys = _list("MYSQL_DATABASES", "")
     if not keys:
-        name = _required("MYSQL_DATABASE")
+        name = os.getenv("MYSQL_DATABASE", "")
+        if not name:
+            raise ConfigError(
+                "No database set. For several databases set MYSQL_DATABASES=name1,name2 (plus "
+                "MYSQL_<NAME>_DATABASE, _HOST, _USER, _PASSWORD for each); for one database set MYSQL_DATABASE. "
+                "Check that the line is not commented out with #."
+            )
         key = name.lower() if KEY_RE.match(name.lower()) else "default"
         return (DatabaseEntry(key, name, _database("MYSQL_", database=name, key=key)),)
 

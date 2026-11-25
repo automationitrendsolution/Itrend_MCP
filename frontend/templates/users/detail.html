@@ -33,6 +33,14 @@
       {% endif %}
     </form>
   {% endif %}
+  {% if can_delete %}
+    <form method="post" action="{% url 'frontend:user-delete' account.pk %}"
+          data-confirm="Remove {{ account.get_username }} for good? Their MCP access, tokens and database switches are deleted and cannot be restored. The activity log keeps their history. (To block someone only for a while, use Deactivate instead.)"
+          data-confirm-action="Remove">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button>
+    </form>
+  {% endif %}
 {% endblock %}
 
 {% block content %}

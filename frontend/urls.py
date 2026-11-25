@@ -46,6 +46,7 @@ urlpatterns = [
     path("users/<int:pk>/abilities/<str:code>/", views.user_capability, name="user-capability"),
     path("users/<int:pk>/", views.user_detail, name="user-detail"),
     path("users/<int:pk>/active/", views.user_set_active, name="user-set-active"),
+    path("users/<int:pk>/delete/", views.user_delete, name="user-delete"),
     path("users/<int:user_pk>/tokens/add/", views.token_create, name="user-token-create"),
     # Activity log
     path("activity/", views.activity_list, name="activity-list"),

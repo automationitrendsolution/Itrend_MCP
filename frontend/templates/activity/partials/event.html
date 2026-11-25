@@ -44,6 +44,7 @@
         switched <strong>{{ m.capability|ability_label }}</strong> {% if m.enabled %}on{% else %}off{% endif %} for <strong>{{ m.target_user }}</strong>
       {% elif entry.action == "user_activated" %}activated <strong>{{ m.target_user }}</strong>
       {% elif entry.action == "user_deactivated" %}deactivated <strong>{{ m.target_user }}</strong>
+      {% elif entry.action == "user_deleted" %}removed the {{ m.kind|default:"account" }} <strong>{{ m.target_user }}</strong>
       {% elif entry.action == "service_account_created" %}created the service account <strong>{{ m.target_user }}</strong>
       {% else %}{{ entry.get_action_display|lower }}{% endif %}
     </div>

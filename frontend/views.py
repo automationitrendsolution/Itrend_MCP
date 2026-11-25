@@ -767,6 +767,7 @@ def user_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "grant_form": PermissionGrantForm(user=account)
         if account.is_active and has_capability(request.user, "manage_access") else None,
         "can_create_token": tokens.can_create_for(request.user, account),
+        "can_delete": account.pk != request.user.pk and (request.user.is_superuser or not account.is_superuser),
         **_abilities_context(request.user, account),
         # Access history: what this account did, and what was done to it (granted, deactivated…).
         "activity": MCPActivityLog.objects.filter(Q(user=account) | Q(metadata__target_user=account.get_username()))
@@ -787,6 +788,20 @@ def user_set_active(request: HttpRequest, pk: int) -> HttpResponse:
     else:
         messages.success(request, f"{account.get_username()} was {'activated' if active else 'deactivated'}.")
     return redirect("frontend:user-detail", pk=account.pk)
+
+
+@require_POST
+@capability_required("manage_users")
+def user_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    account = get_object_or_404(get_user_model(), pk=pk)
+    username = account.get_username()
+    try:
+        accounts.delete_user(account, deleted_by=request.user)
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        return redirect("frontend:user-detail", pk=pk)
+    messages.success(request, f"{username} was removed.")
+    return redirect("frontend:user-list")
 
 
 def _abilities_context(viewer, account) -> dict:
